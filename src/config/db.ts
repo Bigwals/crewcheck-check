@@ -6,7 +6,7 @@ dotenv.config();
 const config: SqlConfig = {
     server: process.env.AZURE_SQL_SERVER!,
     database: process.env.AZURE_SQL_DATABASE,
-    user: process.env.AZURE_SQL_USER,
+    user: process.env.AZURE_SQL_USER || "serveradmin@cc-sqlserver0401",
     password: process.env.AZURE_SQL_PASSWORD,
     port: Number(process.env.AZURE_SQL_PORT || 1433),
     options: {
