@@ -1,21 +1,3 @@
-// import mongoose from 'mongoose';
-// import dotenv from 'dotenv';
-
-// dotenv.config();
-
-// const connectDB = async () => {
-//     try {
-//         const conn = await mongoose.connect(process.env.MONGODB_URI as string);
-//         console.log(`MongoDB connected: ${conn.connection.host}`);
-//     } catch (error) {
-//         console.error(`MongoDB connection error: ${(error as Error).message}`);
-//         process.exit(1); // Exit process with failure
-//     }
-// };
-
-// export default connectDB;
-
-
 // src/db.ts
 import sql, { ConnectionPool, config as SqlConfig } from 'mssql';
 import dotenv from 'dotenv';
@@ -38,6 +20,8 @@ const config: SqlConfig = {
         idleTimeoutMillis: 30000,
     },
 };
+
+console.log("SQL Connection", process.env.AZURE_SQL_USER)
 
 let pool: ConnectionPool | null = null;
 

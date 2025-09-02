@@ -6,7 +6,7 @@ export const registerSchema = z.object({
   firstName: z.string().min(1, "firstName is Required"),
   lastName: z.string().min(1, "lastName is Required"),
   telephone: z.string().min(1, "telephone is Required"),
-  commuterAirportCode: z.string().min(1, "commuterAirportCode is Required"),
+  // commuterAirportCode: z.string().min(1, "commuterAirportCode is Required"),
   email: z.string().email().min(1, "email is Required"),
   // password: z.string().min(6).min(1, "Password is Required"),
 });
