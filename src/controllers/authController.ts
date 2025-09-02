@@ -11,7 +11,6 @@ import { Messages } from "../constants/responseMessages";
 import { StatusCode } from "../constants/statusCodes";
 import { sendOtpEmail, sendPasswordEmail } from '../utils/mailer';
 import { registerSchema, loginSchema, resetPasswordSchema } from '../validations/authValidation';
-import { OtpModel } from '../models/otpMode';
 import { randomUUID } from 'crypto';
 import { getPool, sql } from "../config/db";
 import { now } from 'mongoose';
