@@ -8,8 +8,6 @@ export const registerSchema = z.object({
   telephone: z.string().min(1, "telephone is Required"),
   commuterAirportCode: z.string().min(1, "commuterAirportCode is Required"),
   email: z.string().email().min(1, "email is Required"),
-  airport: z.string().min(1, "airport is Required"),
-  base: z.string().min(1, "base is Required"),
   // password: z.string().min(6).min(1, "Password is Required"),
 });
 

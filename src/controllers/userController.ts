@@ -3,16 +3,18 @@ import { Messages } from "../constants/responseMessages";
 import { StatusCode } from "../constants/statusCodes";
 import { resetPasswordSchema } from '../validations/authValidation';
 // import { deleteMedia, getUserProfile, uploadMedia } from '../services/authService';
-import { deleteMedia, getUserProfile, uploadMedia } from '../services/authService';
+import { deleteMedia, uploadMedia } from '../services/authService';
 // import { findUserById, findUserByEmail, findUserAndUpdate } from '../services/userService';
-import { findCrewById, findCrewByEmail, findCrewAndUpdate, getCrewPayDetails } from '../services/userServiceNew';
+import { findCrewById, findCrewByEmail, findCrewAndUpdate, getCrewPayDetails, UpdatePassword } from '../services/userServiceNew';
 import bcrypt from 'bcrypt';
 import { Types } from 'mongoose';
+import { Sequence } from '../models/Sequence';
+import { UserSequence } from '../models/UserSequence';
 
 export const getProfile = async (req: Request, res: Response): Promise<any> => {
     try {
         // const crewId = (req as any).user.id;
-        const crewId = (req as any).user.id;
+        const crewId = (req as any).user.crewId;
         // const userId = (req as any).query?.userId;
         console.log("User ==>>", crewId);
         // return res.json({user: crewId});
@@ -21,7 +23,7 @@ export const getProfile = async (req: Request, res: Response): Promise<any> => {
             return res.status(400).json({ message: "Invalid or missing user ID" });
         }
 
-        const crew = await getUserProfile(crewId);
+        const crew = await findCrewById(crewId);
 
         if (!crew) {
             return res.status(StatusCode.NOT_FOUND).json({ message: Messages.NOT_FOUND });
@@ -43,8 +45,9 @@ export const changePassword = async (req: Request, res: Response): Promise<any> 
         if (password !== confirmPassword) {
             return res.status(StatusCode.BAD_REQUEST).json({ message: Messages.PASSWORD_DOES_NOT_MATCH });
         }
+        // return res.json({ crew: crewId })
 
-        const crewId = (req as any).user.id;
+        const crewId = (req as any).user.crewId;
         // const email = (req as any).user.email;
         // return res.json({ crew: crewId })
         const crew = await findCrewById(crewId);
@@ -55,11 +58,12 @@ export const changePassword = async (req: Request, res: Response): Promise<any> 
         }
 
         const hashedPassword = await bcrypt.hash(password, Number(process.env.SALT) || 10);
-        crew.password = hashedPassword;
-        await crew.save();
+        // crew.password = hashedPassword;
+        // await crew.save();
+        await UpdatePassword(crewId, hashedPassword)
         return res.status(StatusCode.OK).json({ message: Messages.PASSWORD_CHANGED });
-    } catch (error) {
-        return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({ message: Messages.INTERNAL_SERVER_ERROR });
+    } catch (error: any) {
+        return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({ message: Messages.INTERNAL_SERVER_ERROR, error: error.message });
     }
 }
 
@@ -100,3 +104,54 @@ export const uploadAvatar = async (req: Request, res: Response): Promise<any> =>
         return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({ message: Messages.INTERNAL_SERVER_ERROR });
     }
 }
+
+export const sequence = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const sequenceId = Number(req.query.sequenceId); // Ensure it's numeric
+
+        // const userSequence = await UserSequence.find({SeqNo: sequenceId});
+
+        const sequence = await Sequence.aggregate([
+            {
+                $match: { SeqNo: sequenceId }
+            },
+            {
+                $lookup: {
+                    from: "UserSequence",
+                    localField: "SeqNo",
+                    foreignField: "SeqNo",
+                    as: "userSequence"
+                }
+            },
+            {
+                $unwind: {
+                    path: "$userSequence",
+                    preserveNullAndEmptyArrays: true
+                }
+            },
+            {
+                $replaceRoot: {
+                    newRoot: {
+                        $mergeObjects: ["$userSequence", "$$ROOT"] // merge fields from both docs
+                    }
+                }
+            },
+            {
+                $project: {
+                    // sequence: 1,
+                    // UserSequence: 1,
+
+                    userSequence: 0, // remove nested duplicate
+                    __v: 0
+                }
+            }
+        ]);
+
+        return res.status(200).json({ message: "Sequence Fetched Successfully", sequence });
+    } catch (error: any) {
+        return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({
+            message: Messages.INTERNAL_SERVER_ERROR,
+            error: error.message
+        });
+    }
+};

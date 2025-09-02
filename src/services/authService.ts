@@ -6,6 +6,7 @@ import bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
 import dotenv from 'dotenv';
 import { Types } from "mongoose";
+import { getPool, sql } from '../config/db';
 
 dotenv.config();
 
@@ -54,17 +55,17 @@ export const updateCrew = async (
     return updatedCrew;
 };
 
-export const getUserProfile = async (id: string) => {
-    const crew = await NewCrew.findById(id)
-        .populate({
-            path: 'avatar',
-            select: '_id media',
-        })
-        .lean();
+// export const getUserProfile = async (id: string) => {
+//     const crew = await NewCrew.findById(id)
+//         .populate({
+//             path: 'avatar',
+//             select: '_id media',
+//         })
+//         .lean();
 
-    if (!crew) throw new Error('Crew not found');
-    return crew;
-};
+//     if (!crew) throw new Error('Crew not found');
+//     return crew;
+// };
 
 export const uploadMedia = async (
     crewId: string,

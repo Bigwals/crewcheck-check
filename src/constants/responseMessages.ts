@@ -1,7 +1,7 @@
 export const Messages = {
     REGISTER_SUCCESS: "Crew registered successfully.",
     LOGIN_SUCCESS: "Login successful.",
-    INVALID_CREDENTIALS: "Invalid email or password.",
+    INVALID_CREDENTIALS: "Invalid password.",
     EMAIL_ALREADY_EXISTS: "Email is already in use.",
     CREW_ID_ALREADY_EXISTS: "Crew Id is already in use.",
     OTP_SENT: "OTP has been sent to your email.",

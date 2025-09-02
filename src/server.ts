@@ -1,13 +1,22 @@
 import app from './app';
 import dotenv from 'dotenv';
-import connectDB from './config/db';
+import { getPool } from './config/db';  // <-- use our MSSQL pool
 
 dotenv.config();
 
-connectDB()
-
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
-    console.log(`🚀 Server is up & running on port ${PORT}`);
-});
+(async () => {
+    try {
+        const pool = await getPool();
+        await pool.request().query('SELECT 1'); // sanity check query
+        console.log('✅ Connected to Azure SQL Database');
+
+        app.listen(PORT, () => {
+            console.log(`🚀 Server is up & running on port ${PORT}`);
+        });
+    } catch (err) {
+        console.error('❌ Database connection failed:', err);
+        process.exit(1);
+    }
+})();
