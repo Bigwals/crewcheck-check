@@ -4,7 +4,7 @@ import { getPool } from './config/db';  // <-- use our MSSQL pool
 
 dotenv.config();
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 4000;
 
 (async () => {
     try {
