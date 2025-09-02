@@ -1,0 +1,33 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.Messages = void 0;
+exports.Messages = {
+    REGISTER_SUCCESS: "Crew registered successfully.",
+    LOGIN_SUCCESS: "Login successful.",
+    INVALID_CREDENTIALS: "Invalid password.",
+    EMAIL_ALREADY_EXISTS: "Email is already in use.",
+    CREW_ID_ALREADY_EXISTS: "Crew Id is already in use.",
+    OTP_SENT: "OTP has been sent to your email.",
+    INVALID_OTP_OR_EXPIRED: "Invalid Otp or Expired",
+    OTP_EXPIRED: "OTP expired.",
+    UNAUTHORIZED: "Unauthorized access.",
+    OTP_NOT_FOUND_OR_EXPIRED: "OTP not found or expired.",
+    EMAIL_VERIFIED_SUCCESS: "Email verified successfully.",
+    ACCOUNT_NOT_VERIFIED: "Account is not verified.",
+    PASSWORD_DOES_NOT_MATCH: "Password does not match.",
+    PASSWORD_CHANGED: "Password reset successfully.",
+    PASSWORD_SENT: "Password sent successfully.",
+    NOT_FOUND_OR_PASSWORD_NOT_AVAILABLE: "Crew not found or password does not exist.",
+    INVALID_CREW_ID: "Invalid Crew Id",
+    AVATAR_UPLOADED: "Avatar Uploaded Successfully",
+    OTP_VERIFIED: "Otp Verified Successfully",
+    NOT_FOUND: "Crew not found.",
+    PROFILE_CREATED_SUCCESS: "Profile created successfully.",
+    UPDATE_SUCCESS: "Crew updated successfully.",
+    DELETE_SUCCESS: "Crew deleted successfully.",
+    USER_PROFILE: "Crew Profile fetched.",
+    // Validation Error
+    AUTHORIZATION_TOKEN_MISSING: "Authorization token missing or malformed.",
+    INTERNAL_SERVER_ERROR: "Something went wrong. Please try again.",
+    FORBIDDEN: "You do not have permission to access this resource.",
+};
