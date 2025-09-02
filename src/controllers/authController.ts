@@ -152,9 +152,9 @@ export const login = async (req: Request, res: Response): Promise<any> => {
             return res.json({ message: "new Crew", crew, token });
         }
 
-    } catch (error) {
+    } catch (error: any) {
         console.error("Login error:", error);
-        return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({ message: Messages.INTERNAL_SERVER_ERROR });
+        return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({ message: Messages.INTERNAL_SERVER_ERROR, error: error.message });
     }
 };
 

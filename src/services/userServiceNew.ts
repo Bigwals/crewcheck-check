@@ -69,7 +69,8 @@ export const UpdatePassword = async (crewId: number, hashedPassword: string) => 
     UPDATE Users SET PasswordHash = @hashedPassword WHERE crewId = @crewId 
     `)
 
-  return result.recordset.length > 0 ? result.recordset[0] : null;
+  const records = result?.recordset ?? [];
+  return records.length > 0 ? records[0] : null;
 }
 
 export const findByCrewId = async (crewId: number, firstName: string, lastName: string) => {
