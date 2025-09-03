@@ -157,7 +157,7 @@ export const login = async (req: Request, res: Response): Promise<any> => {
         // return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({ message: Messages.INTERNAL_SERVER_ERROR, error: error.message });
         return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({
             message: "Internal Server Error",
-            error: JSON.stringify(error, Object.getOwnPropertyNames(error)),
+            error: error.message,
         });
     }
 };

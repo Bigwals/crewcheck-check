@@ -1,18 +1,19 @@
 // src/db.ts
 import sql, { ConnectionPool, config as SqlConfig } from 'mssql';
-
-// Load dotenv only in non-production
-if (process.env.NODE_ENV !== 'production') {
-    import('dotenv').then(dotenv => dotenv.config());
-}
+import dotenv from 'dotenv';
+dotenv.config();
 
 const config: SqlConfig = {
     server: process.env.AZURE_SQL_SERVER!,
-    // server: "serveradmin@cc-sqlserver0401",
     database: process.env.AZURE_SQL_DATABASE,
     // user: process.env.AZURE_SQL_USER,
     user: "serveradmin@cc-sqlserver0401",
     password: process.env.AZURE_SQL_PASSWORD,
+    
+    // user: "serveradmin@cc-sqlserver0401",
+    // password: process.env.AZURE_SQL_PASSWORD,
+    // server: "cc-sqlserver0401.database.windows.net", // full FQDN
+    // database: process.env.AZURE_SQL_DATABASE,
     port: Number(process.env.AZURE_SQL_PORT || 1433),
     options: {
         encrypt: true,               // REQUIRED for Azure SQL
@@ -26,30 +27,22 @@ const config: SqlConfig = {
     },
 };
 
-// Log which SQL user is being used (without password)
-console.log("🔑 SQL Connection User:", config.user);
-console.log("🌐 SQL Server:", config.server);
-console.log("🗄️ Database:", config.database);
+console.log("SQL Connection", process.env.AZURE_SQL_USER)
 
 let pool: ConnectionPool | null = null;
 
 export async function getPool(): Promise<ConnectionPool> {
     if (pool && pool.connected) return pool;
 
-    try {
-        pool = await new sql.ConnectionPool(config).connect();
+    pool = await new sql.ConnectionPool(config).connect();
 
-        pool.on('error', (err: any) => {
-            console.error('MSSQL pool error', err);
-            pool = null; // allow reconnect on next call
-        });
+    pool.on('error', (err: any) => {
+        console.error('MSSQL pool error', err);
+        pool = null; // allow reconnect on next call
+    });
 
-        console.log("✅ Connected to Azure SQL");
-        return pool;
-    } catch (err) {
-        console.error('❌ Connection failed:', err);
-        throw err;
-    }
+    return pool;
 }
 
 export { sql };
+
