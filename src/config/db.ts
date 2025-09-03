@@ -4,15 +4,15 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const config: SqlConfig = {
-    // server: process.env.AZURE_SQL_SERVER!,
-    // database: process.env.AZURE_SQL_DATABASE,
+    server: process.env.AZURE_SQL_SERVER!,
+    database: process.env.AZURE_SQL_DATABASE,
+    user: process.env.AZURE_SQL_USER,
+    password: process.env.AZURE_SQL_PASSWORD,
+    
     // user: "serveradmin@cc-sqlserver0401",
     // password: process.env.AZURE_SQL_PASSWORD,
-    
-    user: "serveradmin@cc-sqlserver0401",
-    password: process.env.AZURE_SQL_PASSWORD,
-    server: "cc-sqlserver0401.database.windows.net", // full FQDN
-    database: process.env.AZURE_SQL_DATABASE,
+    // server: "cc-sqlserver0401.database.windows.net", // full FQDN
+    // database: process.env.AZURE_SQL_DATABASE,
     port: Number(process.env.AZURE_SQL_PORT || 1433),
     options: {
         encrypt: true,               // REQUIRED for Azure SQL
