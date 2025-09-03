@@ -7,6 +7,7 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 const config: SqlConfig = {
+    // server: process.env.AZURE_SQL_SERVER!,
     server: process.env.AZURE_SQL_SERVER!,
     database: process.env.AZURE_SQL_DATABASE!,
     user: process.env.AZURE_SQL_USER!,
