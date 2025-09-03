@@ -7,11 +7,12 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 const config: SqlConfig = {
-    // server: process.env.AZURE_SQL_SERVER!,
-    server: "serveradmin@cc-sqlserver0401",
-    database: process.env.AZURE_SQL_DATABASE!,
-    user: process.env.AZURE_SQL_USER!,
-    password: process.env.AZURE_SQL_PASSWORD!,
+    server: process.env.AZURE_SQL_SERVER!,
+    // server: "serveradmin@cc-sqlserver0401",
+    database: process.env.AZURE_SQL_DATABASE,
+    // user: process.env.AZURE_SQL_USER,
+    user: "serveradmin@cc-sqlserver0401",
+    password: process.env.AZURE_SQL_PASSWORD,
     port: Number(process.env.AZURE_SQL_PORT || 1433),
     options: {
         encrypt: true,               // REQUIRED for Azure SQL
