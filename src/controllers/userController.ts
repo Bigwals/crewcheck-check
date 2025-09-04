@@ -5,7 +5,7 @@ import { resetPasswordSchema } from '../validations/authValidation';
 // import { deleteMedia, getUserProfile, uploadMedia } from '../services/authService';
 import { deleteMedia, uploadMedia } from '../services/authService';
 // import { findUserById, findUserByEmail, findUserAndUpdate } from '../services/userService';
-import { findCrewById, findCrewByEmail, findCrewAndUpdate, getCrewPayDetails, UpdatePassword } from '../services/userServiceNew';
+import { findCrewById, findCrewByEmail, findCrewAndUpdate, getCrewPayDetails, UpdatePassword, findBySequenceNo } from '../services/userServiceNew';
 import bcrypt from 'bcrypt';
 import { Types } from 'mongoose';
 import { Sequence } from '../models/Sequence';
@@ -32,9 +32,9 @@ export const getProfile = async (req: Request, res: Response): Promise<any> => {
         const service = await getCrewPayDetails(crewId);
         if (service) return res.status(200).json({ message: Messages.USER_PROFILE, crew, service });
         return res.status(200).json({ message: Messages.USER_PROFILE, crew });
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error in getProfile:", error);
-        return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({ message: Messages.INTERNAL_SERVER_ERROR });
+        return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({ message: Messages.INTERNAL_SERVER_ERROR, error: error.message });
     }
 };
 
@@ -107,47 +107,14 @@ export const uploadAvatar = async (req: Request, res: Response): Promise<any> =>
 
 export const sequence = async (req: Request, res: Response): Promise<any> => {
     try {
-        const sequenceId = Number(req.query.sequenceId); // Ensure it's numeric
+        const seqNo = Number(req.query.seqNo); // Ensure it's numeric
 
-        // const userSequence = await UserSequence.find({SeqNo: sequenceId});
+        const data = await findBySequenceNo(seqNo);
 
-        const sequence = await Sequence.aggregate([
-            {
-                $match: { SeqNo: sequenceId }
-            },
-            {
-                $lookup: {
-                    from: "UserSequence",
-                    localField: "SeqNo",
-                    foreignField: "SeqNo",
-                    as: "userSequence"
-                }
-            },
-            {
-                $unwind: {
-                    path: "$userSequence",
-                    preserveNullAndEmptyArrays: true
-                }
-            },
-            {
-                $replaceRoot: {
-                    newRoot: {
-                        $mergeObjects: ["$userSequence", "$$ROOT"] // merge fields from both docs
-                    }
-                }
-            },
-            {
-                $project: {
-                    // sequence: 1,
-                    // UserSequence: 1,
-
-                    userSequence: 0, // remove nested duplicate
-                    __v: 0
-                }
-            }
-        ]);
-
-        return res.status(200).json({ message: "Sequence Fetched Successfully", sequence });
+        return res.status(200).json({
+            message: "Sequence Fetched Successfully",
+            sequence: data
+        });
     } catch (error: any) {
         return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({
             message: Messages.INTERNAL_SERVER_ERROR,
@@ -155,3 +122,81 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
         });
     }
 };
+
+export const basePay = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const crewId = (req as any).user.crewId;
+
+        const service = await getCrewPayDetails(crewId);
+        const basePayMap: Record<number, number> = {
+            1: 35.82,
+            2: 37.97,
+            3: 40.40,
+            4: 43.03,
+            5: 47.39,
+            6: 53.67,
+            7: 59.21,
+            8: 61.11,
+            9: 62.80,
+            10: 65.15,
+            11: 66.94,
+            12: 70.12,
+            13: 82.24
+        };
+
+        let pay = basePayMap[service.basePay.YearsOfService] ?? 0;
+
+        const understaffingPayRate = 10.50;
+
+        const domesticPayRate = 2.5;
+        const internationalPayRate = 3.75;
+
+        const min40Rate = 24.00;
+        const min45Rate = 27.00;
+        const min55Rate = 33.00;
+
+        const ipdRate = 3.00;
+        const nipsRate = 2.85;
+        const speaker1Rate = 2.00;
+        const speaker2Rate = 3.00;
+        const speakerIpdRate = 3.75;
+
+        const regularPayRates = {
+            basePay: pay,
+            rigPay: pay,
+            sickPay: pay,
+            vacationPay: pay,
+            holidayPay: pay,
+            jurydutyPay: pay,
+            understaffingPay: understaffingPayRate,
+            hotel1HourDelayPay: "100% of Same Day Trips",
+            hotel3HoursDelayPay: "100% of Full Sequence",
+            standbyPay: pay,
+        }
+
+        const perDiems = {
+            domesticRate: domesticPayRate,
+            internationalRate: internationalPayRate
+        }
+
+        const boardingPay = {
+            min40: min40Rate,
+            min45: min45Rate,
+            min55: min55Rate
+        }
+
+        const premiumPay = {
+            ipd: ipdRate,
+            nips: nipsRate,
+            speaker1: speaker1Rate,
+            speaker2: speaker2Rate,
+            speakerIpd: speakerIpdRate
+        }
+
+        return res.status(200).json({ message: "Base Pay Data", service, regularPayRates, perDiems, boardingPay, premiumPay });
+
+    } catch (error: any) {
+        console.error("Error in getProfile:", error);
+        return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({ message: Messages.INTERNAL_SERVER_ERROR, error: error.message });
+    }
+}

@@ -90,6 +90,33 @@ export const findByCrewId = async (crewId: number, firstName: string, lastName: 
   return result.recordset.length > 0 ? result.recordset[0] : null;
 };
 
+// export const findBySequenceNo = async (seqNo: number) => {
+//   const pool = await getPool();
+
+//   const result = await pool.request()
+//     .input("seqNo", sql.Int, seqNo)
+//     .query(`
+//     SELECT s.*, l.*
+//     FROM Sequence s
+//     INNER JOIN Leg l ON l.seqNo = s.seqNo
+//     WHERE s.seqNo = @seqNo
+//   `);
+
+//   return result.recordset.length > 0 ? result.recordset : null;
+// };
+
+export const findBySequenceNo = async (seqNo: number) => {
+  const pool = await getPool();
+
+  const result = await pool.request()
+    .input("seqNo", sql.Int, seqNo)
+    .query(`
+    SELECT * FROM Sequence
+    WHERE seqNo = @seqNo
+  `);
+
+  return result.recordset.length > 0 ? result.recordset : null;
+};
 
 export const findCrewAndUpdate = async (id: Types.ObjectId, avatar: Types.ObjectId) => {
   const crew = await NewCrew.findByIdAndUpdate(
