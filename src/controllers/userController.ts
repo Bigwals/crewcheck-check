@@ -5,7 +5,7 @@ import { resetPasswordSchema } from '../validations/authValidation';
 // import { deleteMedia, getUserProfile, uploadMedia } from '../services/authService';
 import { deleteMedia, uploadMedia } from '../services/authService';
 // import { findUserById, findUserByEmail, findUserAndUpdate } from '../services/userService';
-import { findCrewById, findCrewByEmail, findCrewAndUpdate, getCrewPayDetails, UpdatePassword, findBySequenceNo } from '../services/userServiceNew';
+import { findCrewById, findCrewByEmail, findCrewAndUpdate, getCrewPayDetails, UpdatePassword, findBySequenceNo, findByDateAndSeqNo } from '../services/userServiceNew';
 import bcrypt from 'bcrypt';
 import { Types } from 'mongoose';
 import { Sequence } from '../models/Sequence';
@@ -105,15 +105,87 @@ export const uploadAvatar = async (req: Request, res: Response): Promise<any> =>
     }
 }
 
+// --- Fetch all sequence info by seqNo only ---
 export const sequence = async (req: Request, res: Response): Promise<any> => {
     try {
-        const seqNo = Number(req.query.seqNo); // Ensure it's numeric
+        const seqNo = Number(req.query.seqNo);
+
+        if (!seqNo || isNaN(seqNo)) {
+            return res.status(400).json({ message: "seqNo is required and must be numeric" });
+        }
 
         const data = await findBySequenceNo(seqNo);
 
+        if (!data) {
+            return res.status(404).json({ message: "No sequence found for given seqNo" });
+        }
+
+        // Prepare UI-ready summary
+        const formatted = data.map(seq => ({
+            seqNo: seq.SeqNo,
+            crewBase: seq.CrewBase,
+            category: seq.SeqCategory,
+            totalLegs: seq.NBR_Legs,
+            totalDays: seq.NBR_Days,
+            totalDuty: seq.NBR_Duty,
+            // flyTime: seq.SeqFlyTime,
+            flyTime: formatMinutes(seq.SeqFlyTime),
+            pc: seq.SeqPC,
+            tafb: formatMinutes(seq.TAFB),
+            effDate: seq.EffDate,
+            thruDate: seq.ThruDate,
+            seqCrewPos: seq.SeqCrewPos,
+            slots: normalizeSeqCrewPos(seq.SeqCrewPos),   // <-- true/false array
+        }));
+
         return res.status(200).json({
             message: "Sequence Fetched Successfully",
-            sequence: data
+            sequence: formatted
+        });
+    } catch (error: any) {
+        return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({
+            message: Messages.INTERNAL_SERVER_ERROR,
+            error: error.message
+        });
+    }
+};
+
+export const filterByDate = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const seqNo = Number(req.query.seqNo);
+        const effDate = new Date(req.query.effDate as string);
+
+        if (!seqNo || isNaN(seqNo)) {
+            return res.status(400).json({ message: "seqNo is required and must be numeric" });
+        }
+        if (!req.query.effDate) {
+            return res.status(400).json({ message: "effDate is required" });
+        }
+
+        const data = await findByDateAndSeqNo(seqNo, effDate);
+
+        if (!data) {
+            return res.status(404).json({ message: "No legs found for given seqNo and effDate" });
+        }
+
+        // Prepare UI-ready leg summary
+        const formatted = data.map(leg => ({
+            seqNo: leg.SeqNo,
+            seqLegNo: leg.SeqLegNo,
+            departure: leg.DeptStn,
+            arrival: leg.ArrvStn,
+            flightNo: leg.FitNo,
+            dptTime: toHHmm(leg.DptTime),
+            arvTime: toHHmm(leg.ArvTime),
+            flyingHours: formatMinutes(leg.LegTotalFlying),
+            pc: leg.LegPC,
+            layover: leg.Layover ? formatMinutes(leg.Layover) : null,
+            eod: leg.EOD
+        }));
+
+        return res.status(200).json({
+            message: "Legs Fetched Successfully",
+            sequence: formatted
         });
     } catch (error: any) {
         return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({
@@ -200,3 +272,20 @@ export const basePay = async (req: Request, res: Response): Promise<any> => {
         return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({ message: Messages.INTERNAL_SERVER_ERROR, error: error.message });
     }
 }
+
+const formatMinutes = (mins: number) => {
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return `${h}h ${m}m`;
+}
+
+const toHHmm = (time: number): string => {
+    const hh = Math.floor(time / 60);
+    const mm = time % 60;
+    return `${hh.toString().padStart(2, "0")}:${mm.toString().padStart(2, "0")}`;
+};
+
+const normalizeSeqCrewPos = (seqCrewPos: string): boolean[] => {
+    if (!seqCrewPos) return [];
+    return seqCrewPos.split("").map(ch => ch === "1");
+};

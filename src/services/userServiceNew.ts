@@ -105,17 +105,59 @@ export const findByCrewId = async (crewId: number, firstName: string, lastName: 
 //   return result.recordset.length > 0 ? result.recordset : null;
 // };
 
+// old
 export const findBySequenceNo = async (seqNo: number) => {
   const pool = await getPool();
-
   const result = await pool.request()
     .input("seqNo", sql.Int, seqNo)
     .query(`
-    SELECT * FROM Sequence
-    WHERE seqNo = @seqNo
-  `);
+            SELECT * FROM Sequence
+            WHERE SeqNo = @seqNo
+        `);
 
   return result.recordset.length > 0 ? result.recordset : null;
+};
+
+// helper to normalize slots into true/false
+// convert SeqCrewPos string (e.g. "111100000000000000") to [true, true, true, true, false, ...]
+
+// fetch sequence by seqNo
+// export const findBySequenceNo = async (seqNo: number) => {
+//   const pool = await getPool();
+
+//   const sequenceResult = await pool.request()
+//     .input("seqNo", sql.Int, seqNo)
+//     .query(`
+//       SELECT *
+//       FROM Sequence
+//       WHERE SeqNo = @seqNo
+//     `);
+
+//   if (sequenceResult.recordset.length === 0) return null;
+
+//   // attach slots (derived from SeqCrewPos)
+//   return sequenceResult.recordset.map(seq => ({
+//     ...seq,
+//     slots: normalizeSeqCrewPos(seq.SeqCrewPos),   // <-- true/false array
+//     seqCrewPosRaw: seq.SeqCrewPos
+//   }));
+// };
+
+
+
+export const findByDateAndSeqNo = async (seqNo: number, effDate: Date) => {
+    const pool = await getPool();
+    const result = await pool.request()
+        .input("seqNo", sql.Int, seqNo)
+        .input("effDate", sql.Date, effDate)
+        .query(`
+            SELECT *
+            FROM Leg
+            WHERE SeqNo = @seqNo 
+            AND EffDate = @effDate
+        `);
+
+    return result.recordset.length > 0 ? result.recordset : null;
 };
 
 export const findCrewAndUpdate = async (id: Types.ObjectId, avatar: Types.ObjectId) => {
