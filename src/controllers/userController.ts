@@ -128,10 +128,12 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
             totalLegs: seq.NBR_Legs,
             totalDays: seq.NBR_Days,
             totalDuty: seq.NBR_Duty,
+            noOfBoardings: seq.NBR_Legs,
             // flyTime: seq.SeqFlyTime,
             flyTime: formatMinutes(seq.SeqFlyTime),
             pc: seq.SeqPC,
             tafb: formatMinutes(seq.TAFB),
+            seqPremiumTime: toHHmm(seq.SeqPremTime),
             effDate: seq.EffDate,
             thruDate: seq.ThruDate,
             seqCrewPos: seq.SeqCrewPos,
@@ -168,6 +170,7 @@ export const filterByDate = async (req: Request, res: Response): Promise<any> =>
             return res.status(404).json({ message: "No legs found for given seqNo and effDate" });
         }
 
+        // let noOfBoardings = 0;
         // Prepare UI-ready leg summary
         const formatted = data.map(leg => ({
             seqNo: leg.SeqNo,
@@ -179,13 +182,15 @@ export const filterByDate = async (req: Request, res: Response): Promise<any> =>
             arvTime: toHHmm(leg.ArvTime),
             flyingHours: formatMinutes(leg.LegTotalFlying),
             pc: leg.LegPC,
+            // boardingTime: calculateBoardingTime(leg.DptTime ),
+            // boardingTime: toHHmm(leg.DptTime - 30),
             layover: leg.Layover ? formatMinutes(leg.Layover) : null,
             eod: leg.EOD
         }));
 
         return res.status(200).json({
             message: "Legs Fetched Successfully",
-            sequence: formatted
+            sequence: formatted,
         });
     } catch (error: any) {
         return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({
@@ -222,10 +227,6 @@ export const basePay = async (req: Request, res: Response): Promise<any> => {
 
         const domesticPayRate = 2.5;
         const internationalPayRate = 3.75;
-
-        // const min40Rate = 24.00;
-        // const min45Rate = 27.00;
-        // const min55Rate = 33.00;
 
         const boardingPayRate = await getBoardingPayByYears(service.basePay.YearsOfService);
         // return res.json({ boardingPay: boardingPayRate });
@@ -291,4 +292,13 @@ const toHHmm = (time: number): string => {
 const normalizeSeqCrewPos = (seqCrewPos: string): boolean[] => {
     if (!seqCrewPos) return [];
     return seqCrewPos.split("").map(ch => ch === "1");
+};
+
+// converts departure minutes to boarding minutes (subtracts 30min safely)
+const calculateBoardingTime = (dptTime: number): number => {
+    let boarding = dptTime - 30;
+    if (boarding < 0) {
+        boarding = 1440 + boarding; // wrap around if it goes before midnight
+    }
+    return boarding;
 };
