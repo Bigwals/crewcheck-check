@@ -8,10 +8,6 @@ import { Types } from 'mongoose';
 
 dotenv.config();
 
-// export const findCrewByEmail = async (email: string) => {
-//   return await NewCrew.findOne({ email });
-// };
-
 export const findCrewByEmail = async (email: string) => {
   const pool = await getPool();
 
@@ -24,30 +20,6 @@ export const findCrewByEmail = async (email: string) => {
 
   return result.recordset.length > 0 ? result.recordset[0] : null;
 };
-
-// export const findCrewByCrewId = async (crewId: number) => {
-//   const crew = await NewCrew.findOne({ crewId });
-//   if (!crew) return false;
-
-//   // Use countDocuments instead of fetching all
-//   const crewsLength = await NewCrew.countDocuments({});
-
-//   const baseSeniority = parseFloat((crewsLength / crewId).toFixed(2));
-//   const aaSeniority = crewId;
-
-//   return {
-//     ...crew.toObject(),
-//     baseSeniority,
-//     aaSeniority
-//   };
-// };
-
-
-
-
-// export const findCrewById = async (id: string) => {
-//   return await NewCrew.findById(id).populate({ path: "avatar", select: "_id media" });
-// };
 
 export const findCrewById = async (crewId: number) => {
   const pool = await getPool();
@@ -118,47 +90,33 @@ export const findBySequenceNo = async (seqNo: number) => {
   return result.recordset.length > 0 ? result.recordset : null;
 };
 
-// helper to normalize slots into true/false
-// convert SeqCrewPos string (e.g. "111100000000000000") to [true, true, true, true, false, ...]
-
-// fetch sequence by seqNo
-// export const findBySequenceNo = async (seqNo: number) => {
-//   const pool = await getPool();
-
-//   const sequenceResult = await pool.request()
-//     .input("seqNo", sql.Int, seqNo)
-//     .query(`
-//       SELECT *
-//       FROM Sequence
-//       WHERE SeqNo = @seqNo
-//     `);
-
-//   if (sequenceResult.recordset.length === 0) return null;
-
-//   // attach slots (derived from SeqCrewPos)
-//   return sequenceResult.recordset.map(seq => ({
-//     ...seq,
-//     slots: normalizeSeqCrewPos(seq.SeqCrewPos),   // <-- true/false array
-//     seqCrewPosRaw: seq.SeqCrewPos
-//   }));
-// };
-
-
-
 export const findByDateAndSeqNo = async (seqNo: number, effDate: Date) => {
-    const pool = await getPool();
-    const result = await pool.request()
-        .input("seqNo", sql.Int, seqNo)
-        .input("effDate", sql.Date, effDate)
-        .query(`
+  const pool = await getPool();
+  const result = await pool.request()
+    .input("seqNo", sql.Int, seqNo)
+    .input("effDate", sql.Date, effDate)
+    .query(`
             SELECT *
             FROM Leg
             WHERE SeqNo = @seqNo 
             AND EffDate = @effDate
         `);
 
-    return result.recordset.length > 0 ? result.recordset : null;
+  return result.recordset.length > 0 ? result.recordset : null;
 };
+
+export const getBoardingPayByYears = async (YearsOfService: number) => {
+  const pool = await getPool();
+  const result = await pool.request()
+    .input("YearsOfService", sql.Int, YearsOfService)
+    .query(`
+            SELECT *
+            FROM BoardingPay
+            WHERE YearsOfService = @YearsOfService 
+        `);
+
+  return result.recordset.length > 0 ? result.recordset[0] : null;
+}
 
 export const findCrewAndUpdate = async (id: Types.ObjectId, avatar: Types.ObjectId) => {
   const crew = await NewCrew.findByIdAndUpdate(

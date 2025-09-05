@@ -5,7 +5,7 @@ import { resetPasswordSchema } from '../validations/authValidation';
 // import { deleteMedia, getUserProfile, uploadMedia } from '../services/authService';
 import { deleteMedia, uploadMedia } from '../services/authService';
 // import { findUserById, findUserByEmail, findUserAndUpdate } from '../services/userService';
-import { findCrewById, findCrewByEmail, findCrewAndUpdate, getCrewPayDetails, UpdatePassword, findBySequenceNo, findByDateAndSeqNo } from '../services/userServiceNew';
+import { findCrewById, findCrewByEmail, findCrewAndUpdate, getCrewPayDetails, UpdatePassword, findBySequenceNo, findByDateAndSeqNo, getBoardingPayByYears } from '../services/userServiceNew';
 import bcrypt from 'bcrypt';
 import { Types } from 'mongoose';
 import { Sequence } from '../models/Sequence';
@@ -223,10 +223,12 @@ export const basePay = async (req: Request, res: Response): Promise<any> => {
         const domesticPayRate = 2.5;
         const internationalPayRate = 3.75;
 
-        const min40Rate = 24.00;
-        const min45Rate = 27.00;
-        const min55Rate = 33.00;
+        // const min40Rate = 24.00;
+        // const min45Rate = 27.00;
+        // const min55Rate = 33.00;
 
+        const boardingPayRate = await getBoardingPayByYears(service.basePay.YearsOfService);
+        // return res.json({ boardingPay: boardingPayRate });
         const ipdRate = 3.00;
         const nipsRate = 2.85;
         const speaker1Rate = 2.00;
@@ -252,9 +254,9 @@ export const basePay = async (req: Request, res: Response): Promise<any> => {
         }
 
         const boardingPay = {
-            min40: min40Rate,
-            min45: min45Rate,
-            min55: min55Rate
+            min40: boardingPayRate?.Boarding40Min,
+            min45: boardingPayRate?.Boarding45Min,
+            min55: boardingPayRate?.Boarding55Min
         }
 
         const premiumPay = {
@@ -273,6 +275,7 @@ export const basePay = async (req: Request, res: Response): Promise<any> => {
     }
 }
 
+// helper functions
 const formatMinutes = (mins: number) => {
     const h = Math.floor(mins / 60);
     const m = mins % 60;
