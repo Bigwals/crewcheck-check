@@ -82,3 +82,28 @@ export const deleteMedia = async (id: Types.ObjectId) => {
     const avatar = await Media.findByIdAndDelete(id);
     return avatar;
 };
+
+export const updateCrewAvatar = async (crewId: number, ImageUrl: string) => {
+    const pool = await getPool();
+    await pool.request()
+        .input("crewId", sql.Int, crewId)
+        .input("ImageUrl", sql.NVarChar, ImageUrl)
+        .query(`
+            UPDATE Users 
+            SET ImageUrl = @ImageUrl 
+            WHERE crewId = @crewId
+        `);
+
+    // Return updated record
+    const result = await pool.request()
+        .input("crewId", sql.Int, crewId)
+        .query(`SELECT crewId, FirstName, LastName, Email, ImageUrl FROM Users WHERE crewId = @crewId`);
+
+    return result.recordset[0];
+};
+
+// Simulated file deletion (local or cloud)
+export const deleteFileFromStorage = async (filename: string) => {
+    // Example: fs.unlinkSync(path.join(__dirname, "../uploads", filename));
+    console.log("Deleted old file:", filename);
+};

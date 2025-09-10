@@ -29,7 +29,6 @@ export const findCrewById = async (crewId: number) => {
     SELECT * FROM Users WHERE crewId = @crewId
     `);
   return result.recordset.length > 0 ? result.recordset[0] : null;
-
 }
 
 export const UpdatePassword = async (crewId: number, hashedPassword: string) => {
@@ -117,6 +116,46 @@ export const getBoardingPayByYears = async (YearsOfService: number) => {
 
   return result.recordset.length > 0 ? result.recordset[0] : null;
 }
+
+export const updatePosition = async (seqNo: number, position: number, effDate: Date) => {
+  const pool = await getPool();
+
+  // Fetch current SeqCrewPos string
+  const result = await pool.request()
+    .input("seqNo", sql.Int, seqNo)
+    .query(`
+      SELECT SeqCrewPos
+      FROM Sequence
+      WHERE SeqNo = @seqNo
+    `);
+
+  if (result.recordset.length === 0) return null;
+
+  let seqCrewPos: string = result.recordset[0].SeqCrewPos;
+
+  // Convert to array for easy manipulation
+  let seqCrewPosArr = seqCrewPos.split("");
+
+  // Flip selected position (position is 1-based index)
+  if (position > 0 && position <= seqCrewPosArr.length) {
+    seqCrewPosArr[position - 1] = "0"; // user applied → mark unavailable
+  }
+
+  const updatedSeqCrewPos = seqCrewPosArr.join("");
+
+  // Update DB
+  await pool.request()
+    .input("seqNo", sql.Int, seqNo)
+    .input("seqCrewPos", sql.VarChar, updatedSeqCrewPos)
+    .query(`
+      UPDATE Sequence
+      SET SeqCrewPos = @seqCrewPos
+      WHERE SeqNo = @seqNo
+    `);
+
+  return updatedSeqCrewPos;
+};
+
 
 export const findCrewAndUpdate = async (id: Types.ObjectId, avatar: Types.ObjectId) => {
   const crew = await NewCrew.findByIdAndUpdate(
