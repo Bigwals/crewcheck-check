@@ -392,10 +392,12 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
         today.setHours(0, 0, 0, 0);
         const completedSequences = sequences.filter(seq => new Date(seq.effDate) < today);
         const upcomingSequences = sequences.filter(seq => new Date(seq.effDate) >= today);
+        const effDates = sequences.map(seq => dateKey(seq.effDate));
 
         return res.status(200).json({
             message: "Sequence(s) & legs fetched successfully",
             sequences,
+            effDates,
             completedSequences,
             upcomingSequences
         });
