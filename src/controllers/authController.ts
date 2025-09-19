@@ -24,6 +24,8 @@ export const register = async (req: Request, res: Response): Promise<any> => {
             lastName,
             telephone,
             email,
+            purser,
+            speaker,
             // commuterAirportCode,
         } = registerSchema.parse(req.body);
 
@@ -65,14 +67,17 @@ export const register = async (req: Request, res: Response): Promise<any> => {
             .input("Email", sql.NVarChar, email)
             .input("PasswordHash", sql.NVarChar, hashedPassword)
             .input("PhoneNumber", sql.NVarChar, telephone)
+            .input("Airline", sql.NVarChar, airline)
+            .input("Purser", sql.NVarChar, purser)
+            .input("Speaker", sql.NVarChar, speaker)
             .input("RoleID", sql.Int, RoleID)
             .input("ActiveStatus", sql.Bit, ActiveStatus)
             .input("CreatedAt", sql.DateTime, CreatedAt)
             .query(`
         INSERT INTO Users 
-          (UserID, CrewId, FirstName, LastName, HireDate, OccDate, Base, Seniority, Email, PasswordHash, PhoneNumber, RoleID, ActiveStatus, CreatedAt)
+          (UserID, CrewId, FirstName, LastName, HireDate, OccDate, Base, Seniority, Airline, Email, PasswordHash, PhoneNumber, Purser, Speaker, RoleID, ActiveStatus, CreatedAt)
         VALUES 
-          (@UserID, @CrewId, @FirstName, @LastName, @HireDate, @OccDate, @Base, @Seniority, @Email, @PasswordHash, @PhoneNumber, @RoleID, @ActiveStatus, @CreatedAt)
+          (@UserID, @CrewId, @FirstName, @LastName, @HireDate, @OccDate, @Base, @Seniority, @Airline, @Email, @PasswordHash, @PhoneNumber, @Purser, @Speaker, @RoleID, @ActiveStatus, @CreatedAt)
       `);
 
         // Send password via email
