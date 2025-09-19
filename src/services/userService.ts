@@ -62,32 +62,6 @@ export const findUserAndUpdate = async (id: Types.ObjectId, avatar: Types.Object
   return user;
 };
 
-// const getYearsOfService = (hireDate: Date, today = new Date()): number => {
-//   const msInYear = 365 * 24 * 60 * 60 * 1000;
-//   const diff = today.getTime() - hireDate.getTime();
-
-//   return Math.floor(diff / msInYear) + 1;
-// };
-
-// export const getCrewPayDetails = async (crewId: number) => {
-//   const crew = await Crew.findOne({ CrewID: crewId }).lean();
-
-//   if (!crew) {
-//     throw new Error("Crew not found");
-//   }
-
-//   const yearsOfService = getYearsOfService(crew?.HireDate);
-//   console.log("Years of Service:", yearsOfService);
-
-//   const basePay = await BasePay.findOne({ YearsOfService: yearsOfService }).lean();
-
-//   if (!basePay) {
-//     throw new Error("Base pay not found for this level of service");
-//   }
-
-//   return basePay;
-// };
-
 const getYearsOfService = (hireDate: Date, today = new Date()): number => {
   const msInYear = 365 * 24 * 60 * 60 * 1000;
   const diff = today.getTime() - hireDate.getTime();
@@ -116,5 +90,4 @@ export const getCrewPayDetails = async (crewId: number) => {
   };
 
   return extendedBasePay;
-
 };

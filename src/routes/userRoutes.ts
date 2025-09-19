@@ -1,5 +1,8 @@
 import { Router } from 'express';
-import { getProfile, uploadAvatar, changePassword, sequenceWithLegs, sequence, filterByDate, applyPosition, basePay } from '../controllers/userController';
+import {
+    getProfile, uploadAvatar, changePassword, sequenceWithLegs, sequence,
+    filterByDate, applyPosition, basePay, updateReserve
+    } from '../controllers/userController';
 import { authenticate } from '../middlewares/authMiddleware';
 import { upload } from '../middlewares/upload';
 // import { changePassword } from '../controllers/authControllerNew';
@@ -18,5 +21,6 @@ router.get('/sequence-with-legs', authenticate, sequenceWithLegs)
 router.get('/filter-by-date', authenticate, filterByDate)
 router.patch('/apply-position', authenticate, applyPosition)
 router.get('/base-pay', authenticate, basePay)
+router.patch('/update-reserve', authenticate, updateReserve);
 
 export default router;

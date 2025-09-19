@@ -120,13 +120,14 @@ export const getBoardingPayByYears = async (YearsOfService: number) => {
 export const updatePosition = async (seqNo: number, position: number, effDate: Date) => {
   const pool = await getPool();
 
-  // Fetch current SeqCrewPos string
+  // Fetch current SeqCrewPos string for that seqNo + effDate
   const result = await pool.request()
     .input("seqNo", sql.Int, seqNo)
+    .input("effDate", sql.Date, effDate)
     .query(`
       SELECT SeqCrewPos
       FROM Sequence
-      WHERE SeqNo = @seqNo
+      WHERE SeqNo = @seqNo AND EffDate = @effDate
     `);
 
   if (result.recordset.length === 0) return null;
@@ -143,19 +144,19 @@ export const updatePosition = async (seqNo: number, position: number, effDate: D
 
   const updatedSeqCrewPos = seqCrewPosArr.join("");
 
-  // Update DB
+  // Update DB (only this seqNo + effDate)
   await pool.request()
     .input("seqNo", sql.Int, seqNo)
+    .input("effDate", sql.Date, effDate)
     .input("seqCrewPos", sql.VarChar, updatedSeqCrewPos)
     .query(`
       UPDATE Sequence
       SET SeqCrewPos = @seqCrewPos
-      WHERE SeqNo = @seqNo
+      WHERE SeqNo = @seqNo AND EffDate = @effDate
     `);
 
   return updatedSeqCrewPos;
 };
-
 
 export const findCrewAndUpdate = async (id: Types.ObjectId, avatar: Types.ObjectId) => {
   const crew = await NewCrew.findByIdAndUpdate(

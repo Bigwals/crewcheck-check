@@ -102,6 +102,25 @@ export const updateCrewAvatar = async (crewId: number, ImageUrl: string) => {
     return result.recordset[0];
 };
 
+export const updateCrewReverse = async (crewId: number, IsReserve: string) => {
+    const pool = await getPool();
+    await pool.request()
+        .input("crewId", sql.Int, crewId)
+        .input("IsReserve", sql.NVarChar, IsReserve)
+        .query(`
+            UPDATE Users 
+            SET IsReserve = @IsReserve 
+            WHERE crewId = @crewId
+        `);
+
+    // Return updated record
+    const result = await pool.request()
+        .input("crewId", sql.Int, crewId)
+        .query(`SELECT crewId, FirstName, LastName, Email, ImageUrl, IsReserve FROM Users WHERE crewId = @crewId`);
+
+    return result.recordset[0];
+};
+
 // Simulated file deletion (local or cloud)
 export const deleteFileFromStorage = async (filename: string) => {
     // Example: fs.unlinkSync(path.join(__dirname, "../uploads", filename));
