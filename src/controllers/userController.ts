@@ -433,17 +433,17 @@ export const basePay = async (req: Request, res: Response): Promise<any> => {
         // return res.json({ boardingPay: boardingPayRate });
         const ipdRate = 3.00;
         const nipsRate = 2.85;
-        const speaker1Rate = 2.00;
-        const speaker2Rate = 3.00;
+        const speakerRate = 2.00;
+        const speakerIntNipdRate = 3.00;
         const speakerIpdRate = 3.75;
 
         const regularPayRates = {
             basePay: pay,
             rigPay: pay,
-            sickPay: pay,
+            sickPay: 0,
             vacationPay: pay,
             holidayPay: pay,
-            jurydutyPay: pay,
+            jurydutyPay: 0,
             understaffingPay: understaffingPayRate,
             hotel1HourDelayPay: "100% of Same Day Trips",
             hotel3HoursDelayPay: "100% of Full Sequence",
@@ -464,8 +464,8 @@ export const basePay = async (req: Request, res: Response): Promise<any> => {
         const premiumPay = {
             ipd: ipdRate,
             nips: nipsRate,
-            speaker1: speaker1Rate,
-            speaker2: speaker2Rate,
+            speaker: speakerRate,
+            speakerIntNipd: speakerIntNipdRate,
             speakerIpd: speakerIpdRate
         }
 
