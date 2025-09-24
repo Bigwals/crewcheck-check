@@ -411,7 +411,7 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
 
         return res.status(200).json({
             message: "User Sequence Data with User Legs",
-            sequences,
+            // sequences,
             earningsSummary,
             completedSequences,
             upcomingSequences
