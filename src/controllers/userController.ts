@@ -385,8 +385,7 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
                 }))
             });
         }
-
-        // 3) Now calculate earnings summary
+        
         // 3) Now calculate earnings summary
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -394,18 +393,20 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
         const upcomingSequences = sequences.filter(s => new Date(s.EffDate) >= today);
         const completedSequences = sequences.filter(s => new Date(s.EffDate) < today);
 
-        let totalEarnings;
-        if (sequences.filter(s => new Date(s.EffDate) >= today)) {
-            totalEarnings = sequences.reduce(
-                (sum, s) => sum + parseFloat(s.earnings.totalSequenceEarnings),
-                0
-            );
-        }
-
-        const upcomingEarnings = upcomingSequences.reduce(
+        // ✅ Total = sum of all upcoming sequences
+        const totalEarnings = upcomingSequences.reduce(
             (sum, s) => sum + parseFloat(s.earnings.totalSequenceEarnings),
             0
         );
+
+        // ✅ Upcoming = only next sequence (earliest by EffDate)
+        let upcomingEarnings = 0;
+        if (upcomingSequences.length > 0) {
+            const nextSeq = upcomingSequences.sort(
+                (a, b) => new Date(a.EffDate).getTime() - new Date(b.EffDate).getTime()
+            )[0]; // first upcoming
+            upcomingEarnings = parseFloat(nextSeq.earnings.totalSequenceEarnings);
+        }
 
         const earningsSummary = {
             upcoming: upcomingEarnings,
@@ -415,11 +416,11 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
 
         return res.status(200).json({
             message: "User Sequence Data with User Legs",
-            // sequences,
             earningsSummary,
             completedSequences,
             upcomingSequences
         });
+
     } catch (error: any) {
         return res.status(500).json({
             message: "Internal Server Error",
