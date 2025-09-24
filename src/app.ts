@@ -5,6 +5,7 @@ import routes from './routes';
 import authRoutes from './routes/authRoutes';
 import userRoutes from './routes/userRoutes';
 // import errorHandler from './middlewares/error.middleware';
+import { startSequenceJob } from "./jobs/sequenceJob";
 
 const app = express();
 
@@ -17,6 +18,8 @@ app.get('/', (req, res) => {
   res.send('Welcome to Crew-Check-Backend')
 });
 
+// ✅ Start cronjob
+// startSequenceJob();
 // app.use('/api/v1/auth', authRoutes);
 // app.use('/api/v1/user', userRoutes);
 app.use('/api/v1', routes);

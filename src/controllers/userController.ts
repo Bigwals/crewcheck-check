@@ -390,17 +390,18 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        const totalEarnings = sequences.reduce(
-            (sum, s) => sum + parseFloat(s.earnings.totalSequenceEarnings),
-            0
-        );
+        let totalEarnings;
+        if (sequences.filter(s => new Date(s.EffDate) >= today)) {
+            totalEarnings = sequences.reduce(
+                (sum, s) => sum + parseFloat(s.earnings.totalSequenceEarnings),
+            );
+        }
 
         const upcomingSequences = sequences.filter(s => new Date(s.EffDate) >= today);
         const completedSequences = sequences.filter(s => new Date(s.EffDate) < today);
 
         const upcomingEarnings = upcomingSequences.reduce(
             (sum, s) => sum + parseFloat(s.earnings.totalSequenceEarnings),
-            0
         );
 
         const earningsSummary = {
@@ -474,20 +475,20 @@ export const filterByDate = async (req: Request, res: Response): Promise<any> =>
 
 export const applyPosition = async (req: Request, res: Response): Promise<any> => {
     try {
-        const { seqNo, position, bidMonth } = req.body;
+        const { seqNo, position, effDate } = req.body;
         const userId = (req as any).user.id
         if (!seqNo || !position) {
             return res.status(StatusCode.BAD_REQUEST).json({ message: "seqNo and position are required" });
         }
 
-        const updatedSeqCrewPos = await updatePosition(Number(seqNo), Number(position), bidMonth as string);
+        const updatedSeqCrewPos = await updatePosition(Number(seqNo), Number(position), effDate);
 
         if (!updatedSeqCrewPos) {
             return res.status(StatusCode.NOT_FOUND).json({ message: Messages.NOT_FOUND });
         }
 
-        const newUserSequenceId = await addSequenceDataInUserSequence(userId, updatedSeqCrewPos, bidMonth);
-        const newUserLegId = await addLegDataInUserLeg(seqNo, bidMonth, newUserSequenceId);
+        const newUserSequenceId = await addSequenceDataInUserSequence(userId, updatedSeqCrewPos);
+        const newUserLegId = await addLegDataInUserLeg(seqNo, effDate, newUserSequenceId);
 
         return res.status(StatusCode.OK).json({
             message: "Position Applied Successfully",

@@ -127,17 +127,17 @@ export const getBoardingPayByYears = async (YearsOfService: number) => {
   return result.recordset.length > 0 ? result.recordset[0] : null;
 }
 
-export const updatePosition = async (seqNo: number, position: number, bidMonth: string) => {
+export const updatePosition = async (seqNo: number, position: number, effDate: Date) => {
   const pool = await getPool();
 
   // 1) Fetch the row
   const result = await pool.request()
     .input("seqNo", sql.Int, seqNo)
-    .input("bidMonth", sql.NVarChar, bidMonth)
+    .input("effDate", sql.NVarChar, effDate)
     .query(`
       SELECT *
       FROM Sequence
-      WHERE SeqNo = @seqNo AND BidMonth = @bidMonth
+      WHERE SeqNo = @seqNo AND EffDate = @effDate
     `);
 
   if (result.recordset.length === 0) return null;
@@ -158,12 +158,12 @@ export const updatePosition = async (seqNo: number, position: number, bidMonth: 
   // 3) Update DB
   await pool.request()
     .input("seqNo", sql.Int, seqNo)
-    .input("bidMonth", sql.NVarChar, bidMonth)
+    .input("effDate", sql.NVarChar, effDate)
     .input("seqCrewPos", sql.VarChar, updatedSeqCrewPos)
     .query(`
       UPDATE Sequence
       SET SeqCrewPos = @seqCrewPos
-      WHERE SeqNo = @seqNo AND BidMonth = @bidMonth
+      WHERE SeqNo = @seqNo AND EffDate = @effDate
     `);
 
   // 4) Return the updated row (with new SeqCrewPos)
@@ -176,7 +176,7 @@ export const updatePosition = async (seqNo: number, position: number, bidMonth: 
 export const addSequenceDataInUserSequence = async (
   userId: string,
   crewSeqPos: any,   // this is the row from Sequence (with 59+ columns)
-  bidMonth: string
+  // effDate: string
 ) => {
   const userSequenceId = uuidv4();
   const pool = await getPool();
@@ -237,7 +237,7 @@ export const addSequenceDataInUserSequence = async (
   request.input("IPD", sql.Bit, crewSeqPos.IPD);
   request.input("NIPD", sql.Bit, crewSeqPos.NIPD);
   request.input("Notes", sql.NVarChar, crewSeqPos.Notes);
-  request.input("BidMonth", sql.NVarChar, bidMonth);
+  request.input("BidMonth", sql.NVarChar, crewSeqPos.BidMonth);
 
   const query = `
     INSERT INTO UserSequence (
@@ -263,7 +263,7 @@ export const addSequenceDataInUserSequence = async (
 
 export const addLegDataInUserLeg = async (
   seqNo: number,
-  bidMonth: string,
+  effDate: Date,
   newUserSequenceId: string,
 ) => {
   const pool = await getPool();
@@ -271,11 +271,11 @@ export const addLegDataInUserLeg = async (
   // 1) Get all legs for this SeqNo + BidMonth
   const legs = await pool.request()
     .input("seqNo", sql.Int, seqNo)
-    .input("bidMonth", sql.NVarChar(50), bidMonth)
+    .input("effDate", sql.NVarChar(50), effDate)
     .query(`
       SELECT *
       FROM Leg
-      WHERE SeqNo = @seqNo AND BidMonth = @bidMonth
+      WHERE SeqNo = @seqNo AND EffDate = @effDate
     `);
 
   if (legs.recordset.length === 0) return [];
@@ -341,7 +341,7 @@ export const addLegDataInUserLeg = async (
       .input("CvtLegPC", sql.VarChar(5), leg.CvtLegPC)
       .input("CvtLegTotalFlying", sql.VarChar(5), leg.CvtLegTotalFlying)
       .input("CvtLayoverTime", sql.VarChar(7), leg.CvtLayoverTime)
-      .input("BidMonth", sql.VarChar(7), bidMonth)
+      .input("BidMonth", sql.VarChar(7), leg.BidMonth)
       .query(`
         INSERT INTO UserLeg (
           UserLegID, UniqueSeqNo, SeqNo, SeqLegNo, DeptStn, ArrvStn, DptTime, DptZone, ArvTime, ArvZone,
