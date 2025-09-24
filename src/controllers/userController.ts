@@ -387,21 +387,24 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
         }
 
         // 3) Now calculate earnings summary
+        // 3) Now calculate earnings summary
         const today = new Date();
         today.setHours(0, 0, 0, 0);
+
+        const upcomingSequences = sequences.filter(s => new Date(s.EffDate) >= today);
+        const completedSequences = sequences.filter(s => new Date(s.EffDate) < today);
 
         let totalEarnings;
         if (sequences.filter(s => new Date(s.EffDate) >= today)) {
             totalEarnings = sequences.reduce(
                 (sum, s) => sum + parseFloat(s.earnings.totalSequenceEarnings),
+                0
             );
         }
 
-        const upcomingSequences = sequences.filter(s => new Date(s.EffDate) >= today);
-        const completedSequences = sequences.filter(s => new Date(s.EffDate) < today);
-
         const upcomingEarnings = upcomingSequences.reduce(
             (sum, s) => sum + parseFloat(s.earnings.totalSequenceEarnings),
+            0
         );
 
         const earningsSummary = {
