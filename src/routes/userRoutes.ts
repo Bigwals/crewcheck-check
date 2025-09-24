@@ -16,7 +16,7 @@ router.get('/get-profile', authenticate, getProfile);
 router.post('/upload-avatar', authenticate, upload.single('file'), uploadAvatar);
 
 // sequence or userSequence
-router.get('/sequence', authenticate, sequence)
+router.get('/sequence-calender', authenticate, sequence)
 router.get('/sequence-with-legs', authenticate, sequenceWithLegs)
 router.get('/filter-by-date', authenticate, filterByDate)
 router.patch('/apply-position', authenticate, applyPosition)

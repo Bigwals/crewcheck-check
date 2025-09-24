@@ -5,12 +5,13 @@ import { resetPasswordSchema } from '../validations/authValidation';
 // import { deleteMedia, getUserProfile, uploadMedia } from '../services/authService';
 import { deleteFileFromStorage, deleteMedia, updateCrewAvatar, updateCrewReverse, uploadMedia } from '../services/authService';
 // import { findUserById, findUserByEmail, findUserAndUpdate } from '../services/userService';
-import { findCrewById, findCrewByEmail, findCrewAndUpdate, getCrewPayDetails, UpdatePassword, findBySequenceNo, findByDateAndSeqNo, getBoardingPayByYears, updatePosition } from '../services/userServiceNew';
+import { findCrewById, findCrewByEmail, getCrewPayDetails, UpdatePassword, findBySequenceNo, findByDateAndSeqNo, getBoardingPayByYears, updatePosition, addSequenceDataInUserSequence, findUserAppliedSequenceNo, addLegDataInUserLeg } from '../services/userServiceNew';
 import bcrypt from 'bcrypt';
 import { Types } from 'mongoose';
 import { Sequence } from '../models/Sequence';
 import { UserSequence } from '../models/UserSequence';
 import { getPool, sql } from "../config/db";
+import { findUserById } from '../services/userService';
 
 
 export const getProfile = async (req: Request, res: Response): Promise<any> => {
@@ -135,16 +136,18 @@ export const updateReserve = async (req: Request, res: Response): Promise<any> =
 export const sequenceWithLegs = async (req: Request, res: Response): Promise<any> => {
     try {
         const seqNo = Number(req.query.seqNo);
+        const bidMonth = req.query.bidMonth as string;  // 👈 cast to string
+
         if (!seqNo || isNaN(seqNo)) {
             return res.status(400).json({ message: "seqNo is required and must be numeric" });
         }
 
-        // 1) Fetch all sequence rows
-        const sequenceData = await findBySequenceNo(seqNo);
-        if (!sequenceData || sequenceData.length === 0) {
-            return res.status(404).json({ message: "No sequence found for given seqNo" });
+        if (!bidMonth) {
+            return res.status(400).json({ message: "bidMonth is required" });
         }
 
+        const sequenceData = await findBySequenceNo(seqNo, bidMonth);
+        // return res.json({ sequenceData: sequenceData });
         // 2) Fetch crew service info (years of service)
         const crewId = (req as any).user?.crewId;
         const service = crewId ? await getCrewPayDetails(crewId) : null;
@@ -168,7 +171,8 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
         const pool = await getPool();
         const legsResult = await pool.request()
             .input("seqNo", sql.Int, seqNo)
-            .query(`SELECT * FROM Leg WHERE SeqNo = @seqNo`);
+            .input("bidMonth", sql.NVarChar, bidMonth)
+            .query(`SELECT * FROM dbo.Leg WHERE SeqNo = @seqNo AND BidMonth = @bidMonth`);
         const allLegs = legsResult.recordset || [];
 
         // Helper for date normalization
@@ -282,45 +286,139 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
 
 export const sequence = async (req: Request, res: Response): Promise<any> => {
     try {
-        const seqNo = Number(req.query.seqNo);
+        // const seqNo = Number(req.query.seqNo);
+        const bidMonth = req.query.bidMonth as string;
+        const userId = (req as any).user.id;
 
-        if (!seqNo || isNaN(seqNo)) {
-            return res.status(400).json({ message: "seqNo is required and must be numeric" });
+        // 1) Get UserSequence
+        const pool = await getPool();
+
+        // 1) Get sequences
+        const userSeqResult = await pool.request()
+            .input("userId", sql.UniqueIdentifier, userId)
+            .input("bidMonth", sql.NVarChar, bidMonth)
+            .query(`
+                    SELECT * 
+                    FROM dbo.UserSequence
+                    WHERE UserID = @userId
+                    AND BidMonth = @bidMonth
+                `);
+
+        const userSequences = userSeqResult.recordset;
+        if (!userSequences || userSequences.length === 0) {
+            return res.status(404).json({ message: "No sequence found for this user" });
         }
 
-        const data = await findBySequenceNo(seqNo);
+        const sequences: any[] = [];
 
-        if (!data) {
-            return res.status(404).json({ message: "No sequence found for given seqNo" });
+        // 2) Process each sequence
+        for (const seq of userSequences) {
+            const legsResult = await pool.request()
+                .input("userSequenceId", sql.UniqueIdentifier, seq.UserSequenceID)
+                .query(`
+                        SELECT *
+                        FROM dbo.UserLeg
+                        WHERE UserSequenceID = @userSequenceId
+                    `);
+
+            const seqLegs = legsResult.recordset || [];
+
+            // Totals
+            let totalPayMinutes = 0;
+            let totalCreditMinutes = 0;
+            seqLegs.forEach(l => {
+                totalPayMinutes += (l.LegTotalFlying ?? 0) + (l.LegPC ?? 0);
+                totalCreditMinutes += (l.LegTotalFlying ?? 0);
+            });
+
+            const lastArrvStn = seqLegs.length > 0 ? seqLegs[seqLegs.length - 1].ArrvStn : null;
+
+            const yearsOfService = 1; // Replace with logic
+            const basePayMap: Record<number, number> = {
+                1: 35.82, 2: 37.97, 3: 40.40, 4: 43.03, 5: 47.39,
+                6: 53.67, 7: 59.21, 8: 61.11, 9: 62.80, 10: 65.15,
+                11: 66.94, 12: 70.12, 13: 82.24
+            };
+            const baseRate = basePayMap[yearsOfService] ?? 0;
+
+            const perDiemRates: Record<string, number> = { DOM: 2.5, INT: 3.75 };
+            const perDiemRate = perDiemRates[seq.SeqCategory] ?? 0;
+            const tafMinutes = seq.TAFB ?? 0;
+            const tafPerDiem = (tafMinutes / 60) * perDiemRate;
+
+            const flightPay = (totalPayMinutes / 60) * baseRate;
+            const creditPay = (totalCreditMinutes / 60) * baseRate;
+            const premiumPay = ((seq.SeqPremTime ?? 0) / 60) * baseRate;
+            const totalSequenceEarnings = flightPay + tafPerDiem + premiumPay;
+
+            sequences.push({
+                ...seq,
+                lastArrvStn,
+                slots: normalizeSeqCrewPos(seq.SeqCrewPos),
+                payHours: formatMinutes(totalPayMinutes),
+                creditHours: formatMinutes(totalCreditMinutes),
+                tafb: formatMinutes(seq.TAFB),
+                seqPremiumTime: toHHmm(seq.SeqPremTime),
+                earnings: {
+                    yearsOfService,
+                    baseRate,
+                    perDiemRate,
+                    tafMinutes,
+                    tafPerDiem: tafPerDiem.toFixed(2),
+                    flightPay: flightPay.toFixed(2),
+                    creditPay: creditPay.toFixed(2),
+                    premiumPay: premiumPay.toFixed(2),
+                    totalSequenceEarnings: totalSequenceEarnings.toFixed(2)
+                },
+                legs: seqLegs.map((leg: any) => ({
+                    seqNo: leg.SeqNo,
+                    seqLegNo: leg.SeqLegNo,
+                    departure: leg.DeptStn,
+                    arrival: leg.ArrvStn,
+                    flightNo: leg.FitNo,
+                    dptTime: toHHmm(leg.DptTime),
+                    arvTime: toHHmm(leg.ArvTime),
+                    flyingHours: formatMinutes(leg.LegTotalFlying),
+                    legPc: leg.LegPC,
+                    layover: leg.LayoverTime ? formatMinutes(leg.LayoverTime) : null,
+                    eod: leg.EOD
+                }))
+            });
         }
 
-        // Prepare UI-ready summary
-        const formatted = data.map(seq => ({
-            seqNo: seq.SeqNo,
-            crewBase: seq.CrewBase,
-            category: seq.SeqCategory,
-            totalLegs: seq.NBR_Legs,
-            totalDays: seq.NBR_Days,
-            totalDuty: seq.NBR_Duty,
-            noOfBoardings: seq.NBR_Legs,
-            // flyTime: seq.SeqFlyTime,
-            flyTime: formatMinutes(seq.SeqFlyTime),
-            pc: seq.SeqPC,
-            tafb: formatMinutes(seq.TAFB),
-            seqPremiumTime: toHHmm(seq.SeqPremTime),
-            effDate: seq.EffDate,
-            thruDate: seq.ThruDate,
-            seqCrewPos: seq.SeqCrewPos,
-            slots: normalizeSeqCrewPos(seq.SeqCrewPos),   // <-- true/false array
-        }));
+        // 3) Now calculate earnings summary
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const totalEarnings = sequences.reduce(
+            (sum, s) => sum + parseFloat(s.earnings.totalSequenceEarnings),
+            0
+        );
+
+        const upcomingSequences = sequences.filter(s => new Date(s.EffDate) >= today);
+        const completedSequences = sequences.filter(s => new Date(s.EffDate) < today);
+
+        const upcomingEarnings = upcomingSequences.reduce(
+            (sum, s) => sum + parseFloat(s.earnings.totalSequenceEarnings),
+            0
+        );
+
+        const earningsSummary = {
+            upcoming: upcomingEarnings,
+            total: totalEarnings,
+            display: `$${upcomingEarnings}/$${totalEarnings}`
+        };
 
         return res.status(200).json({
-            message: "Sequence Fetched Successfully",
-            sequence: formatted
+            message: "User Sequence Data with User Legs",
+            sequences,
+            earningsSummary,
+            completedSequences,
+            upcomingSequences
         });
     } catch (error: any) {
-        return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({
-            message: Messages.INTERNAL_SERVER_ERROR,
+        return res.status(500).json({
+            message: "Internal Server Error",
             error: error.message
         });
     }
@@ -376,17 +474,20 @@ export const filterByDate = async (req: Request, res: Response): Promise<any> =>
 
 export const applyPosition = async (req: Request, res: Response): Promise<any> => {
     try {
-        const { seqNo, position, effDate } = req.body;
-
+        const { seqNo, position, bidMonth } = req.body;
+        const userId = (req as any).user.id
         if (!seqNo || !position) {
             return res.status(StatusCode.BAD_REQUEST).json({ message: "seqNo and position are required" });
         }
 
-        const updatedSeqCrewPos = await updatePosition(Number(seqNo), Number(position), new Date(effDate as string));
+        const updatedSeqCrewPos = await updatePosition(Number(seqNo), Number(position), bidMonth as string);
 
         if (!updatedSeqCrewPos) {
             return res.status(StatusCode.NOT_FOUND).json({ message: Messages.NOT_FOUND });
         }
+
+        const newUserSequenceId = await addSequenceDataInUserSequence(userId, updatedSeqCrewPos, bidMonth);
+        const newUserLegId = await addLegDataInUserLeg(seqNo, bidMonth, newUserSequenceId);
 
         return res.status(StatusCode.OK).json({
             message: "Position Applied Successfully",
