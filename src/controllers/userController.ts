@@ -399,21 +399,32 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
             0
         );
 
-        // ✅ Upcoming = only next sequence (earliest by EffDate)
+        // ✅ Upcoming = only sequences starting *today*
         let upcomingEarnings = 0;
         let payHours = 0;
         let creditHours = 0;
         let tafb = 0;
         let seqPremiumTime = 0;
-        if (upcomingSequences.length > 0) {
-            const nextSeq = upcomingSequences.sort(
-                (a, b) => new Date(a.EffDate).getTime() - new Date(b.EffDate).getTime()
-            )[0]; // first upcoming
-            upcomingEarnings = parseFloat(nextSeq.earnings.totalSequenceEarnings);
-            payHours = nextSeq.payHours;
-            creditHours = nextSeq.creditHours;
-            tafb = nextSeq.tafb;
-            seqPremiumTime = nextSeq.seqPremiumTime;
+
+        const todaySequences = upcomingSequences.filter(s => {
+            const eff = new Date(s.EffDate);
+            eff.setHours(0, 0, 0, 0);
+            return eff.getTime() === today.getTime();
+        });
+
+        if (todaySequences.length > 0) {
+            // if multiple sequences today, sum them
+            upcomingEarnings = todaySequences.reduce(
+                (sum, s) => sum + parseFloat(s.earnings.totalSequenceEarnings),
+                0
+            );
+
+            // if you want details, take the first today sequence
+            const firstTodaySeq = todaySequences[0];
+            payHours = firstTodaySeq.payHours;
+            creditHours = firstTodaySeq.creditHours;
+            tafb = firstTodaySeq.tafb;
+            seqPremiumTime = firstTodaySeq.seqPremiumTime;
         }
 
         const earningsSummary = {
