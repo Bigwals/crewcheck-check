@@ -385,7 +385,7 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
                 }))
             });
         }
-        
+
         // 3) Now calculate earnings summary
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -401,22 +401,55 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
 
         // ✅ Upcoming = only next sequence (earliest by EffDate)
         let upcomingEarnings = 0;
+        let payHours = 0;
+        let creditHours = 0;
+        let tafb = 0;
+        let seqPremiumTime = 0;
         if (upcomingSequences.length > 0) {
             const nextSeq = upcomingSequences.sort(
                 (a, b) => new Date(a.EffDate).getTime() - new Date(b.EffDate).getTime()
             )[0]; // first upcoming
             upcomingEarnings = parseFloat(nextSeq.earnings.totalSequenceEarnings);
+            payHours = nextSeq.payHours;
+            creditHours = nextSeq.creditHours;
+            tafb = nextSeq.tafb;
+            seqPremiumTime = nextSeq.seqPremiumTime;
         }
 
         const earningsSummary = {
+            payHours,
+            creditHours,
+            tafb,
+            seqPremiumTime,
             upcoming: upcomingEarnings,
             total: totalEarnings,
             display: `$${upcomingEarnings}/$${totalEarnings}`
         };
 
+        // ✅ Completed sequences total
+        const completedSequencesTotalEarnings = completedSequences.reduce(
+            (sum, s) => sum + parseFloat(s.earnings.totalSequenceEarnings),
+            0
+        );
+
+        // ✅ If you want the *last* completed sequence earnings (most recent by EffDate)
+        let lastCompletedEarnings = 0;
+        if (completedSequences.length > 0) {
+            const lastCompletedSeq = completedSequences.sort(
+                (a, b) => new Date(b.EffDate).getTime() - new Date(a.EffDate).getTime()
+            )[0]; // most recent completed
+            lastCompletedEarnings = parseFloat(lastCompletedSeq.earnings.totalSequenceEarnings);
+        }
+
+        const completedSequencesEarningsSummary = {
+            total: completedSequencesTotalEarnings,
+            lastCompleted: lastCompletedEarnings
+        };
+
         return res.status(200).json({
             message: "User Sequence Data with User Legs",
             earningsSummary,
+            completedSequencesEarningsSummary,
             completedSequences,
             upcomingSequences
         });
