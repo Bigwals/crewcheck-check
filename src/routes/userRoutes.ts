@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import {
-    getProfile, uploadAvatar, changePassword, sequenceWithLegs, sequence,
+    getProfile, getCrewBaseRanking, uploadAvatar, changePassword, sequenceWithLegs, sequence,
     filterByDate, applyPosition, basePay, updateReserve
     } from '../controllers/userController';
 import { authenticate } from '../middlewares/authMiddleware';
@@ -13,6 +13,7 @@ const router = Router();
 // router.post('/reset-password', authenticate, resetPassword);
 router.post('/change-password', authenticate, changePassword);
 router.get('/get-profile', authenticate, getProfile);
+router.get('/get-crew-bases', authenticate, getCrewBaseRanking);
 router.post('/upload-avatar', authenticate, upload.single('file'), uploadAvatar);
 
 // sequence or userSequence

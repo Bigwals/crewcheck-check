@@ -367,6 +367,25 @@ export const addLegDataInUserLeg = async (
   return legs.recordset;
 };
 
+export const getAllCrews = async () => {
+  const pool = await getPool();
+
+  const result = await pool.request().query(`
+        SELECT 
+            CrewID AS crewId,
+            Base AS base,
+            OccDate AS occDate
+        FROM dbo.Users
+        WHERE Base IS NOT NULL AND OccDate IS NOT NULL
+    `);
+
+  return result.recordset.map(row => ({
+    crewId: row.crewId,
+    base: row.base,
+    occDate: row.occDate
+  }));
+};
+
 // helper function
 const getYearsOfService = (hireDate: Date, today = new Date()): number => {
   let years = today.getFullYear() - hireDate.getFullYear();
@@ -423,3 +442,56 @@ export const getCrewPayDetails = async (crewId: number) => {
     note: basePay ? null : "Base pay not found for this level of service"
   };
 };
+
+export const getCrewPayDetail = async (crewIds: number[]) => {
+  if (!crewIds.length) return [];
+
+  const pool = await getPool();
+
+  // 1. Get crew info (OccDate)
+  const crewResult = await pool.request().query(`
+    SELECT CrewID, OccDate
+    FROM Roster
+    WHERE CrewID IN (${crewIds.join(",")})
+  `);
+
+  // 2. Compute years of service for each crew
+  const today = new Date();
+  const serviceMap: Record<number, number> = {};
+  for (const row of crewResult.recordset) {
+    if (!row.OccDate) {
+      serviceMap[row.CrewID] = 0;
+      continue;
+    }
+    const years = getYearsOfService(new Date(row.OccDate), today);
+    serviceMap[row.CrewID] = Math.min(years, 13); // cap at 13
+  }
+
+  // 3. Get all relevant BasePay rows in one go
+  const uniqueYears = [...new Set(Object.values(serviceMap))].filter(y => y > 0);
+  let basePayMap: Record<number, any> = {};
+
+  if (uniqueYears.length > 0) {
+    const payResult = await pool.request().query(`
+      SELECT * FROM BasePay
+      WHERE YearsOfService IN (${uniqueYears.join(",")})
+    `);
+
+    basePayMap = payResult.recordset.reduce((acc: any, row: any) => {
+      acc[row.YearsOfService] = row;
+      return acc;
+    }, {});
+  }
+
+  // 4. Map back to each crew
+  return crewIds.map(id => {
+    const years = serviceMap[id] ?? 0;
+    return {
+      crewId: id,
+      basePay: basePayMap[years] || null,
+      yearsOfService: years,
+      moreThan13Years: years > 13
+    };
+  });
+};
+

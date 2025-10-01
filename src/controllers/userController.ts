@@ -5,14 +5,14 @@ import { resetPasswordSchema } from '../validations/authValidation';
 // import { deleteMedia, getUserProfile, uploadMedia } from '../services/authService';
 import { deleteFileFromStorage, deleteMedia, updateCrewAvatar, updateCrewReverse, uploadMedia } from '../services/authService';
 // import { findUserById, findUserByEmail, findUserAndUpdate } from '../services/userService';
-import { findCrewById, findCrewByEmail, getCrewPayDetails, UpdatePassword, findBySequenceNo, findByDateAndSeqNo, getBoardingPayByYears, updatePosition, addSequenceDataInUserSequence, findUserAppliedSequenceNo, addLegDataInUserLeg } from '../services/userServiceNew';
+import { findCrewById, findCrewByEmail, getCrewPayDetails, UpdatePassword, findBySequenceNo, findByDateAndSeqNo, getBoardingPayByYears, updatePosition, addSequenceDataInUserSequence, findUserAppliedSequenceNo, addLegDataInUserLeg, getAllCrews, getCrewPayDetail } from '../services/userServiceNew';
 import bcrypt from 'bcrypt';
 import { Types } from 'mongoose';
 import { Sequence } from '../models/Sequence';
 import { UserSequence } from '../models/UserSequence';
 import { getPool, sql } from "../config/db";
 import { findUserById } from '../services/userService';
-
+import { any } from 'zod';
 
 export const getProfile = async (req: Request, res: Response): Promise<any> => {
     try {
@@ -34,10 +34,265 @@ export const getProfile = async (req: Request, res: Response): Promise<any> => {
 
         const service = await getCrewPayDetails(crewId);
         if (service) return res.status(200).json({ message: Messages.USER_PROFILE, crew, service });
+        // const crewBases = await getCrewBaseRanking()
         return res.status(200).json({ message: Messages.USER_PROFILE, crew });
     } catch (error: any) {
         console.error("Error in getProfile:", error);
         return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({ message: Messages.INTERNAL_SERVER_ERROR, error: error.message });
+    }
+};
+// old
+// export const getCrewBaseRanking = async (req: Request, res: Response): Promise<any> => {
+//     // export const getCrewRankings = async (req: Request, res: Response) => {
+//     try {
+//         const crewId = (req as any).user.crewId;
+
+//         // const pool = await sql.connect();
+
+//         const pool = await getPool();
+//         // const baseCrewResult = await pool.request()
+//         // 1) Get logged-in crew
+
+//         const crewResult = await pool
+//             .request()
+//             .input("crewId", sql.Int, crewId)
+//             .query(`SELECT CrewID, Base, OccDate FROM dbo.Roster WHERE CrewID = @crewId`);
+
+//         if (!crewResult.recordset[0]) {
+//             return res.status(404).json({ message: "Crew not found" });
+//         }
+
+//         const crew = crewResult.recordset[0];
+
+//         // Get logged-in user’s experience using existing logic
+//         const userService = await getCrewPayDetails(crewId);
+//         const userExperience = userService?.basePay.YearsOfService ?? 0;
+
+//         // 2) Get all bases from user’s applied sequences
+//         // const pool = await getPool();
+//         const appliedSeqResult = await pool.request()
+//             // const pool = await getPool();
+//             // const baseCrewResult = await pool
+//             // .request()
+//             .input("userId", sql.UniqueIdentifier, (req as any).user.id)
+//             .query(`
+//         SELECT DISTINCT UL.DeptStn AS Base
+//         FROM dbo.UserSequence US
+//         JOIN dbo.UserLeg UL ON US.UserSequenceID = UL.UserSequenceID
+//         WHERE US.UserID = @userId
+//         UNION
+//         SELECT DISTINCT UL.ArrvStn AS Base
+//         FROM dbo.UserSequence US
+//         JOIN dbo.UserLeg UL ON US.UserSequenceID = UL.UserSequenceID
+//         WHERE US.UserID = @userId
+//       `);
+
+//         const flightBases = appliedSeqResult.recordset.map((r: any) => r.Base).filter(Boolean);
+
+//         // Merge primary + all applied bases
+//         const allBases = Array.from(new Set([crew.Base, ...flightBases]));
+
+//         // 3) Build rankings per base
+//         const rankings = [];
+//         for (const base of allBases) {
+//             // Get all crew at this base
+//             // const baseCrewResult = await getPool();
+//             const pool = await getPool();
+//             const baseCrewResult = await pool.request()
+//                 // .request()
+//                 .input("base", sql.NVarChar, base)
+//                 .query(`SELECT CrewID, OccDate FROM dbo.Roster WHERE Base = @base`);
+
+//             const baseCrews = baseCrewResult.recordset;
+
+//             // Get all crewIds in this base
+//             const crewIds = baseCrews.map((c: any) => c.CrewID);
+
+//             // Bulk fetch
+//             const services: any = await getCrewPayDetail(crewIds);
+
+//             const withExperience = crewIds.map((id: number, idx: number) => ({
+//                 crewId: id,
+//                 experience: services[idx]?.basePay.YearsOfService ?? 0,
+//             }));
+//             // Sort by experience DESC
+//             withExperience.sort((a: any, b: any) => b.experience - a.experience);
+
+//             const totalMembers = withExperience.length;
+
+//             // Find user rank
+//             let userRank = totalMembers;
+//             for (let i = 0; i < withExperience.length; i++) {
+//                 if (withExperience[i].crewId === crewId) {
+//                     // Place at end of group if tied
+//                     const sameExpGroup = withExperience.filter(
+//                         (x: any) => x.experience === withExperience[i].experience
+//                     );
+//                     const lastIndex = withExperience.findIndex(
+//                         (x: any, idx: any) =>
+//                             x.experience === withExperience[i].experience &&
+//                             idx >= i + sameExpGroup.length - 1
+//                     );
+//                     userRank = lastIndex !== -1 ? lastIndex + 1 : i + 1;
+//                     break;
+//                 }
+//             }
+
+//             const rankPercent = totalMembers > 0 ? Math.round(((totalMembers - userRank + 1) / totalMembers) * 100) : null;
+
+//             rankings.push({
+//                 base,
+//                 totalMembers,
+//                 userRank,
+//                 rankPercent,
+//             });
+//         }
+
+//         return res.status(200).json({
+//             primaryBase: crew.Base,
+//             userExperience,
+//             rankings,
+//         });
+//     } catch (err: any) {
+//         console.error("Error in getCrewRankings:", err);
+//         return res.status(500).json({ message: "Internal Server Error", error: err.message });
+//     }
+// };
+
+// new
+export const getCrewBaseRanking = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const crewId = (req as any).user.crewId;
+        const pool = await getPool();
+
+        // 1) Get logged-in crew
+        const crewResult = await pool
+            .request()
+            .input("crewId", sql.Int, crewId)
+            .query(`
+                SELECT CrewID, Base, OccDate
+                FROM dbo.Roster
+                WHERE CrewID = @crewId
+            `);
+        // return res.json({ data: crewResult });
+        if (!crewResult.recordset[0]) {
+            return res.status(404).json({ message: "Crew not found" });
+        }
+
+        const crew = crewResult.recordset[0];
+
+        // Logged-in user’s experience
+        const userService = await getCrewPayDetail([crewId]); // pass as array
+        const userExperience = userService[0]?.basePay.YearsOfService ?? 0;
+
+        // 2) Get all bases from user’s applied sequences
+        const appliedSeqResult = await pool.request()
+            .input("userId", sql.UniqueIdentifier, (req as any).user.id)
+            .query(`
+                SELECT DISTINCT UL.DeptStn AS Base
+                FROM dbo.UserSequence US
+                JOIN dbo.UserLeg UL ON US.UserSequenceID = UL.UserSequenceID
+                WHERE US.UserID = @userId
+                UNION
+                SELECT DISTINCT UL.ArrvStn AS Base
+                FROM dbo.UserSequence US
+                JOIN dbo.UserLeg UL ON US.UserSequenceID = UL.UserSequenceID
+                WHERE US.UserID = @userId
+            `);
+
+        const flightBases = appliedSeqResult.recordset.map((r: any) => r.Base).filter(Boolean);
+
+        // Merge primary base with applied sequence bases
+        const allBases = Array.from(new Set([crew.Base, ...flightBases]));
+
+        // 3) Rankings
+        const rankings = [];
+
+        for (const base of allBases) {
+            // Get all crew IDs in this base
+            // const baseCrewResult = await pool.request()
+            //     .input("base", sql.NVarChar, base)
+            //     .query(`
+            //         SELECT CrewID
+            //         FROM dbo.Roster
+            //         WHERE Base = @base
+            //     `);
+
+            // const crewIds = baseCrewResult.recordset.map((c: any) => c.CrewID);
+            const baseCrewResult = await pool.request()
+                .input("base", sql.NVarChar, base)
+                .input("crewId", sql.Int, crewId)
+                .query(`
+                SELECT CrewID
+                FROM dbo.Roster
+                WHERE Base = @base
+                UNION
+                SELECT CrewID
+                FROM dbo.Roster
+                WHERE CrewID = @crewId
+            `);
+
+            const crewIds = baseCrewResult.recordset.map((c: any) => c.CrewID);
+
+
+            if (crewIds.length === 0) {
+                rankings.push({ base, totalMembers: 0, userRank: 0, rankPercent: null });
+                continue;
+            }
+
+            // 🚀 Bulk fetch all experiences at once
+            // const services = await getCrewPayDetail(crewIds);
+
+            // const withExperience = crewIds.map((id, idx) => ({
+            //     crewId: id,
+            //     experience: services[idx]?.basePay.YearsOfService ?? 0,
+            // }));
+
+            const services = await getCrewPayDetail(crewIds);
+
+            const withExperience = crewIds.map((id, idx) => ({
+                crewId: id,
+                experience: services[idx]?.yearsOfService ?? 0, // ✅ use computed years
+            }));
+
+            // Sort by experience DESC
+            withExperience.sort((a, b) => b.experience - a.experience);
+
+            const totalMembers = withExperience.length;
+
+            // Find user rank
+            let userRank = 0;
+            for (let i = 0; i < withExperience.length; i++) {
+                if (withExperience[i].crewId === crewId) {
+                    userRank = i + 1;
+                    break;
+                }
+            }
+
+            // const rankPercent = totalMembers > 0
+            //     ? Math.round(((totalMembers - userRank + 1) / totalMembers) * 100)
+            //     : null;
+
+            const rankPercent = totalMembers > 0
+                ? ((totalMembers - userRank + 1) / totalMembers) * 100
+                : null;
+
+            rankings.push({
+                base,
+                totalMembers,
+                userRank,
+                rankPercent,
+            });
+        }
+
+        return res.status(200).json({
+            primaryBase: crew.Base,
+            userExperience,
+            rankings,
+        });
+    } catch (err: any) {
+        console.error("Error in getCrewBaseRanking:", err);
+        return res.status(500).json({ message: "Internal Server Error", error: err.message });
     }
 };
 
@@ -69,7 +324,6 @@ export const changePassword = async (req: Request, res: Response): Promise<any> 
         return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({ message: Messages.INTERNAL_SERVER_ERROR, error: error.message });
     }
 }
-
 // userController.ts
 export const uploadAvatar = async (req: Request, res: Response): Promise<any> => {
     try {
