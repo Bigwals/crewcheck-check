@@ -8,6 +8,10 @@ export const registerSchema = z.object({
   telephone: z.string().min(1, "telephone is Required"),
   purser: z.string().min(1, "purser is Required"),
   speaker: z.string().min(1, "speaker is Required").optional(),
+  languages: z.array(z.number()).min(
+    1,
+    "At least one language is required" // FIX: Changed error message
+  ).optional(),
   // commuterAirportCode: z.string().min(1, "commuterAirportCode is Required"),
   email: z.string().email().min(1, "email is Required"),
   // password: z.string().min(6).min(1, "Password is Required"),

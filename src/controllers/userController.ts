@@ -5,7 +5,7 @@ import { resetPasswordSchema } from '../validations/authValidation';
 // import { deleteMedia, getUserProfile, uploadMedia } from '../services/authService';
 import { deleteFileFromStorage, deleteMedia, updateCrewAvatar, updateCrewReverse, uploadMedia } from '../services/authService';
 // import { findUserById, findUserByEmail, findUserAndUpdate } from '../services/userService';
-import { findCrewById, findCrewByEmail, getCrewPayDetails, UpdatePassword, findBySequenceNo, findByDateAndSeqNo, getBoardingPayByYears, updatePosition, addSequenceDataInUserSequence, findUserAppliedSequenceNo, addLegDataInUserLeg, getAllCrews, getCrewPayDetail } from '../services/userServiceNew';
+import { findCrewById, findCrewByEmail, getCrewPayDetails, UpdatePassword, findBySequenceNo, findByDateAndSeqNo, getBoardingPayByYears, updatePosition, addSequenceDataInUserSequence, findUserAppliedSequenceNo, addLegDataInUserLeg, getAllCrews, getCrewPayDetail, getUserLanguages } from '../services/userServiceNew';
 import bcrypt from 'bcrypt';
 import { Types } from 'mongoose';
 import { Sequence } from '../models/Sequence';
@@ -16,7 +16,7 @@ import { any } from 'zod';
 
 export const getProfile = async (req: Request, res: Response): Promise<any> => {
     try {
-        // const crewId = (req as any).user.id;
+        const userId = (req as any).user.id;
         const crewId = (req as any).user.crewId;
         // const userId = (req as any).query?.userId;
         console.log("User ==>>", crewId);
@@ -33,131 +33,15 @@ export const getProfile = async (req: Request, res: Response): Promise<any> => {
         }
 
         const service = await getCrewPayDetails(crewId);
-        if (service) return res.status(200).json({ message: Messages.USER_PROFILE, crew, service });
+        const languages = await getUserLanguages(userId);
+        if (service) return res.status(200).json({ message: Messages.USER_PROFILE, crew, languages, service });
         // const crewBases = await getCrewBaseRanking()
-        return res.status(200).json({ message: Messages.USER_PROFILE, crew });
+        return res.status(200).json({ message: Messages.USER_PROFILE, crew, languages });
     } catch (error: any) {
         console.error("Error in getProfile:", error);
         return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({ message: Messages.INTERNAL_SERVER_ERROR, error: error.message });
     }
 };
-// old
-// export const getCrewBaseRanking = async (req: Request, res: Response): Promise<any> => {
-//     // export const getCrewRankings = async (req: Request, res: Response) => {
-//     try {
-//         const crewId = (req as any).user.crewId;
-
-//         // const pool = await sql.connect();
-
-//         const pool = await getPool();
-//         // const baseCrewResult = await pool.request()
-//         // 1) Get logged-in crew
-
-//         const crewResult = await pool
-//             .request()
-//             .input("crewId", sql.Int, crewId)
-//             .query(`SELECT CrewID, Base, OccDate FROM dbo.Roster WHERE CrewID = @crewId`);
-
-//         if (!crewResult.recordset[0]) {
-//             return res.status(404).json({ message: "Crew not found" });
-//         }
-
-//         const crew = crewResult.recordset[0];
-
-//         // Get logged-in user’s experience using existing logic
-//         const userService = await getCrewPayDetails(crewId);
-//         const userExperience = userService?.basePay.YearsOfService ?? 0;
-
-//         // 2) Get all bases from user’s applied sequences
-//         // const pool = await getPool();
-//         const appliedSeqResult = await pool.request()
-//             // const pool = await getPool();
-//             // const baseCrewResult = await pool
-//             // .request()
-//             .input("userId", sql.UniqueIdentifier, (req as any).user.id)
-//             .query(`
-//         SELECT DISTINCT UL.DeptStn AS Base
-//         FROM dbo.UserSequence US
-//         JOIN dbo.UserLeg UL ON US.UserSequenceID = UL.UserSequenceID
-//         WHERE US.UserID = @userId
-//         UNION
-//         SELECT DISTINCT UL.ArrvStn AS Base
-//         FROM dbo.UserSequence US
-//         JOIN dbo.UserLeg UL ON US.UserSequenceID = UL.UserSequenceID
-//         WHERE US.UserID = @userId
-//       `);
-
-//         const flightBases = appliedSeqResult.recordset.map((r: any) => r.Base).filter(Boolean);
-
-//         // Merge primary + all applied bases
-//         const allBases = Array.from(new Set([crew.Base, ...flightBases]));
-
-//         // 3) Build rankings per base
-//         const rankings = [];
-//         for (const base of allBases) {
-//             // Get all crew at this base
-//             // const baseCrewResult = await getPool();
-//             const pool = await getPool();
-//             const baseCrewResult = await pool.request()
-//                 // .request()
-//                 .input("base", sql.NVarChar, base)
-//                 .query(`SELECT CrewID, OccDate FROM dbo.Roster WHERE Base = @base`);
-
-//             const baseCrews = baseCrewResult.recordset;
-
-//             // Get all crewIds in this base
-//             const crewIds = baseCrews.map((c: any) => c.CrewID);
-
-//             // Bulk fetch
-//             const services: any = await getCrewPayDetail(crewIds);
-
-//             const withExperience = crewIds.map((id: number, idx: number) => ({
-//                 crewId: id,
-//                 experience: services[idx]?.basePay.YearsOfService ?? 0,
-//             }));
-//             // Sort by experience DESC
-//             withExperience.sort((a: any, b: any) => b.experience - a.experience);
-
-//             const totalMembers = withExperience.length;
-
-//             // Find user rank
-//             let userRank = totalMembers;
-//             for (let i = 0; i < withExperience.length; i++) {
-//                 if (withExperience[i].crewId === crewId) {
-//                     // Place at end of group if tied
-//                     const sameExpGroup = withExperience.filter(
-//                         (x: any) => x.experience === withExperience[i].experience
-//                     );
-//                     const lastIndex = withExperience.findIndex(
-//                         (x: any, idx: any) =>
-//                             x.experience === withExperience[i].experience &&
-//                             idx >= i + sameExpGroup.length - 1
-//                     );
-//                     userRank = lastIndex !== -1 ? lastIndex + 1 : i + 1;
-//                     break;
-//                 }
-//             }
-
-//             const rankPercent = totalMembers > 0 ? Math.round(((totalMembers - userRank + 1) / totalMembers) * 100) : null;
-
-//             rankings.push({
-//                 base,
-//                 totalMembers,
-//                 userRank,
-//                 rankPercent,
-//             });
-//         }
-
-//         return res.status(200).json({
-//             primaryBase: crew.Base,
-//             userExperience,
-//             rankings,
-//         });
-//     } catch (err: any) {
-//         console.error("Error in getCrewRankings:", err);
-//         return res.status(500).json({ message: "Internal Server Error", error: err.message });
-//     }
-// };
 
 // new
 export const getCrewBaseRanking = async (req: Request, res: Response): Promise<any> => {
@@ -543,30 +427,62 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
         // const seqNo = Number(req.query.seqNo);
         const bidMonth = req.query.bidMonth as string;
         const userId = (req as any).user.id;
+        const crewId = (req as any).user.crewId;
+
+        // 🔹 Parse current bidMonth like "Sep2025"
+        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        const monthAbbr = bidMonth.substring(0, 3);
+        const year = parseInt(bidMonth.substring(3));
+        const monthIndex = monthNames.indexOf(monthAbbr);
+        let prevMonthIndex = monthIndex - 1;
+        let prevYear = year;
+        if (prevMonthIndex < 0) {
+            prevMonthIndex = 11;
+            prevYear -= 1;
+        }
+        const prevBidMonth = `${monthNames[prevMonthIndex]}${prevYear}`;
 
         // 1) Get UserSequence
         const pool = await getPool();
 
         // 1) Get sequences
+        // const userSeqResult = await pool.request()
+        //     .input("userId", sql.UniqueIdentifier, userId)
+        //     .input("bidMonth", sql.NVarChar, bidMonth)
+        //     .query(`
+        //             SELECT * 
+        //             FROM dbo.UserSequence
+        //             WHERE UserID = @userId
+        //             AND BidMonth = @bidMonth
+        //         `);
+
         const userSeqResult = await pool.request()
             .input("userId", sql.UniqueIdentifier, userId)
             .input("bidMonth", sql.NVarChar, bidMonth)
+            .input("prevBidMonth", sql.NVarChar, prevBidMonth)
             .query(`
-                    SELECT * 
-                    FROM dbo.UserSequence
-                    WHERE UserID = @userId
-                    AND BidMonth = @bidMonth
-                `);
+        SELECT * 
+        FROM dbo.UserSequence
+        WHERE UserID = @userId
+        AND (BidMonth = @bidMonth OR BidMonth = @prevBidMonth)
+    `);
 
+        
         const userSequences = userSeqResult.recordset;
+        // return res.json({prevBidMonth: prevBidMonth, userSequence: userSequences})
         if (!userSequences || userSequences.length === 0) {
             return res.status(404).json({ message: "No sequence found for this user" });
         }
+        // 👇 separate current vs previous month sequences
+        const currentMonthSeqs = userSequences.filter(s => s.BidMonth === bidMonth);
+        const prevMonthSeqs = userSequences.filter(s => s.BidMonth === prevBidMonth);
+        // return res.json({prevMonthSeqs:prevMonthSeqs})
+
 
         const sequences: any[] = [];
 
         // 2) Process each sequence
-        for (const seq of userSequences) {
+        for (const seq of currentMonthSeqs) {
             const legsResult = await pool.request()
                 .input("userSequenceId", sql.UniqueIdentifier, seq.UserSequenceID)
                 .query(`
@@ -640,16 +556,94 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
             });
         }
 
+        const prevSequences: any[] = [];
+
+        for (const seq of prevMonthSeqs) {
+            const legsResult = await pool.request()
+                .input("userSequenceId", sql.UniqueIdentifier, seq.UserSequenceID)
+                .query(`
+                        SELECT *
+                        FROM dbo.UserLeg
+                        WHERE UserSequenceID = @userSequenceId
+                    `);
+
+            const seqLegs = legsResult.recordset || [];
+
+            // Totals
+            let totalPayMinutes = 0;
+            let totalCreditMinutes = 0;
+            seqLegs.forEach(l => {
+                totalPayMinutes += (l.LegTotalFlying ?? 0) + (l.LegPC ?? 0);
+                totalCreditMinutes += (l.LegTotalFlying ?? 0);
+            });
+
+            const lastArrvStn = seqLegs.length > 0 ? seqLegs[seqLegs.length - 1].ArrvStn : null;
+
+            const service = crewId ? await getCrewPayDetails(crewId) : null;
+            const yearsOfService = service?.basePay?.YearsOfService ?? 1;
+            // const yearsOfService = 1; // Replace with logic
+            const basePayMap: Record<number, number> = {
+                1: 35.82, 2: 37.97, 3: 40.40, 4: 43.03, 5: 47.39,
+                6: 53.67, 7: 59.21, 8: 61.11, 9: 62.80, 10: 65.15,
+                11: 66.94, 12: 70.12, 13: 82.24
+            };
+            const baseRate = basePayMap[yearsOfService] ?? 0;
+
+            const perDiemRates: Record<string, number> = { DOM: 2.5, INT: 3.75 };
+            const perDiemRate = perDiemRates[seq.SeqCategory] ?? 0;
+            const tafMinutes = seq.TAFB ?? 0;
+            const tafPerDiem = (tafMinutes / 60) * perDiemRate;
+
+            const flightPay = (totalPayMinutes / 60) * baseRate;
+            const creditPay = (totalCreditMinutes / 60) * baseRate;
+            const premiumPay = ((seq.SeqPremTime ?? 0) / 60) * baseRate;
+            const totalSequenceEarnings = flightPay + tafPerDiem + premiumPay;
+
+            prevSequences.push({
+                ...seq,
+                lastArrvStn,
+                slots: normalizeSeqCrewPos(seq.SeqCrewPos),
+                payHours: formatMinutes(totalPayMinutes),
+                creditHours: formatMinutes(totalCreditMinutes),
+                tafb: formatMinutes(seq.TAFB),
+                seqPremiumTime: toHHmm(seq.SeqPremTime),
+                earnings: {
+                    yearsOfService,
+                    baseRate,
+                    perDiemRate,
+                    tafMinutes,
+                    tafPerDiem: tafPerDiem.toFixed(2),
+                    flightPay: flightPay.toFixed(2),
+                    creditPay: creditPay.toFixed(2),
+                    premiumPay: premiumPay.toFixed(2),
+                    totalSequenceEarnings: totalSequenceEarnings.toFixed(2)
+                },
+                legs: seqLegs.map((leg: any) => ({
+                    seqNo: leg.SeqNo,
+                    seqLegNo: leg.SeqLegNo,
+                    departure: leg.DeptStn,
+                    arrival: leg.ArrvStn,
+                    flightNo: leg.FitNo,
+                    dptTime: toHHmm(leg.DptTime),
+                    arvTime: toHHmm(leg.ArvTime),
+                    flyingHours: formatMinutes(leg.LegTotalFlying),
+                    legPc: leg.LegPC,
+                    layover: leg.LayoverTime ? formatMinutes(leg.LayoverTime) : null,
+                    eod: leg.EOD
+                }))
+            });
+        }
+        // return res.json({prevBidMonth: currentMonthSeqs});
+        // return res.json({prevBidMonth: prevSequences});
         // 3) Now calculate earnings summary
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
         const upcomingSequences = sequences.filter(s => new Date(s.EffDate) >= today);
-        const completedSequences = sequences.filter(s => new Date(s.EffDate) < today);
 
         // ✅ Total = sum of all upcoming sequences
         const totalEarnings = upcomingSequences.reduce(
-            (sum, s) => sum + parseFloat(s.earnings.totalSequenceEarnings),
+            (sum, s) => sum + parseFloat(s.earnings.totalSequenceEarnings || 0),
             0
         );
 
@@ -659,6 +653,7 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
         let creditHours = 0;
         let tafb = 0;
         let seqPremiumTime = 0;
+        let boardings = 0;
 
         const todaySequences = upcomingSequences.filter(s => {
             const eff = new Date(s.EffDate);
@@ -669,7 +664,7 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
         if (todaySequences.length > 0) {
             // if multiple sequences today, sum them
             upcomingEarnings = todaySequences.reduce(
-                (sum, s) => sum + parseFloat(s.earnings.totalSequenceEarnings),
+                (sum, s) => sum + parseFloat(s.earnings.totalSequenceEarnings || 0),
                 0
             );
 
@@ -679,6 +674,7 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
             creditHours = firstTodaySeq.creditHours;
             tafb = firstTodaySeq.tafb;
             seqPremiumTime = firstTodaySeq.seqPremiumTime;
+            boardings = firstTodaySeq.NBR_Legs;
         }
 
         const earningsSummary = {
@@ -686,16 +682,38 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
             creditHours,
             tafb,
             seqPremiumTime,
+            boardings,
             upcoming: upcomingEarnings,
             total: totalEarnings,
             display: `$${upcomingEarnings}/$${totalEarnings}`
         };
 
+        const completedSequences = sequences.filter(s => new Date(s.EffDate) < today);
         // ✅ Completed sequences total
         const completedSequencesTotalEarnings = completedSequences.reduce(
             (sum, s) => sum + parseFloat(s.earnings.totalSequenceEarnings),
             0
         );
+        const completedPayHours = completedSequences.reduce(
+            (sum, s) => sum + parseFloat(s.payHours),
+            0
+        )
+        const completedCreditHours = completedSequences.reduce(
+            (sum, s) => sum + parseFloat(s.creditHours),
+            0
+        )
+        const completedTafb = completedSequences.reduce(
+            (sum, s) => sum + parseFloat(s.tafb),
+            0
+        )
+        const completedSeqPremiumTime = completedSequences.reduce(
+            (sum, s) => sum + parseFloat(s.seqPremiumTime),
+            0
+        )
+        const completedBoardings = completedSequences.reduce(
+            (sum, s) => sum + parseFloat(s.NBR_Legs),
+            0
+        )
 
         // ✅ If you want the *last* completed sequence earnings (most recent by EffDate)
         let lastCompletedEarnings = 0;
@@ -708,13 +726,32 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
 
         const completedSequencesEarningsSummary = {
             total: completedSequencesTotalEarnings,
-            lastCompleted: lastCompletedEarnings
+            lastCompleted: lastCompletedEarnings,
+            completedPayHours,
+            completedCreditHours,
+            completedTafb,
+            completedSeqPremiumTime,
+            completedBoardings
+        };
+
+        const prevCompletedSequences = prevSequences.filter(s => new Date(s.EffDate) < today);
+        // return res.json({ prevBidMonth:  currentMonthSeqs });
+
+        const prevCompletedSummary = {
+            total: prevCompletedSequences.reduce((sum, s) => sum + parseFloat(s.earnings.totalSequenceEarnings || 0), 0),
+            completedPayHours: prevCompletedSequences.reduce((sum, s) => sum + parseFloat(s.payHours), 0),
+            completedCreditHours: prevCompletedSequences.reduce((sum, s) => sum + parseFloat(s.creditHours), 0),
+            completedTafb: prevCompletedSequences.reduce((sum, s) => sum + parseFloat(s.tafb), 0),
+            completedSeqPremiumTime: prevCompletedSequences.reduce((sum, s) => sum + parseFloat(s.seqPremiumTime), 0),
+            completedBoardings: prevCompletedSequences.reduce((sum, s) => sum + parseFloat(s.NBR_Legs), 0),
         };
 
         return res.status(200).json({
             message: "User Sequence Data with User Legs",
             earningsSummary,
             completedSequencesEarningsSummary,
+            prevBidMonth: prevBidMonth,
+            prevCompletedSummary,
             completedSequences,
             upcomingSequences
         });

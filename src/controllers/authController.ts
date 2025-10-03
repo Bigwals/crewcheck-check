@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 // import { createUser } from '../services/authService';
-import { updateCrew } from '../services/authService';
+import { addLanguages, updateCrew } from '../services/authService';
 // import { findUserByEmail, findUserByCrewId, findUserByClientCrewId, getCrewPayDetails, findCrewOld } from '../services/userService';
 import { findCrewByEmail, findByCrewId, getCrewPayDetails, findCrewById, UpdatePassword } from '../services/userServiceNew';
 import bcrypt from 'bcrypt';
@@ -26,6 +26,7 @@ export const register = async (req: Request, res: Response): Promise<any> => {
             email,
             purser,
             speaker,
+            languages
             // commuterAirportCode,
         } = registerSchema.parse(req.body);
 
@@ -79,7 +80,9 @@ export const register = async (req: Request, res: Response): Promise<any> => {
         VALUES 
           (@UserID, @CrewId, @FirstName, @LastName, @HireDate, @OccDate, @Base, @Seniority, @Airline, @Email, @PasswordHash, @PhoneNumber, @Purser, @Speaker, @RoleID, @ActiveStatus, @CreatedAt)
       `);
+        console.log("Languages from request:", languages);
 
+        await addLanguages(UserID, languages ?? []);
         // Send password via email
         await sendPasswordEmail(email, firstName, password);
 
@@ -96,6 +99,30 @@ export const register = async (req: Request, res: Response): Promise<any> => {
             });
     }
 };
+
+export const getLanguages = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const pool = await getPool();
+        const result = await pool.request().query(`
+    SELECT *
+    FROM dbo.Language
+  `);
+
+        const languages = result.recordset;
+
+        return res
+            .status(StatusCode.CREATED)
+            .json({ message: Messages.LANGUAGES_FETCHED, languages });
+    } catch (error: any) {
+        console.error("Registration error:", error);
+        return res
+            .status(StatusCode.INTERNAL_SERVER_ERROR)
+            .json({
+                message: Messages.INTERNAL_SERVER_ERROR,
+                error: error.message,
+            });
+    }
+}
 
 export const verifyOTP = async (req: Request, res: Response): Promise<any> => {
     try {

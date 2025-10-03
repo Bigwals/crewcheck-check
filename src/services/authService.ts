@@ -126,3 +126,29 @@ export const deleteFileFromStorage = async (filename: string) => {
     // Example: fs.unlinkSync(path.join(__dirname, "../uploads", filename));
     console.log("Deleted old file:", filename);
 };
+
+export const addLanguages = async (userId: string, languages: number[]) => {
+    const pool = await getPool();
+    console.log("Languages to insert for user:", userId, languages);
+
+    for (const languageId of languages) {
+        const userLanguageId = uuidv4();
+        const request = pool.request();
+
+        request.input('userLanguageId', sql.UniqueIdentifier, userLanguageId);
+        request.input('userId', sql.UniqueIdentifier, userId);
+        request.input('languageId', sql.Int, languageId);
+
+        const sqlQuery = `
+            INSERT INTO dbo.UserLanguage (UserLanguageID, UserID, LanguageID)
+            VALUES (@userLanguageId, @userId, @languageId);
+        `;
+
+        try {
+            await request.query(sqlQuery);
+            console.log(`Inserted language ${languageId} for user ${userId}`);
+        } catch (error) {
+            console.error(`Error inserting language '${languageId}' for user '${userId}':`, error);
+        }
+    }
+};

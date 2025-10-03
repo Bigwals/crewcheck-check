@@ -18,6 +18,8 @@ export const Messages = {
     INVALID_CREW_ID: "Invalid Crew Id",
     AVATAR_UPLOADED: "Avatar Uploaded Successfully",
     OTP_VERIFIED: "Otp Verified Successfully",
+    
+    LANGUAGES_FETCHED: "Languages Fetched",
 
     NOT_FOUND: "Crew not found.",
     PROFILE_CREATED_SUCCESS: "Profile created successfully.",

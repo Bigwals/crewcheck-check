@@ -63,6 +63,7 @@ export const findByCrewId = async (crewId: number, firstName: string, lastName: 
   return result.recordset.length > 0 ? result.recordset[0] : null;
 };
 
+
 export const findBySequenceNo = async (seqNo: number, bidMonth: string) => {
   const pool = await getPool();
 
@@ -495,3 +496,18 @@ export const getCrewPayDetail = async (crewIds: number[]) => {
   });
 };
 
+export const getUserLanguages = async (userId: string) => {
+  const pool = await getPool();
+
+  // 1. Get crew hireDate
+  const crewResult = await pool.request()
+    .input("userId", sql.UniqueIdentifier, userId)
+    .query(`
+      SELECT *
+      FROM UserLanguage
+      WHERE UserID = @userId
+    `);
+  const crewLanguages = crewResult.recordset;
+
+  return crewLanguages
+}
