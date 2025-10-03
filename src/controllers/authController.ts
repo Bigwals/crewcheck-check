@@ -26,7 +26,8 @@ export const register = async (req: Request, res: Response): Promise<any> => {
             email,
             purser,
             speaker,
-            languages
+            languages,
+            deviceToken,
             // commuterAirportCode,
         } = registerSchema.parse(req.body);
 
@@ -74,11 +75,12 @@ export const register = async (req: Request, res: Response): Promise<any> => {
             .input("RoleID", sql.Int, RoleID)
             .input("ActiveStatus", sql.Bit, ActiveStatus)
             .input("CreatedAt", sql.DateTime, CreatedAt)
+            .input("DeviceToken", sql.NVarChar, deviceToken)
             .query(`
         INSERT INTO Users 
-          (UserID, CrewId, FirstName, LastName, HireDate, OccDate, Base, Seniority, Airline, Email, PasswordHash, PhoneNumber, Purser, Speaker, RoleID, ActiveStatus, CreatedAt)
+          (UserID, CrewId, FirstName, LastName, HireDate, OccDate, Base, Seniority, Airline, Email, PasswordHash, PhoneNumber, Purser, Speaker, RoleID, ActiveStatus, DeviceToken, CreatedAt)
         VALUES 
-          (@UserID, @CrewId, @FirstName, @LastName, @HireDate, @OccDate, @Base, @Seniority, @Airline, @Email, @PasswordHash, @PhoneNumber, @Purser, @Speaker, @RoleID, @ActiveStatus, @CreatedAt)
+          (@UserID, @CrewId, @FirstName, @LastName, @HireDate, @OccDate, @Base, @Seniority, @Airline, @Email, @PasswordHash, @PhoneNumber, @Purser, @Speaker, @RoleID, @ActiveStatus, @DeviceToken, @CreatedAt)
       `);
         console.log("Languages from request:", languages);
 
