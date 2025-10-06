@@ -503,7 +503,10 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
 
             const lastArrvStn = seqLegs.length > 0 ? seqLegs[seqLegs.length - 1].ArrvStn : null;
 
-            const yearsOfService = 1; // Replace with logic
+            // const yearsOfService = 1; // Replace with logic
+
+            const service = crewId ? await getCrewPayDetails(crewId) : null;
+            const yearsOfService = service?.basePay?.YearsOfService ?? 1;
             const basePayMap: Record<number, number> = {
                 1: 35.82, 2: 37.97, 3: 40.40, 4: 43.03, 5: 47.39,
                 6: 53.67, 7: 59.21, 8: 61.11, 9: 62.80, 10: 65.15,
@@ -581,6 +584,7 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
 
             const service = crewId ? await getCrewPayDetails(crewId) : null;
             const yearsOfService = service?.basePay?.YearsOfService ?? 1;
+            // return res.json({yearsOfService});
             // const yearsOfService = 1; // Replace with logic
             const basePayMap: Record<number, number> = {
                 1: 35.82, 2: 37.97, 3: 40.40, 4: 43.03, 5: 47.39,
