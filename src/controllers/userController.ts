@@ -13,6 +13,10 @@ import { UserSequence } from '../models/UserSequence';
 import { getPool, sql } from "../config/db";
 import { findUserById } from '../services/userService';
 import { any } from 'zod';
+import axios from "axios";
+require("dotenv").config()
+import { config } from 'dotenv';
+import cron from "node-cron";
 
 export const getProfile = async (req: Request, res: Response): Promise<any> => {
     try {
@@ -467,7 +471,7 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
         AND (BidMonth = @bidMonth OR BidMonth = @prevBidMonth)
     `);
 
-        
+
         const userSequences = userSeqResult.recordset;
         // return res.json({prevBidMonth: prevBidMonth, userSequence: userSequences})
         if (!userSequences || userSequences.length === 0) {
@@ -921,6 +925,238 @@ export const basePay = async (req: Request, res: Response): Promise<any> => {
         return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({ message: Messages.INTERNAL_SERVER_ERROR, error: error.message });
     }
 }
+
+export const deleteSequence = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { userId, seqNo, bidMonth } = req.body;
+
+    if (!userId || !seqNo || !bidMonth) {
+      return res
+        .status(StatusCode.BAD_REQUEST || 400)
+        .json({ message: "userId, seqNo, and bidMonth are required." });
+    }
+
+    const pool = await getPool();
+
+    // Step 1: Fetch the UserSequenceID for validation
+    const { recordset: sequenceResult } = await pool
+      .request()
+      .input("UserID", userId)
+      .input("SeqNo", seqNo)
+      .input("BidMonth", bidMonth)
+      .query(`
+        SELECT TOP 1 UserSequenceID 
+        FROM UserSequence 
+        WHERE UserID = @UserID AND SeqNo = @SeqNo AND BidMonth = @BidMonth
+      `);
+
+    if (sequenceResult.length === 0) {
+      return res
+        .status(StatusCode.NOT_FOUND || 404)
+        .json({ message: "No sequence found for this user." });
+    }
+
+    const userSequenceId = sequenceResult[0].UserSequenceID;
+
+    // Step 2: Begin transaction
+    const transaction = pool.transaction();
+    await transaction.begin();
+
+    try {
+      // Step 3: Delete associated UserLegs (new request)
+      await transaction
+        .request()
+        .input("UserSequenceID", userSequenceId)
+        .query(`DELETE FROM UserLeg WHERE UserSequenceID = @UserSequenceID`);
+
+      // Step 4: Delete the UserSequence (new request)
+      await transaction
+        .request()
+        .input("UserSequenceID", userSequenceId)
+        .query(`DELETE FROM UserSequence WHERE UserSequenceID = @UserSequenceID`);
+
+      // Step 5: Commit transaction
+      await transaction.commit();
+
+      console.log(`✅ Sequence ${userSequenceId} and its legs deleted successfully.`);
+
+      return res.status(StatusCode.OK || 200).json({
+        message: "Sequence and its associated legs deleted successfully."
+      });
+    } catch (innerError: any) {
+      await transaction.rollback();
+      console.error("❌ Transaction rolled back:", innerError);
+      return res.status(StatusCode.INTERNAL_SERVER_ERROR || 500).json({
+        message: Messages.INTERNAL_SERVER_ERROR || "Internal Server Error",
+        error: innerError.message
+      });
+    }
+  } catch (error: any) {
+    console.error("Error in deleteSequence:", error);
+    return res.status(StatusCode.INTERNAL_SERVER_ERROR || 500).json({
+      message: Messages.INTERNAL_SERVER_ERROR || "Internal Server Error",
+      error: error.message
+    });
+  }
+};
+// flight stubs
+
+// === Core function to call FlightAware API ===
+// export async function fetchFlightStubs(flightNumber: string): Promise<any[]> {
+//     try {
+//         const FLIGHTAWARE_BASE_URL = "https://aeroapi.flightaware.com/aeroapi";
+//         const API_KEY = process.env.FLIGHTAWARE_API_KEY;
+
+//         const response = await axios.get(`${FLIGHTAWARE_BASE_URL}/flights/${flightNumber}`, {
+//             headers: {
+//                 "x-apikey": API_KEY,
+//                 "Accept": "application/json",
+//             },
+//         });
+
+//         return response.data.flights || [];
+//     } catch (error: any) {
+//         console.error("FlightAware API error:", error.response?.data || error.message);
+//         return [];
+//     }
+// }
+
+// // === Save stub into UpdateTracking & update UserLeg ===
+// export async function saveFlightStub(seqId: number, userLegId: number, flightNumber: string, stub: any) {
+//     // const pool = await sql.connect();
+
+//     // await pool.request()
+//     const pool = await getPool();
+//     await pool.request()
+//         .input("seq_id", sql.Int, seqId)
+//         .input("flight_number", sql.NVarChar, flightNumber)
+//         .input("update_type_id", sql.Int, 1)
+//         .input("update_message", sql.NVarChar, JSON.stringify(stub))
+//         .input("timestamp", sql.DateTime, new Date(stub.actual_on || stub.actual_out || new Date()))
+//         .input("source_api_id", sql.Int, 1)
+//         .query(`
+//       INSERT INTO UpdateTracking (seq_id, flight_number, update_type_id, update_message, timestamp, source_api_id)
+//       VALUES (@seq_id, @flight_number, @update_type_id, @update_message, @timestamp, @source_api_id)
+//     `);
+
+//     // Update leg status if arrived
+//     if (stub.status?.toLowerCase().includes("arrived")) {
+//         await pool.request()
+//             .input("userLegId", sql.Int, userLegId)
+//             .input("flightStatus", sql.NVarChar, "Completed")
+//             .query(`
+//         UPDATE UserLeg
+//         SET FlightStatus = @flightStatus
+//         WHERE UserLegID = @userLegId
+//       `);
+//     }
+// }
+
+// // === Core sync job ===
+// export async function syncFlightStatuses() {
+//     const pool = await getPool();
+//     const { recordset: activeLegs } = await pool.request().query(`
+//     SELECT UL.UserLegID, UL.FitNo AS FlightNumber, UL.UserSequenceID
+//     FROM UserLeg UL
+//     INNER JOIN UserSequence US ON UL.UserSequenceID = US.UserSequenceID
+//     WHERE UL.FlightStatus NOT IN ('Completed', 'Cancelled')
+//       AND US.EffDate <= GETUTCDATE()
+//       AND US.ThruDate >= GETUTCDATE()
+//   `);
+
+//     for (const leg of activeLegs) {
+//         const stubs = await fetchFlightStubs(leg.FlightNumber);
+//         for (const stub of stubs) {
+//             await saveFlightStub(leg.UserSequenceID, leg.UserLegID, leg.FlightNumber, stub);
+//         }
+//     }
+
+//     // After all legs, update sequences that have all flights completed
+//     await pool.request().query(`
+//     UPDATE UserSequence
+//     SET FlightStatus = 'Completed'
+//     WHERE UserSequenceID IN (
+//       SELECT US.UserSequenceID
+//       FROM UserSequence US
+//       WHERE NOT EXISTS (
+//         SELECT 1 FROM UserLeg UL
+//         WHERE UL.UserSequenceID = US.UserSequenceID
+//         AND UL.FlightStatus != 'Completed'
+//       )
+//     )
+//   `);
+
+//     console.log("✅ Flight statuses synced and sequences updated.");
+// }
+
+// // === Run cronjob every 30 minutes ===
+// cron.schedule("*/55 * * * *", async () => {
+//     console.log("🕒 Running FlightAware sync...");
+//     await syncFlightStatuses();
+// });
+
+// === API endpoint to test manually in Postman ===
+
+// old
+// export const getStubs = async (req: Request, res: Response): Promise<any> => {
+//     try {
+//         const { flightNumber } = req.params;
+//         if (!flightNumber)
+//             return res.status(400).json({ success: false, message: "flightNumber is required" });
+
+//         const stubs = await fetchFlightStubs(flightNumber);
+//         return res.status(200).json({
+//             success: true,
+//             message: "Flight stubs fetched successfully",
+//             data: stubs,
+//         });
+//     } catch (error: any) {
+//         console.error("Error fetching flight stubs:", error.response?.data || error.message);
+//         return res.status(error.response?.status || 500).json({
+//             success: false,
+//             message: "Failed to fetch flight stubs",
+//             error: error.response?.data || error.message,
+//         });
+//     }
+// };
+
+// new
+// export const getStubs = async (req: Request, res: Response): Promise<any> => {
+//     try {
+//         const { flightNumber, date } = req.params; // e.g., "UAL4", "2025-10-05"
+//         if (!flightNumber || !date) {
+//             return res.status(400).json({ success: false, message: "flightNumber and date are required" });
+//         }
+
+//         const FLIGHTAWARE_BASE_URL = "https://aeroapi.flightaware.com/aeroapi";
+//         const API_KEY = process.env.FLIGHTAWARE_API_KEY;
+
+//         const start = `${date}T00:00:00Z`;
+//         const end = `${date}T23:59:59Z`;
+
+//         const response = await axios.get(`${FLIGHTAWARE_BASE_URL}/flights/${flightNumber}`, {
+//             params: { start, end },
+//             headers: {
+//                 "x-apikey": API_KEY,
+//                 "Accept": "application/json",
+//             },
+//         });
+
+//         return res.status(200).json({
+//             success: true,
+//             message: "Flight stubs fetched successfully",
+//             data: response.data.flights || [],
+//         });
+
+//     } catch (error: any) {
+//         console.error("Error fetching flight stubs:", error.response?.data || error.message);
+//         return res.status(error.response?.status || 500).json({
+//             success: false,
+//             message: "Failed to fetch flight stubs",
+//             error: error.response?.data || error.message,
+//         });
+//     }
+// };
 
 // helper functions
 const formatMinutes = (mins: number) => {

@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import {
     getProfile, getCrewBaseRanking, uploadAvatar, changePassword, sequenceWithLegs, sequence,
-    filterByDate, applyPosition, basePay, updateReserve
+    filterByDate, applyPosition, basePay, updateReserve, deleteSequence,
+    //  getStubs
     } from '../controllers/userController';
 import { authenticate } from '../middlewares/authMiddleware';
 import { upload } from '../middlewares/upload';
@@ -21,7 +22,10 @@ router.get('/sequence-calender', authenticate, sequence)
 router.get('/sequence-with-legs', authenticate, sequenceWithLegs)
 router.get('/filter-by-date', authenticate, filterByDate)
 router.patch('/apply-position', authenticate, applyPosition)
+router.delete('/delete-sequence', authenticate, deleteSequence)
 router.get('/base-pay', authenticate, basePay)
 router.patch('/update-reserve', authenticate, updateReserve);
+
+// router.get('/get-stubs/:flightNumber', getStubs);
 
 export default router;
