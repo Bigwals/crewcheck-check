@@ -626,12 +626,12 @@ export const getCrewPayDetails = async (crewId: number) => {
   return {
     basePay,
     yearsOfService,
-    companySeniority: {
+    aaSeniority: {
       rank: companyIndex + 1,
       totalInCompany: totalCompany,
       percentage: companySeniorityPct
     },
-    aaSeniority: {
+    baseSeniority: {
       base: crew.Base,
       rank: aaIndex + 1,
       totalInBase: totalBase,
