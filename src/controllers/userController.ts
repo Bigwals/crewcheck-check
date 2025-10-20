@@ -274,11 +274,162 @@ export const updateReserve = async (req: Request, res: Response): Promise<any> =
     }
 };
 
+// old
+// export const sequenceWithLegs = async (req: Request, res: Response): Promise<any> => {
+//     try {
+//         const seqNo = Number(req.query.seqNo);
+//         const bidMonth = req.query.bidMonth as string;  // 👈 cast to string
+
+//         if (!seqNo || isNaN(seqNo)) {
+//             return res.status(400).json({ message: "seqNo is required and must be numeric" });
+//         }
+
+//         if (!bidMonth) {
+//             return res.status(400).json({ message: "bidMonth is required" });
+//         }
+
+//         const sequenceData = await findBySequenceNo(seqNo, bidMonth);
+//         // return res.json({ sequenceData: sequenceData });
+//         // 2) Fetch crew service info (years of service)
+//         const crewId = (req as any).user?.crewId;
+//         const service = crewId ? await getCrewPayDetails(crewId) : null;
+//         const yearsOfService = service?.basePay?.YearsOfService ?? 1;
+
+//         // Base pay rates
+//         const basePayMap: Record<number, number> = {
+//             1: 35.82, 2: 37.97, 3: 40.40, 4: 43.03, 5: 47.39,
+//             6: 53.67, 7: 59.21, 8: 61.11, 9: 62.80, 10: 65.15,
+//             11: 66.94, 12: 70.12, 13: 82.24
+//         };
+//         const baseRate = basePayMap[yearsOfService] ?? 0;
+
+//         // Per diem rates
+//         const perDiemRates: Record<string, number> = {
+//             DOM: 2.5,
+//             INT: 3.75
+//         };
+
+//         // 3) Fetch all legs once
+//         const pool = await getPool();
+//         const legsResult = await pool.request()
+//             .input("seqNo", sql.Int, seqNo)
+//             .input("bidMonth", sql.NVarChar, bidMonth)
+//             .query(`SELECT * FROM dbo.Leg WHERE SeqNo = @seqNo AND BidMonth = @bidMonth`);
+//         const allLegs = legsResult.recordset || [];
+
+//         // Helper for date normalization
+//         const dateKey = (d: any) => {
+//             if (!d) return "null";
+//             const date = new Date(d);
+//             const y = date.getUTCFullYear();
+//             const m = String(date.getUTCMonth() + 1).padStart(2, "0");
+//             const day = String(date.getUTCDate()).padStart(2, "0");
+//             return `${y}-${m}-${day}`;
+//         };
+
+//         // 4) Build sequences with filtered legs
+//         const sequences = sequenceData.map((seq: any) => {
+//             // Legs belonging to this sequence AND same EffDate
+//             const seqLegs = allLegs.filter(
+//                 l => l.SeqNo === seq.SeqNo && dateKey(l.EffDate) === dateKey(seq.EffDate)
+//             );
+
+//             // Totals
+//             let totalPayMinutes = 0;
+//             let totalCreditMinutes = 0;
+//             seqLegs.forEach(l => {
+//                 totalPayMinutes += (l.LegTotalFlying ?? 0) + (l.LegPC ?? 0);
+//                 totalCreditMinutes += (l.LegTotalFlying ?? 0);
+//             });
+
+//             // Last arrival
+//             const lastArrvStn = seqLegs.length > 0 ? seqLegs[seqLegs.length - 1].ArrvStn : null;
+
+//             // Per diem
+//             const perDiemRate = perDiemRates[seq.SeqCategory] ?? 0;
+//             const tafMinutes = seq.TAFB ?? 0;
+//             const tafPerDiem = (tafMinutes / 60) * perDiemRate;
+
+//             // Earnings
+//             const flightPay = (totalPayMinutes / 60) * baseRate;
+//             const creditPay = (totalCreditMinutes / 60) * baseRate;
+//             const premiumPay = ((seq.SeqPremTime ?? 0) / 60) * baseRate;
+//             const totalEarnings = flightPay + tafPerDiem + premiumPay;
+
+//             return {
+//                 seqNo: seq.SeqNo,
+//                 crewBase: seq.CrewBase,
+//                 category: seq.SeqCategory,
+//                 effDate: seq.EffDate,
+//                 thruDate: seq.ThruDate,
+//                 totalLegs: seq.NBR_Legs,
+//                 totalDays: seq.NBR_Days,
+//                 totalDuty: seq.NBR_Duty,
+//                 seqCrewPos: seq.SeqCrewPos,
+//                 slots: normalizeSeqCrewPos(seq.SeqCrewPos),
+//                 lastArrvStn,
+//                 boardings: seq.NBR_Legs,
+//                 payHours: formatMinutes(totalPayMinutes),
+//                 creditHours: formatMinutes(totalCreditMinutes),
+//                 tafb: formatMinutes(seq.TAFB),
+//                 seqPremiumTime: toHHmm(seq.SeqPremTime),
+
+//                 earnings: {
+//                     yearsOfService,
+//                     baseRate,
+//                     perDiemRate,
+//                     tafMinutes,
+//                     tafPerDiem: tafPerDiem.toFixed(2),
+//                     flightPay: flightPay.toFixed(2),
+//                     creditPay: creditPay.toFixed(2),
+//                     premiumPay: premiumPay.toFixed(2),
+//                     totalEarnings: totalEarnings.toFixed(2)
+//                 },
+
+//                 legs: seqLegs.map((leg: any) => ({
+//                     seqNo: leg.SeqNo,
+//                     seqLegNo: leg.SeqLegNo,
+//                     departure: leg.DeptStn,
+//                     arrival: leg.ArrvStn,
+//                     flightNo: leg.FitNo,
+//                     dptTime: toHHmm(leg.DptTime),
+//                     arvTime: toHHmm(leg.ArvTime),
+//                     flyingHours: formatMinutes(leg.LegTotalFlying),
+//                     legPc: leg.LegPC,
+//                     layover: leg.Layover ? formatMinutes(leg.Layover) : null,
+//                     eod: leg.EOD
+//                 }))
+//             };
+//         });
+
+//         // 5) Separate completed vs upcoming
+//         const today = new Date();
+//         today.setHours(0, 0, 0, 0);
+//         const completedSequences = sequences.filter(seq => new Date(seq.effDate) < today);
+//         const upcomingSequences = sequences.filter(seq => new Date(seq.effDate) >= today);
+//         const effDates = sequences.map(seq => dateKey(seq.effDate));
+
+//         return res.status(200).json({
+//             message: "Sequence(s) & legs fetched successfully",
+//             sequences,
+//             effDates,
+//             completedSequences,
+//             upcomingSequences
+//         });
+
+//     } catch (error: any) {
+//         console.error("Error in sequenceWithLegs:", error);
+//         return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({
+//             message: Messages.INTERNAL_SERVER_ERROR,
+//             error: error.message
+//         });
+//     }
+// };
 // new
 export const sequenceWithLegs = async (req: Request, res: Response): Promise<any> => {
     try {
         const seqNo = Number(req.query.seqNo);
-        const bidMonth = req.query.bidMonth as string;  // 👈 cast to string
+        const bidMonth = req.query.bidMonth as string;
 
         if (!seqNo || isNaN(seqNo)) {
             return res.status(400).json({ message: "seqNo is required and must be numeric" });
@@ -288,14 +439,15 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
             return res.status(400).json({ message: "bidMonth is required" });
         }
 
+        // 1️⃣ Fetch sequence data
         const sequenceData = await findBySequenceNo(seqNo, bidMonth);
-        // return res.json({ sequenceData: sequenceData });
-        // 2) Fetch crew service info (years of service)
+
+        // 2️⃣ Crew service info
         const crewId = (req as any).user?.crewId;
         const service = crewId ? await getCrewPayDetails(crewId) : null;
         const yearsOfService = service?.basePay?.YearsOfService ?? 1;
 
-        // Base pay rates
+        // 3️⃣ Base pay & per diem rates
         const basePayMap: Record<number, number> = {
             1: 35.82, 2: 37.97, 3: 40.40, 4: 43.03, 5: 47.39,
             6: 53.67, 7: 59.21, 8: 61.11, 9: 62.80, 10: 65.15,
@@ -303,13 +455,12 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
         };
         const baseRate = basePayMap[yearsOfService] ?? 0;
 
-        // Per diem rates
         const perDiemRates: Record<string, number> = {
             DOM: 2.5,
             INT: 3.75
         };
 
-        // 3) Fetch all legs once
+        // 4️⃣ Fetch all legs
         const pool = await getPool();
         const legsResult = await pool.request()
             .input("seqNo", sql.Int, seqNo)
@@ -327,14 +478,58 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
             return `${y}-${m}-${day}`;
         };
 
-        // 4) Build sequences with filtered legs
-        const sequences = sequenceData.map((seq: any) => {
-            // Legs belonging to this sequence AND same EffDate
+        // 5️⃣ Build final sequences
+        const sequences = sequenceData.map((seq: any, index: number) => {
             const seqLegs = allLegs.filter(
                 l => l.SeqNo === seq.SeqNo && dateKey(l.EffDate) === dateKey(seq.EffDate)
             );
 
-            // Totals
+            // ---- Handle Calendar_40Day ----
+            const effDate = new Date(seq.EffDate);
+            const calendar = seq.Calendar_40Day || "";
+
+            // Identify all flight days (where Calendar_40Day has '1')
+            const flightDays: number[] = [];
+            for (let i = 0; i < calendar.length; i++) {
+                if (calendar[i] == "1") {
+                    flightDays.push(i + 1); // position is 1-based
+                }
+            }
+
+            // ✅ Correctly group legs by day using EOD flag
+            const dayWiseLegs: any[] = [];
+            let currentDayLegs: any[] = [];
+            let dayCounter = 1;
+
+            seqLegs.forEach((leg: any, idx: number) => {
+                currentDayLegs.push({
+                    legNo: leg.SeqLegNo,
+                    dept: leg.DeptStn,
+                    arrv: leg.ArrvStn,
+                    flightNo: leg.FitNo,
+                    eod: leg.EOD == 1
+                });
+
+                // 👉 Split when EOD = 1
+                if (leg.EOD == 1) {
+                    dayWiseLegs.push({
+                        day: dayCounter,
+                        legs: currentDayLegs
+                    });
+                    currentDayLegs = [];
+                    dayCounter++;
+                }
+            });
+
+            // 👉 Add any remaining legs (in case last leg doesn't have EOD = 1)
+            if (currentDayLegs.length > 0) {
+                dayWiseLegs.push({
+                    day: dayCounter,
+                    legs: currentDayLegs
+                });
+            }
+
+            // ---- Calculate pay info ----
             let totalPayMinutes = 0;
             let totalCreditMinutes = 0;
             seqLegs.forEach(l => {
@@ -342,20 +537,17 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
                 totalCreditMinutes += (l.LegTotalFlying ?? 0);
             });
 
-            // Last arrival
             const lastArrvStn = seqLegs.length > 0 ? seqLegs[seqLegs.length - 1].ArrvStn : null;
 
-            // Per diem
             const perDiemRate = perDiemRates[seq.SeqCategory] ?? 0;
             const tafMinutes = seq.TAFB ?? 0;
             const tafPerDiem = (tafMinutes / 60) * perDiemRate;
-
-            // Earnings
             const flightPay = (totalPayMinutes / 60) * baseRate;
             const creditPay = (totalCreditMinutes / 60) * baseRate;
             const premiumPay = ((seq.SeqPremTime ?? 0) / 60) * baseRate;
             const totalEarnings = flightPay + tafPerDiem + premiumPay;
 
+            // ✅ Final structured sequence
             return {
                 seqNo: seq.SeqNo,
                 crewBase: seq.CrewBase,
@@ -368,11 +560,15 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
                 seqCrewPos: seq.SeqCrewPos,
                 slots: normalizeSeqCrewPos(seq.SeqCrewPos),
                 lastArrvStn,
-                boardings: seq.NBR_Legs,
                 payHours: formatMinutes(totalPayMinutes),
                 creditHours: formatMinutes(totalCreditMinutes),
                 tafb: formatMinutes(seq.TAFB),
                 seqPremiumTime: toHHmm(seq.SeqPremTime),
+
+                // 🆕 Flight day details
+                totalFlyingDays: flightDays.length,
+                flightDays,
+                dayWiseLegs,
 
                 earnings: {
                     yearsOfService,
@@ -386,6 +582,7 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
                     totalEarnings: totalEarnings.toFixed(2)
                 },
 
+                // All legs (detailed)
                 legs: seqLegs.map((leg: any) => ({
                     seqNo: leg.SeqNo,
                     seqLegNo: leg.SeqLegNo,
@@ -402,13 +599,15 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
             };
         });
 
-        // 5) Separate completed vs upcoming
+
+        // 6️⃣ Separate completed vs upcoming
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const completedSequences = sequences.filter(seq => new Date(seq.effDate) < today);
         const upcomingSequences = sequences.filter(seq => new Date(seq.effDate) >= today);
         const effDates = sequences.map(seq => dateKey(seq.effDate));
 
+        // ✅ Final response
         return res.status(200).json({
             message: "Sequence(s) & legs fetched successfully",
             sequences,
@@ -471,7 +670,6 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
         AND (BidMonth = @bidMonth OR BidMonth = @prevBidMonth)
     `);
 
-
         const userSequences = userSeqResult.recordset;
         // return res.json({prevBidMonth: prevBidMonth, userSequence: userSequences})
         if (!userSequences || userSequences.length === 0) {
@@ -481,7 +679,6 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
         const currentMonthSeqs = userSequences.filter(s => s.BidMonth === bidMonth);
         const prevMonthSeqs = userSequences.filter(s => s.BidMonth === prevBidMonth);
         // return res.json({prevMonthSeqs:prevMonthSeqs})
-
 
         const sequences: any[] = [];
 
@@ -565,7 +762,7 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
 
         const prevSequences: any[] = [];
 
-        for (const seq of prevMonthSeqs) {
+        for (const seq of currentMonthSeqs) {
             const legsResult = await pool.request()
                 .input("userSequenceId", sql.UniqueIdentifier, seq.UserSequenceID)
                 .query(`
@@ -647,7 +844,9 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        const upcomingSequences = sequences.filter(s => new Date(s.EffDate) >= today);
+        // const upcomingSequences = sequences.filter(s => new Date(s.EffDate) >= today);
+        // const upcomingSequences = sequences.filter(seq => new Date(seq.effDate) < today || new Date(seq.effDate) >= today);
+        const upcomingSequences = sequences;
 
         // ✅ Total = sum of all upcoming sequences
         const totalEarnings = upcomingSequences.reduce(
@@ -927,77 +1126,77 @@ export const basePay = async (req: Request, res: Response): Promise<any> => {
 }
 
 export const deleteSequence = async (req: Request, res: Response): Promise<any> => {
-  try {
-    const { userId, seqNo, bidMonth } = req.body;
+    try {
+        const { userId, seqNo, bidMonth } = req.body;
 
-    if (!userId || !seqNo || !bidMonth) {
-      return res
-        .status(StatusCode.BAD_REQUEST || 400)
-        .json({ message: "userId, seqNo, and bidMonth are required." });
-    }
+        if (!userId || !seqNo || !bidMonth) {
+            return res
+                .status(StatusCode.BAD_REQUEST || 400)
+                .json({ message: "userId, seqNo, and bidMonth are required." });
+        }
 
-    const pool = await getPool();
+        const pool = await getPool();
 
-    // Step 1: Fetch the UserSequenceID for validation
-    const { recordset: sequenceResult } = await pool
-      .request()
-      .input("UserID", userId)
-      .input("SeqNo", seqNo)
-      .input("BidMonth", bidMonth)
-      .query(`
+        // Step 1: Fetch the UserSequenceID for validation
+        const { recordset: sequenceResult } = await pool
+            .request()
+            .input("UserID", userId)
+            .input("SeqNo", seqNo)
+            .input("BidMonth", bidMonth)
+            .query(`
         SELECT TOP 1 UserSequenceID 
         FROM UserSequence 
         WHERE UserID = @UserID AND SeqNo = @SeqNo AND BidMonth = @BidMonth
       `);
 
-    if (sequenceResult.length === 0) {
-      return res
-        .status(StatusCode.NOT_FOUND || 404)
-        .json({ message: "No sequence found for this user." });
+        if (sequenceResult.length === 0) {
+            return res
+                .status(StatusCode.NOT_FOUND || 404)
+                .json({ message: "No sequence found for this user." });
+        }
+
+        const userSequenceId = sequenceResult[0].UserSequenceID;
+
+        // Step 2: Begin transaction
+        const transaction = pool.transaction();
+        await transaction.begin();
+
+        try {
+            // Step 3: Delete associated UserLegs (new request)
+            await transaction
+                .request()
+                .input("UserSequenceID", userSequenceId)
+                .query(`DELETE FROM UserLeg WHERE UserSequenceID = @UserSequenceID`);
+
+            // Step 4: Delete the UserSequence (new request)
+            await transaction
+                .request()
+                .input("UserSequenceID", userSequenceId)
+                .query(`DELETE FROM UserSequence WHERE UserSequenceID = @UserSequenceID`);
+
+            // Step 5: Commit transaction
+            await transaction.commit();
+
+            console.log(`✅ Sequence ${userSequenceId} and its legs deleted successfully.`);
+
+            return res.status(StatusCode.OK || 200).json({
+                message: "Sequence and its associated legs deleted successfully."
+            });
+        } catch (innerError: any) {
+            await transaction.rollback();
+            console.error("❌ Transaction rolled back:", innerError);
+            return res.status(StatusCode.INTERNAL_SERVER_ERROR || 500).json({
+                message: Messages.INTERNAL_SERVER_ERROR || "Internal Server Error",
+                error: innerError.message
+            });
+        }
+    } catch (error: any) {
+        console.error("Error in deleteSequence:", error);
+        return res.status(StatusCode.INTERNAL_SERVER_ERROR || 500).json({
+            message: Messages.INTERNAL_SERVER_ERROR || "Internal Server Error",
+            error: error.message
+        });
     }
-
-    const userSequenceId = sequenceResult[0].UserSequenceID;
-
-    // Step 2: Begin transaction
-    const transaction = pool.transaction();
-    await transaction.begin();
-
-    try {
-      // Step 3: Delete associated UserLegs (new request)
-      await transaction
-        .request()
-        .input("UserSequenceID", userSequenceId)
-        .query(`DELETE FROM UserLeg WHERE UserSequenceID = @UserSequenceID`);
-
-      // Step 4: Delete the UserSequence (new request)
-      await transaction
-        .request()
-        .input("UserSequenceID", userSequenceId)
-        .query(`DELETE FROM UserSequence WHERE UserSequenceID = @UserSequenceID`);
-
-      // Step 5: Commit transaction
-      await transaction.commit();
-
-      console.log(`✅ Sequence ${userSequenceId} and its legs deleted successfully.`);
-
-      return res.status(StatusCode.OK || 200).json({
-        message: "Sequence and its associated legs deleted successfully."
-      });
-    } catch (innerError: any) {
-      await transaction.rollback();
-      console.error("❌ Transaction rolled back:", innerError);
-      return res.status(StatusCode.INTERNAL_SERVER_ERROR || 500).json({
-        message: Messages.INTERNAL_SERVER_ERROR || "Internal Server Error",
-        error: innerError.message
-      });
-    }
-  } catch (error: any) {
-    console.error("Error in deleteSequence:", error);
-    return res.status(StatusCode.INTERNAL_SERVER_ERROR || 500).json({
-      message: Messages.INTERNAL_SERVER_ERROR || "Internal Server Error",
-      error: error.message
-    });
-  }
 };
 // flight stubs
 

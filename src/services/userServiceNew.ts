@@ -399,33 +399,219 @@ const getYearsOfService = (hireDate: Date, today = new Date()): number => {
   return years + 1;
 };
 
+// export const getCrewPayDetails = async (crewId: number) => {
+//   const pool = await getPool();
+
+//   // 1. Get crew hireDate
+//   const crewResult = await pool.request()
+//     .input("crewId", sql.Int, crewId)
+//     .query(`
+//       SELECT OccDate
+//       FROM Roster
+//       WHERE CrewId = @crewId
+//     `);
+
+//   const crew = crewResult.recordset[0];
+
+//   if (!crew) {
+//     return { basePay: null, yearsOfService: null, moreThan13Years: false, note: "Crew not found" };
+//   }
+
+//   if (!crew.OccDate) {
+//     return { basePay: null, yearsOfService: null, moreThan13Years: false, note: "Hire date not provided" };
+//   }
+
+//   // 2. Calculate years of service
+//   const yearsOfService = getYearsOfService(new Date(crew.OccDate));
+//   const cappedYears = Math.min(yearsOfService, 13);
+
+//   // 3. Get base pay for cappedYears
+//   const basePayResult = await pool.request()
+//     .input("YearsOfService", sql.Int, cappedYears)
+//     .query(`
+//       SELECT TOP 1 *
+//       FROM BasePay
+//       WHERE YearsOfService = @YearsOfService
+//     `);
+
+//   const basePay = basePayResult.recordset[0] || null;
+
+//   return {
+//     basePay,
+//     yearsOfService,
+//     moreThan13Years: yearsOfService > 13,
+//     note: basePay ? null : "Base pay not found for this level of service"
+//   };
+// };
+// old
+// export const getCrewPayDetails = async (crewId: number) => {
+//   const pool = await getPool();
+
+//   // 1️⃣ Get current crew details
+//   const crewResult = await pool.request()
+//     .input("crewId", sql.Int, crewId)
+//     .query(`
+//       SELECT CrewId, OccDate, Base
+//       FROM Roster
+//       WHERE CrewId = @crewId
+//     `);
+
+//   const crew = crewResult.recordset[0];
+//   if (!crew || !crew.OccDate) {
+//     return {
+//       basePay: null,
+//       yearsOfService: null,
+//       companySeniority: null,
+//       aaSeniority: null,
+//       note: "Crew not found or OccDate missing"
+//     };
+//   }
+
+//   // 2️⃣ Compute this crew's years of service
+//   const yearsOfService = getYearsOfService(new Date(crew.OccDate));
+
+//   // 3️⃣ Compute Company Seniority (simple capped %)
+//   const companySeniorityPct = Math.min((yearsOfService / 13) * 100, 100).toFixed(2);
+
+//   // 4️⃣ Get all crews in the same base
+//   const baseCrewResult = await pool.request()
+//     .input("Base", sql.VarChar, crew.Base)
+//     .query(`
+//       SELECT CrewId, OccDate
+//       FROM Roster
+//       WHERE Base = @Base AND OccDate IS NOT NULL
+//     `);
+
+//   const baseCrews = baseCrewResult.recordset;
+
+//   // 5️⃣ Compute each crew’s years of service
+//   const allBaseYears = baseCrews.map(c => ({
+//     crewId: c.CrewId,
+//     years: getYearsOfService(new Date(c.OccDate))
+//   }));
+
+//   // Sort descending (most experienced first)
+//   allBaseYears.sort((a, b) => b.years - a.years);
+
+//   // Find position of current crew
+//   const index = allBaseYears.findIndex(c => c.crewId === crew.CrewId);
+
+//   // 6️⃣ Calculate AA seniority percentage
+//   const total = allBaseYears.length;
+//   let aaSeniorityPct = 0;
+//   if (index !== -1 && total > 1) {
+//     // How many people have less experience than this crew
+//     const below = total - index - 1;
+//     aaSeniorityPct = Number(((below / (total - 1)) * 100).toFixed(2));
+//   }
+
+//   // 7️⃣ Get base pay based on capped years
+//   const cappedYears = Math.min(yearsOfService, 13);
+//   const basePayResult = await pool.request()
+//     .input("YearsOfService", sql.Int, cappedYears)
+//     .query(`
+//       SELECT TOP 1 *
+//       FROM BasePay
+//       WHERE YearsOfService = @YearsOfService
+//     `);
+
+//   const basePay = basePayResult.recordset[0] || null;
+
+//   // 8️⃣ Return final structured result
+//   return {
+//     basePay,
+//     yearsOfService,
+//     companySeniority: {
+//       percentage: companySeniorityPct,
+//       moreThan13Years: yearsOfService > 13
+//     },
+//     aaSeniority: {
+//       base: crew.Base,
+//       rank: index + 1,
+//       totalInBase: total,
+//       percentage: aaSeniorityPct
+//     },
+//     note: basePay ? null : "Base pay not found for this level of service"
+//   };
+// };
+
+// new
 export const getCrewPayDetails = async (crewId: number) => {
   const pool = await getPool();
 
-  // 1. Get crew hireDate
+  // 1️⃣ Get current crew details
   const crewResult = await pool.request()
     .input("crewId", sql.Int, crewId)
     .query(`
-      SELECT OccDate
+      SELECT CrewId, OccDate, Base
       FROM Roster
       WHERE CrewId = @crewId
     `);
 
   const crew = crewResult.recordset[0];
-
-  if (!crew) {
-    return { basePay: null, yearsOfService: null, moreThan13Years: false, note: "Crew not found" };
+  if (!crew || !crew.OccDate) {
+    return {
+      basePay: null,
+      yearsOfService: null,
+      companySeniority: null,
+      aaSeniority: null,
+      note: "Crew not found or OccDate missing"
+    };
   }
 
-  if (!crew.OccDate) {
-    return { basePay: null, yearsOfService: null, moreThan13Years: false, note: "Hire date not provided" };
-  }
-
-  // 2. Calculate years of service
+  // 2️⃣ Compute current crew's years of service
   const yearsOfService = getYearsOfService(new Date(crew.OccDate));
-  const cappedYears = Math.min(yearsOfService, 13);
 
-  // 3. Get base pay for cappedYears
+  // 3️⃣ Get all crews (for company seniority)
+  const allCrewResult = await pool.request().query(`
+    SELECT CrewId, OccDate
+    FROM Roster
+    WHERE OccDate IS NOT NULL
+  `);
+  const allCrews = allCrewResult.recordset.map(c => ({
+    crewId: c.CrewId,
+    years: getYearsOfService(new Date(c.OccDate))
+  }));
+
+  // Sort descending (most experienced first)
+  allCrews.sort((a, b) => b.years - a.years);
+
+  const companyIndex = allCrews.findIndex(c => c.crewId === crew.CrewId);
+  const totalCompany = allCrews.length;
+  let companySeniorityPct = 0;
+
+  if (companyIndex !== -1 && totalCompany > 1) {
+    const below = totalCompany - companyIndex - 1;
+    companySeniorityPct = Number(((below / (totalCompany - 1)) * 100).toFixed(2));
+  }
+
+  // 4️⃣ Get all crews in same base (for AA seniority)
+  const baseCrewResult = await pool.request()
+    .input("Base", sql.VarChar, crew.Base)
+    .query(`
+      SELECT CrewId, OccDate
+      FROM Roster
+      WHERE Base = @Base AND OccDate IS NOT NULL
+    `);
+
+  const baseCrews = baseCrewResult.recordset.map(c => ({
+    crewId: c.CrewId,
+    years: getYearsOfService(new Date(c.OccDate))
+  }));
+
+  baseCrews.sort((a, b) => b.years - a.years);
+
+  const aaIndex = baseCrews.findIndex(c => c.crewId === crew.CrewId);
+  const totalBase = baseCrews.length;
+  let aaSeniorityPct = 0;
+
+  if (aaIndex !== -1 && totalBase > 1) {
+    const below = totalBase - aaIndex - 1;
+    aaSeniorityPct = Number(((below / (totalBase - 1)) * 100).toFixed(2));
+  }
+
+  // 5️⃣ Get base pay based on capped years
+  const cappedYears = Math.min(yearsOfService, 13);
   const basePayResult = await pool.request()
     .input("YearsOfService", sql.Int, cappedYears)
     .query(`
@@ -436,10 +622,21 @@ export const getCrewPayDetails = async (crewId: number) => {
 
   const basePay = basePayResult.recordset[0] || null;
 
+  // 6️⃣ Return final structured result
   return {
     basePay,
     yearsOfService,
-    moreThan13Years: yearsOfService > 13,
+    companySeniority: {
+      rank: companyIndex + 1,
+      totalInCompany: totalCompany,
+      percentage: companySeniorityPct
+    },
+    aaSeniority: {
+      base: crew.Base,
+      rank: aaIndex + 1,
+      totalInBase: totalBase,
+      percentage: aaSeniorityPct
+    },
     note: basePay ? null : "Base pay not found for this level of service"
   };
 };
