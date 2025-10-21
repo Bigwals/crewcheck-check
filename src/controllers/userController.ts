@@ -1320,42 +1320,42 @@ export const deleteSequence = async (req: Request, res: Response): Promise<any> 
 // };
 
 // new
-// export const getStubs = async (req: Request, res: Response): Promise<any> => {
-//     try {
-//         const { flightNumber, date } = req.params; // e.g., "UAL4", "2025-10-05"
-//         if (!flightNumber || !date) {
-//             return res.status(400).json({ success: false, message: "flightNumber and date are required" });
-//         }
+export const getStubs = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const { flightNumber, date } = req.params; // e.g., "UAL4", "2025-10-05"
+        if (!flightNumber || !date) {
+            return res.status(400).json({ success: false, message: "flightNumber and date are required" });
+        }
 
-//         const FLIGHTAWARE_BASE_URL = "https://aeroapi.flightaware.com/aeroapi";
-//         const API_KEY = process.env.FLIGHTAWARE_API_KEY;
+        const FLIGHTAWARE_BASE_URL = "https://aeroapi.flightaware.com/aeroapi";
+        const API_KEY = process.env.FLIGHTAWARE_API_KEY;
 
-//         const start = `${date}T00:00:00Z`;
-//         const end = `${date}T23:59:59Z`;
+        const start = `${date}T00:00:00Z`;
+        const end = `${date}T23:59:59Z`;
 
-//         const response = await axios.get(`${FLIGHTAWARE_BASE_URL}/flights/${flightNumber}`, {
-//             params: { start, end },
-//             headers: {
-//                 "x-apikey": API_KEY,
-//                 "Accept": "application/json",
-//             },
-//         });
+        const response = await axios.get(`${FLIGHTAWARE_BASE_URL}/flights/${flightNumber}`, {
+            params: { start, end },
+            headers: {
+                "x-apikey": API_KEY,
+                "Accept": "application/json",
+            },
+        });
 
-//         return res.status(200).json({
-//             success: true,
-//             message: "Flight stubs fetched successfully",
-//             data: response.data.flights || [],
-//         });
+        return res.status(200).json({
+            success: true,
+            message: "Flight stubs fetched successfully",
+            data: response.data.flights || [],
+        });
 
-//     } catch (error: any) {
-//         console.error("Error fetching flight stubs:", error.response?.data || error.message);
-//         return res.status(error.response?.status || 500).json({
-//             success: false,
-//             message: "Failed to fetch flight stubs",
-//             error: error.response?.data || error.message,
-//         });
-//     }
-// };
+    } catch (error: any) {
+        console.error("Error fetching flight stubs:", error.response?.data || error.message);
+        return res.status(error.response?.status || 500).json({
+            success: false,
+            message: "Failed to fetch flight stubs",
+            error: error.response?.data || error.message,
+        });
+    }
+};
 
 // helper functions
 const formatMinutes = (mins: number) => {

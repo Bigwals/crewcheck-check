@@ -2,7 +2,7 @@ import { Router } from 'express';
 import {
     getProfile, getCrewBaseRanking, uploadAvatar, changePassword, sequenceWithLegs, sequence,
     filterByDate, applyPosition, basePay, updateReserve, deleteSequence,
-    //  getStubs
+     getStubs
     } from '../controllers/userController';
 import { authenticate } from '../middlewares/authMiddleware';
 import { upload } from '../middlewares/upload';
@@ -26,6 +26,6 @@ router.delete('/delete-sequence', authenticate, deleteSequence)
 router.get('/base-pay', authenticate, basePay)
 router.patch('/update-reserve', authenticate, updateReserve);
 
-// router.get('/get-stubs/:flightNumber', getStubs);
+router.get('/get-stubs/:flightNumber', getStubs);
 
 export default router;
