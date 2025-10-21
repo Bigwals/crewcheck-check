@@ -1296,29 +1296,6 @@ export const deleteSequence = async (req: Request, res: Response): Promise<any> 
 
 // === API endpoint to test manually in Postman ===
 
-// old
-// export const getStubs = async (req: Request, res: Response): Promise<any> => {
-//     try {
-//         const { flightNumber } = req.params;
-//         if (!flightNumber)
-//             return res.status(400).json({ success: false, message: "flightNumber is required" });
-
-//         const stubs = await fetchFlightStubs(flightNumber);
-//         return res.status(200).json({
-//             success: true,
-//             message: "Flight stubs fetched successfully",
-//             data: stubs,
-//         });
-//     } catch (error: any) {
-//         console.error("Error fetching flight stubs:", error.response?.data || error.message);
-//         return res.status(error.response?.status || 500).json({
-//             success: false,
-//             message: "Failed to fetch flight stubs",
-//             error: error.response?.data || error.message,
-//         });
-//     }
-// };
-
 // new
 export const getStubs = async (req: Request, res: Response): Promise<any> => {
     try {
