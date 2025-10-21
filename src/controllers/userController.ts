@@ -503,11 +503,22 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
 
             seqLegs.forEach((leg: any, idx: number) => {
                 currentDayLegs.push({
-                    legNo: leg.SeqLegNo,
-                    dept: leg.DeptStn,
-                    arrv: leg.ArrvStn,
+                    // legNo: leg.SeqLegNo,
+                    // dept: leg.DeptStn,
+                    // arrv: leg.ArrvStn,
+                    // flightNo: leg.FitNo,    
+                    // eod: leg.EOD == 1
+                    seqNo: leg.SeqNo,
+                    seqLegNo: leg.SeqLegNo,
+                    departure: leg.DeptStn,
+                    arrival: leg.ArrvStn,
                     flightNo: leg.FitNo,
-                    eod: leg.EOD == 1
+                    dptTime: toHHmm(leg.DptTime),
+                    arvTime: toHHmm(leg.ArvTime),
+                    flyingHours: formatMinutes(leg.LegTotalFlying),
+                    legPc: leg.LegPC,
+                    layover: leg.Layover ? formatMinutes(leg.Layover) : null,
+                    eod: leg.EOD
                 });
 
                 // 👉 Split when EOD = 1
@@ -844,9 +855,10 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        // const upcomingSequences = sequences.filter(s => new Date(s.EffDate) >= today);
+        const upcomingSequences = sequences.filter(s => new Date(s.EffDate) >= today);
+        const completedSequences = sequences.filter(s => new Date(s.EffDate) < today);
         // const upcomingSequences = sequences.filter(seq => new Date(seq.effDate) < today || new Date(seq.effDate) >= today);
-        const upcomingSequences = sequences;
+        // const upcomingSequences = sequences;
 
         // ✅ Total = sum of all upcoming sequences
         const totalEarnings = upcomingSequences.reduce(
@@ -862,6 +874,8 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
         let seqPremiumTime = 0;
         let boardings = 0;
 
+        let completedSequencesTotalEarnings = 0;
+
         const todaySequences = upcomingSequences.filter(s => {
             const eff = new Date(s.EffDate);
             eff.setHours(0, 0, 0, 0);
@@ -872,6 +886,10 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
             // if multiple sequences today, sum them
             upcomingEarnings = todaySequences.reduce(
                 (sum, s) => sum + parseFloat(s.earnings.totalSequenceEarnings || 0),
+                0
+            );
+            completedSequencesTotalEarnings = completedSequences.reduce(
+                (sum, s) => sum + parseFloat(s.earnings.totalSequenceEarnings),
                 0
             );
 
@@ -892,15 +910,15 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
             boardings,
             upcoming: upcomingEarnings,
             total: totalEarnings,
-            display: `$${upcomingEarnings}/$${totalEarnings}`
+            display: `$${upcomingEarnings}/$${upcomingEarnings + completedSequencesTotalEarnings}`
         };
 
-        const completedSequences = sequences.filter(s => new Date(s.EffDate) < today);
+        // const completedSequences = sequences.filter(s => new Date(s.EffDate) < today);
         // ✅ Completed sequences total
-        const completedSequencesTotalEarnings = completedSequences.reduce(
-            (sum, s) => sum + parseFloat(s.earnings.totalSequenceEarnings),
-            0
-        );
+        // let completedSequencesTotalEarnings = completedSequences.reduce(
+        //     (sum, s) => sum + parseFloat(s.earnings.totalSequenceEarnings),
+        //     0
+        // );
         const completedPayHours = completedSequences.reduce(
             (sum, s) => sum + parseFloat(s.payHours),
             0
