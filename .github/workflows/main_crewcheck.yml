@@ -50,5 +50,6 @@ jobs:
         with:
           app-name: 'crewcheck'
           slot-name: 'Production'
-          package: .
+          package: ./dist
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_8DE87E928DDC4520876E1B846098CE9B }}
+
