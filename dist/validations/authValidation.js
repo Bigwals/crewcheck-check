@@ -8,8 +8,13 @@ exports.registerSchema = zod_1.z.object({
     firstName: zod_1.z.string().min(1, "firstName is Required"),
     lastName: zod_1.z.string().min(1, "lastName is Required"),
     telephone: zod_1.z.string().min(1, "telephone is Required"),
-    commuterAirportCode: zod_1.z.string().min(1, "commuterAirportCode is Required"),
+    purser: zod_1.z.string().min(1, "purser is Required").optional(),
+    speaker: zod_1.z.string().min(1, "speaker is Required").optional(),
+    languages: zod_1.z.array(zod_1.z.number()).min(1, "At least one language is required" // FIX: Changed error message
+    ).optional(),
+    // commuterAirportCode: z.string().min(1, "commuterAirportCode is Required"),
     email: zod_1.z.string().email().min(1, "email is Required"),
+    deviceToken: zod_1.z.string().min(1, "device is Required"),
     // password: z.string().min(6).min(1, "Password is Required"),
 });
 exports.loginSchema = exports.registerSchema;

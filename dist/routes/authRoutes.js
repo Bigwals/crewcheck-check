@@ -11,4 +11,5 @@ router.post('/resend-otp', authController_1.resendOtp);
 router.post('/forgot-password', authController_1.forgotPassword);
 // router.post('/send-password', sendPasswordOnEmail);
 router.post('/reset-password', authController_1.resetPassword);
+router.get('/get-languages', authController_1.getLanguages);
 exports.default = router;

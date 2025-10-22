@@ -7,7 +7,6 @@ const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
 const morgan_1 = __importDefault(require("morgan"));
 const routes_1 = __importDefault(require("./routes"));
-// import errorHandler from './middlewares/error.middleware';
 const app = (0, express_1.default)();
 app.use((0, cors_1.default)());
 app.use(express_1.default.json());
@@ -16,6 +15,8 @@ app.use('/uploads', express_1.default.static('uploads'));
 app.get('/', (req, res) => {
     res.send('Welcome to Crew-Check-Backend');
 });
+// ✅ Start cronjob
+// startSequenceJob();
 // app.use('/api/v1/auth', authRoutes);
 // app.use('/api/v1/user', userRoutes);
 app.use('/api/v1', routes_1.default);

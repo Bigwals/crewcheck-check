@@ -1,23 +1,10 @@
 "use strict";
-// import mongoose from 'mongoose';
-// import dotenv from 'dotenv';
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.sql = void 0;
 exports.getPool = getPool;
-// dotenv.config();
-// const connectDB = async () => {
-//     try {
-//         const conn = await mongoose.connect(process.env.MONGODB_URI as string);
-//         console.log(`MongoDB connected: ${conn.connection.host}`);
-//     } catch (error) {
-//         console.error(`MongoDB connection error: ${(error as Error).message}`);
-//         process.exit(1); // Exit process with failure
-//     }
-// };
-// export default connectDB;
 // src/db.ts
 const mssql_1 = __importDefault(require("mssql"));
 exports.sql = mssql_1.default;
@@ -27,7 +14,12 @@ const config = {
     server: process.env.AZURE_SQL_SERVER,
     database: process.env.AZURE_SQL_DATABASE,
     user: process.env.AZURE_SQL_USER,
+    // user: "serveradmin@cc-sqlserver0401",
     password: process.env.AZURE_SQL_PASSWORD,
+    // user: "serveradmin@cc-sqlserver0401",
+    // password: process.env.AZURE_SQL_PASSWORD,
+    // server: "cc-sqlserver0401.database.windows.net", // full FQDN
+    // database: process.env.AZURE_SQL_DATABASE,
     port: Number(process.env.AZURE_SQL_PORT || 1433),
     options: {
         encrypt: true, // REQUIRED for Azure SQL
@@ -40,6 +32,7 @@ const config = {
         idleTimeoutMillis: 30000,
     },
 };
+console.log("SQL Connection", process.env.AZURE_SQL_USER);
 let pool = null;
 async function getPool() {
     if (pool && pool.connected)
