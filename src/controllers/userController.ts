@@ -503,11 +503,6 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
 
             seqLegs.forEach((leg: any, idx: number) => {
                 currentDayLegs.push({
-                    // legNo: leg.SeqLegNo,
-                    // dept: leg.DeptStn,
-                    // arrv: leg.ArrvStn,
-                    // flightNo: leg.FitNo,    
-                    // eod: leg.EOD == 1
                     seqNo: leg.SeqNo,
                     seqLegNo: leg.SeqLegNo,
                     departure: leg.DeptStn,
@@ -691,21 +686,142 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
         const prevMonthSeqs = userSequences.filter(s => s.BidMonth === prevBidMonth);
         // return res.json({prevMonthSeqs:prevMonthSeqs})
 
+        // const sequences: any[] = [];
+
+        // // 2) Process each sequence
+        // for (const seq of currentMonthSeqs) {
+        //     const legsResult = await pool.request()
+        //         .input("userSequenceId", sql.UniqueIdentifier, seq.UserSequenceID)
+        //         .query(`
+        //                 SELECT *
+        //                 FROM dbo.UserLeg
+        //                 WHERE UserSequenceID = @userSequenceId
+        //             `);
+
+        //     const seqLegs = legsResult.recordset || [];
+
+        //     // Totals
+        //     let totalPayMinutes = 0;
+        //     let totalCreditMinutes = 0;
+        //     seqLegs.forEach(l => {
+        //         totalPayMinutes += (l.LegTotalFlying ?? 0) + (l.LegPC ?? 0);
+        //         totalCreditMinutes += (l.LegTotalFlying ?? 0);
+        //     });
+
+        //     const lastArrvStn = seqLegs.length > 0 ? seqLegs[seqLegs.length - 1].ArrvStn : null;
+
+        //     // const yearsOfService = 1; // Replace with logic
+
+        //     const service = crewId ? await getCrewPayDetails(crewId) : null;
+        //     const yearsOfService = service?.basePay?.YearsOfService ?? 1;
+        //     const basePayMap: Record<number, number> = {
+        //         1: 35.82, 2: 37.97, 3: 40.40, 4: 43.03, 5: 47.39,
+        //         6: 53.67, 7: 59.21, 8: 61.11, 9: 62.80, 10: 65.15,
+        //         11: 66.94, 12: 70.12, 13: 82.24
+        //     };
+        //     const baseRate = basePayMap[yearsOfService] ?? 0;
+
+        //     const perDiemRates: Record<string, number> = { DOM: 2.5, INT: 3.75 };
+        //     const perDiemRate = perDiemRates[seq.SeqCategory] ?? 0;
+        //     const tafMinutes = seq.TAFB ?? 0;
+        //     const tafPerDiem = (tafMinutes / 60) * perDiemRate;
+
+        //     const flightPay = (totalPayMinutes / 60) * baseRate;
+        //     const creditPay = (totalCreditMinutes / 60) * baseRate;
+        //     const premiumPay = ((seq.SeqPremTime ?? 0) / 60) * baseRate;
+        //     const totalSequenceEarnings = flightPay + tafPerDiem + premiumPay;
+
+        //     sequences.push({
+        //         ...seq,
+        //         lastArrvStn,
+        //         slots: normalizeSeqCrewPos(seq.SeqCrewPos),
+        //         payHours: formatMinutes(totalPayMinutes),
+        //         creditHours: formatMinutes(totalCreditMinutes),
+        //         tafb: formatMinutes(seq.TAFB),
+        //         seqPremiumTime: toHHmm(seq.SeqPremTime),
+        //         earnings: {
+        //             yearsOfService,
+        //             baseRate,
+        //             perDiemRate,
+        //             tafMinutes,
+        //             tafPerDiem: tafPerDiem.toFixed(2),
+        //             flightPay: flightPay.toFixed(2),
+        //             creditPay: creditPay.toFixed(2),
+        //             premiumPay: premiumPay.toFixed(2),
+        //             totalSequenceEarnings: totalSequenceEarnings.toFixed(2)
+        //         },
+        //         legs: seqLegs.map((leg: any) => ({
+        //             seqNo: leg.SeqNo,
+        //             seqLegNo: leg.SeqLegNo,
+        //             departure: leg.DeptStn,
+        //             arrival: leg.ArrvStn,
+        //             flightNo: leg.FitNo,
+        //             dptTime: toHHmm(leg.DptTime),
+        //             arvTime: toHHmm(leg.ArvTime),
+        //             flyingHours: formatMinutes(leg.LegTotalFlying),
+        //             legPc: leg.LegPC,
+        //             layover: leg.LayoverTime ? formatMinutes(leg.LayoverTime) : null,
+        //             eod: leg.EOD
+        //         }))
+        //     });
+        // }
+
+        // new
         const sequences: any[] = [];
 
-        // 2) Process each sequence
         for (const seq of currentMonthSeqs) {
             const legsResult = await pool.request()
                 .input("userSequenceId", sql.UniqueIdentifier, seq.UserSequenceID)
                 .query(`
-                        SELECT *
-                        FROM dbo.UserLeg
-                        WHERE UserSequenceID = @userSequenceId
-                    `);
+            SELECT *
+            FROM dbo.UserLeg
+            WHERE UserSequenceID = @userSequenceId
+        `);
 
             const seqLegs = legsResult.recordset || [];
 
-            // Totals
+            // ---- Handle Calendar_40Day ----
+            const effDate = new Date(seq.EffDate);
+            const calendar = seq.Calendar_40Day || "";
+
+            // Identify all flight days (where Calendar_40Day has '1')
+            const flightDays: number[] = [];
+            for (let i = 0; i < calendar.length; i++) {
+                if (calendar[i] === "1") flightDays.push(i + 1);
+            }
+
+            // ✅ Group legs by day using EOD flag
+            const dayWiseLegs: any[] = [];
+            let currentDayLegs: any[] = [];
+            let dayCounter = 1;
+
+            seqLegs.forEach((leg: any) => {
+                currentDayLegs.push({
+                    seqNo: leg.SeqNo,
+                    seqLegNo: leg.SeqLegNo,
+                    departure: leg.DeptStn,
+                    arrival: leg.ArrvStn,
+                    flightNo: leg.FitNo,
+                    dptTime: toHHmm(leg.DptTime),
+                    arvTime: toHHmm(leg.ArvTime),
+                    flyingHours: formatMinutes(leg.LegTotalFlying),
+                    legPc: leg.LegPC,
+                    layover: leg.LayoverTime ? formatMinutes(leg.LayoverTime) : null,
+                    eod: leg.EOD
+                });
+
+                if (leg.EOD == 1) {
+                    dayWiseLegs.push({ day: dayCounter, legs: currentDayLegs });
+                    currentDayLegs = [];
+                    dayCounter++;
+                }
+            });
+
+            if (currentDayLegs.length > 0) {
+                dayWiseLegs.push({ day: dayCounter, legs: currentDayLegs });
+            }
+
+            // ---- Totals ----
             let totalPayMinutes = 0;
             let totalCreditMinutes = 0;
             seqLegs.forEach(l => {
@@ -714,8 +830,6 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
             });
 
             const lastArrvStn = seqLegs.length > 0 ? seqLegs[seqLegs.length - 1].ArrvStn : null;
-
-            // const yearsOfService = 1; // Replace with logic
 
             const service = crewId ? await getCrewPayDetails(crewId) : null;
             const yearsOfService = service?.basePay?.YearsOfService ?? 1;
@@ -730,7 +844,6 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
             const perDiemRate = perDiemRates[seq.SeqCategory] ?? 0;
             const tafMinutes = seq.TAFB ?? 0;
             const tafPerDiem = (tafMinutes / 60) * perDiemRate;
-
             const flightPay = (totalPayMinutes / 60) * baseRate;
             const creditPay = (totalCreditMinutes / 60) * baseRate;
             const premiumPay = ((seq.SeqPremTime ?? 0) / 60) * baseRate;
@@ -744,6 +857,12 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
                 creditHours: formatMinutes(totalCreditMinutes),
                 tafb: formatMinutes(seq.TAFB),
                 seqPremiumTime: toHHmm(seq.SeqPremTime),
+
+                // ✅ Day/flight info added
+                totalFlyingDays: flightDays.length,
+                flightDays,
+                dayWiseLegs,
+
                 earnings: {
                     yearsOfService,
                     baseRate,
