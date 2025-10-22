@@ -692,27 +692,96 @@ const sequence = async (req, res) => {
                     flightDays.push(i + 1);
             }
             // ✅ Group legs by day using EOD flag
+            // const dayWiseLegs: any[] = [];
+            // let currentDayLegs: any[] = [];
+            // let dayCounter = 1;
+            // seqLegs.forEach((leg: any) => {
+            //     currentDayLegs.push({
+            //         seqNo: leg.SeqNo,
+            //         seqLegNo: leg.SeqLegNo,
+            //         departure: leg.DeptStn,
+            //         arrival: leg.ArrvStn,
+            //         flightNo: leg.FitNo,
+            //         dptTime: toHHmm(leg.DptTime),
+            //         arvTime: toHHmm(leg.ArvTime),
+            //         flyingHours: formatMinutes(leg.LegTotalFlying),
+            //         legPc: leg.LegPC,
+            //         layover: leg.LayoverTime ? formatMinutes(leg.LayoverTime) : null,
+            //         eod: leg.EOD
+            //     });
+            //     if (leg.EOD == 1) {
+            //         dayWiseLegs.push({ day: dayCounter, legs: currentDayLegs });
+            //         currentDayLegs = [];
+            //         dayCounter++;
+            //     }
+            // });
+            // const dayWiseLegs: any[] = [];
+            // let currentDayLegs: any[] = [];
+            // let dayCounter = 1;
+            // seqLegs.forEach((leg: any, index: number) => {
+            //     // Push current leg to current day
+            //     currentDayLegs.push({
+            //         seqNo: leg.SeqNo,
+            //         seqLegNo: leg.SeqLegNo, // ← actual sequence leg number (not reset)
+            //         departure: leg.DeptStn,
+            //         arrival: leg.ArrvStn,
+            //         flightNo: leg.FitNo,
+            //         dptTime: toHHmm(leg.DptTime),
+            //         arvTime: toHHmm(leg.ArvTime),
+            //         flyingHours: formatMinutes(leg.LegTotalFlying),
+            //         legPc: leg.LegPC,
+            //         layover: leg.LayoverTime ? formatMinutes(leg.LayoverTime) : null,
+            //         eod: leg.EOD
+            //     });
+            //     // If this leg ends the day (EOD=1) or it's the last leg overall
+            //     if (leg.EOD === 1 || index === seqLegs.length - 1) {
+            //         dayWiseLegs.push({
+            //             day: dayCounter,
+            //             legs: currentDayLegs
+            //         });
+            //         // reset for next day
+            //         currentDayLegs = [];
+            //         dayCounter++;
+            //     }
+            // });
+            // ✅ Step 1: sort legs properly by SeqLegNo
+            const sortedLegs = [...seqLegs].sort((a, b) => a.SeqLegNo - b.SeqLegNo);
+            // ✅ Step 2: now group them day-wise by EOD
             const dayWiseLegs = [];
             let currentDayLegs = [];
             let dayCounter = 1;
-            seqLegs.forEach((leg) => {
+            sortedLegs.forEach((leg, index) => {
                 currentDayLegs.push({
                     seqNo: leg.SeqNo,
                     seqLegNo: leg.SeqLegNo,
                     departure: leg.DeptStn,
                     arrival: leg.ArrvStn,
                     flightNo: leg.FitNo,
+                    fitLegNo: leg.FitLegNo,
                     dptTime: toHHmm(leg.DptTime),
                     arvTime: toHHmm(leg.ArvTime),
-                    flyingHours: formatMinutes(leg.LegTotalFlying),
+                    dptZone: leg.DptZone,
+                    arvZone: leg.ArvZone,
+                    flyingHours: formatMinutes(leg.LegTotalFlying || 0),
                     legPc: leg.LegPC,
                     layover: leg.LayoverTime ? formatMinutes(leg.LayoverTime) : null,
                     eod: leg.EOD
                 });
+                // 👉 If this leg ends the day
                 if (leg.EOD == 1) {
-                    dayWiseLegs.push({ day: dayCounter, legs: currentDayLegs });
+                    dayWiseLegs.push({
+                        day: dayCounter,
+                        legs: currentDayLegs
+                    });
                     currentDayLegs = [];
                     dayCounter++;
+                }
+                // 👉 Handle last leg (no EOD=1)
+                if (index == sortedLegs.length - 1 && currentDayLegs.length > 0) {
+                    dayWiseLegs.push({
+                        day: dayCounter,
+                        legs: currentDayLegs
+                    });
                 }
             });
             if (currentDayLegs.length > 0) {
@@ -900,30 +969,61 @@ const sequence = async (req, res) => {
         // ✅ Total = sum of all upcoming sequences
         const totalEarnings = upcomingSequences.reduce((sum, s) => sum + parseFloat(s.earnings.totalSequenceEarnings || 0), 0);
         let upcomingEarnings = 0;
-        let payHours = 0;
-        let creditHours = 0;
-        let tafb = 0;
-        let seqPremiumTime = 0;
+        let payHours = '';
+        let creditHours = '';
+        let tafb = '';
+        let seqPremiumTime = '';
         let boardings = 0;
         let completedSequencesTotalEarnings = 0;
         // ✅ Calculate all completed sequences total (always)
         completedSequencesTotalEarnings = completedSequences.reduce((sum, s) => sum + parseFloat(s.earnings.totalSequenceEarnings || 0), 0);
         // ✅ Calculate today’s sequences (optional display)
-        const todaySequences = upcomingSequences.filter(s => {
-            const eff = new Date(s.EffDate);
-            eff.setHours(0, 0, 0, 0);
-            return eff.getTime() === today.getTime();
-        });
-        if (todaySequences.length > 0) {
-            // If multiple sequences today, sum them
-            upcomingEarnings = todaySequences.reduce((sum, s) => sum + parseFloat(s.earnings.totalSequenceEarnings || 0), 0);
-            // If you want details, take the first today sequence
-            const firstTodaySeq = todaySequences[0];
-            payHours = firstTodaySeq.payHours;
-            creditHours = firstTodaySeq.creditHours;
-            tafb = firstTodaySeq.tafb;
-            seqPremiumTime = firstTodaySeq.seqPremiumTime;
-            boardings = firstTodaySeq.NBR_Legs;
+        // const todaySequences = upcomingSequences.filter(s => {
+        //     const eff = new Date(s.EffDate);
+        //     eff.setHours(0, 0, 0, 0);
+        //     return eff.getTime() === today.getTime();
+        // });
+        // if (todaySequences.length > 0) {
+        //     // If multiple sequences today, sum them
+        //     upcomingEarnings = todaySequences.reduce(
+        //         (sum, s) => sum + parseFloat(s.earnings.totalSequenceEarnings || 0),
+        //         0
+        //     );
+        //     // If you want details, take the first today sequence
+        //     const firstTodaySeq = todaySequences[0];
+        //     payHours = firstTodaySeq.payHours;
+        //     creditHours = firstTodaySeq.creditHours;
+        //     tafb = firstTodaySeq.tafb;
+        //     seqPremiumTime = firstTodaySeq.seqPremiumTime;
+        //     boardings = firstTodaySeq.NBR_Legs;
+        // }
+        if (upcomingSequences.length > 0) {
+            // 🔹 Sum total earnings across all upcoming sequences
+            const totalUpcomingEarnings = upcomingSequences.reduce((sum, s) => sum + parseFloat(s.earnings.totalSequenceEarnings || 0), 0);
+            // 🔹 Convert existing formatted hours ("Xh Ym") back to total minutes
+            const parseFormattedMinutes = (formatted) => {
+                if (!formatted)
+                    return 0;
+                const match = formatted.match(/(\d+)h\s*(\d+)m/);
+                if (!match)
+                    return 0;
+                const [, h, m] = match.map(Number);
+                return h * 60 + (m || 0);
+            };
+            // 🔹 Sum all minutes for pay, credit, tafb
+            const totalPayMinutes = upcomingSequences.reduce((sum, s) => sum + parseFormattedMinutes(s.payHours), 0);
+            const totalCreditMinutes = upcomingSequences.reduce((sum, s) => sum + parseFormattedMinutes(s.creditHours), 0);
+            const totalTafbMinutes = upcomingSequences.reduce((sum, s) => sum + parseFormattedMinutes(s.tafb), 0);
+            const totlaSeqPremiumTime = upcomingSequences.reduce((sum, s) => sum + parseFormattedMinutes(s.seqPremiumTime), 0);
+            // 🔹 Optional: sum total number of legs (boardings)
+            const totalBoardings = upcomingSequences.reduce((sum, s) => sum + (s.NBR_Legs ?? 0), 0);
+            // 🔹 Format totals back to readable strings
+            payHours = formatMinutes(totalPayMinutes);
+            creditHours = formatMinutes(totalCreditMinutes);
+            tafb = formatMinutes(totalTafbMinutes);
+            seqPremiumTime = formatMinutes(totlaSeqPremiumTime);
+            boardings = totalBoardings;
+            upcomingEarnings = totalUpcomingEarnings.toFixed(2);
         }
         // ✅ Combine past + all upcoming (future + today)
         const earningsSummary = {
@@ -942,11 +1042,41 @@ const sequence = async (req, res) => {
         //     (sum, s) => sum + parseFloat(s.earnings.totalSequenceEarnings),
         //     0
         // );
-        const completedPayHours = completedSequences.reduce((sum, s) => sum + parseFloat(s.payHours), 0);
-        const completedCreditHours = completedSequences.reduce((sum, s) => sum + parseFloat(s.creditHours), 0);
-        const completedTafb = completedSequences.reduce((sum, s) => sum + parseFloat(s.tafb), 0);
-        const completedSeqPremiumTime = completedSequences.reduce((sum, s) => sum + parseFloat(s.seqPremiumTime), 0);
-        const completedBoardings = completedSequences.reduce((sum, s) => sum + parseFloat(s.NBR_Legs), 0);
+        // let upcomingEarnings = 0;
+        let completedPayHours = '';
+        let completedCreditHours = '';
+        let completedTafb = '';
+        let completedSeqPremiumTime = '';
+        let completedBoardings = 0;
+        if (completedSequences.length > 0) {
+            const parseFormattedMinutes = (formatted) => {
+                if (!formatted)
+                    return 0;
+                const match = formatted.match(/(\d+)h\s*(\d+)m/);
+                if (!match)
+                    return 0;
+                const [, h, m] = match.map(Number);
+                return h * 60 + (m || 0);
+            };
+            const completedPayHoursTotal = completedSequences.reduce(
+            // (sum, s) => sum + parseFloat(s.payHours || 0),
+            (sum, s) => sum + parseFormattedMinutes(s.payHours || 0), 0);
+            const completedCreditHoursTotal = completedSequences.reduce(
+            // (sum, s) => sum + parseFloat(s.creditHours || 0),
+            (sum, s) => sum + parseFormattedMinutes(s.creditHours || 0), 0);
+            const completedTafbTotal = completedSequences.reduce(
+            // (sum, s) => sum + parseFloat(s.tafb || 0),
+            (sum, s) => sum + parseFormattedMinutes(s.tafb || 0), 0);
+            const completedSeqPremiumTimeTotal = completedSequences.reduce(
+            // (sum, s) => sum + parseFloat(s.seqPremiumTime || 0),
+            (sum, s) => sum + parseFormattedMinutes(s.seqPremiumTime || 0), 0);
+            completedBoardings = completedSequences.reduce((sum, s) => sum + (s.NBR_Legs ?? 0), 0);
+            // ✅ format each into hours/minutes using your formatMinutes()
+            completedPayHours = formatMinutes(completedPayHoursTotal);
+            completedCreditHours = formatMinutes(completedCreditHoursTotal);
+            completedTafb = formatMinutes(completedTafbTotal);
+            completedSeqPremiumTime = formatMinutes(completedSeqPremiumTimeTotal);
+        }
         // ✅ If you want the *last* completed sequence earnings (most recent by EffDate)
         let lastCompletedEarnings = 0;
         if (completedSequences.length > 0) {
