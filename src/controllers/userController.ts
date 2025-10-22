@@ -974,6 +974,7 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
+        // old
         // const upcomingSequences = sequences.filter(s => new Date(s.EffDate) >= today);
         // const completedSequences = sequences.filter(s => new Date(s.EffDate) < today);
 
