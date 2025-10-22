@@ -900,17 +900,6 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
         //     boardings = firstTodaySeq.NBR_Legs;
         // }
 
-        // const earningsSummary = {
-        //     payHours,
-        //     creditHours,
-        //     tafb,
-        //     seqPremiumTime,
-        //     boardings,
-        //     upcoming: upcomingEarnings,
-        //     total: totalEarnings,
-        //     display: `$${upcomingEarnings}/$${upcomingEarnings + completedSequencesTotalEarnings}`
-        // };
-
         // new 
         const upcomingSequences = sequences.filter(s => new Date(s.EffDate) >= today);
         const completedSequences = sequences.filter(s => new Date(s.EffDate) < today);
