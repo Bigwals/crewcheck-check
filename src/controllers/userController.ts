@@ -968,7 +968,7 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
             boardings,
             upcoming: upcomingEarnings,
             total: totalEarnings,
-            display: `$${upcomingEarnings}/$${totalEarnings + completedSequencesTotalEarnings}`
+            display: `${totalEarnings + completedSequencesTotalEarnings}`
         };
 
 
