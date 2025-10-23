@@ -790,65 +790,6 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
                 if (calendar[i] === "1") flightDays.push(i + 1);
             }
 
-            // ✅ Group legs by day using EOD flag
-            // const dayWiseLegs: any[] = [];
-            // let currentDayLegs: any[] = [];
-            // let dayCounter = 1;
-
-            // seqLegs.forEach((leg: any) => {
-            //     currentDayLegs.push({
-            //         seqNo: leg.SeqNo,
-            //         seqLegNo: leg.SeqLegNo,
-            //         departure: leg.DeptStn,
-            //         arrival: leg.ArrvStn,
-            //         flightNo: leg.FitNo,
-            //         dptTime: toHHmm(leg.DptTime),
-            //         arvTime: toHHmm(leg.ArvTime),
-            //         flyingHours: formatMinutes(leg.LegTotalFlying),
-            //         legPc: leg.LegPC,
-            //         layover: leg.LayoverTime ? formatMinutes(leg.LayoverTime) : null,
-            //         eod: leg.EOD
-            //     });
-
-            //     if (leg.EOD == 1) {
-            //         dayWiseLegs.push({ day: dayCounter, legs: currentDayLegs });
-            //         currentDayLegs = [];
-            //         dayCounter++;
-            //     }
-            // });
-
-            // const dayWiseLegs: any[] = [];
-            // let currentDayLegs: any[] = [];
-            // let dayCounter = 1;
-
-            // seqLegs.forEach((leg: any, index: number) => {
-            //     // Push current leg to current day
-            //     currentDayLegs.push({
-            //         seqNo: leg.SeqNo,
-            //         seqLegNo: leg.SeqLegNo, // ← actual sequence leg number (not reset)
-            //         departure: leg.DeptStn,
-            //         arrival: leg.ArrvStn,
-            //         flightNo: leg.FitNo,
-            //         dptTime: toHHmm(leg.DptTime),
-            //         arvTime: toHHmm(leg.ArvTime),
-            //         flyingHours: formatMinutes(leg.LegTotalFlying),
-            //         legPc: leg.LegPC,
-            //         layover: leg.LayoverTime ? formatMinutes(leg.LayoverTime) : null,
-            //         eod: leg.EOD
-            //     });
-
-            //     // If this leg ends the day (EOD=1) or it's the last leg overall
-            //     if (leg.EOD === 1 || index === seqLegs.length - 1) {
-            //         dayWiseLegs.push({
-            //             day: dayCounter,
-            //             legs: currentDayLegs
-            //         });
-            //         // reset for next day
-            //         currentDayLegs = [];
-            //         dayCounter++;
-            //     }
-            // });
-
             // ✅ Step 1: sort legs properly by SeqLegNo
             const sortedLegs = [...seqLegs].sort((a, b) => a.SeqLegNo - b.SeqLegNo);
 
