@@ -388,7 +388,8 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
             let totalPayMinutes = 0;
             let totalCreditMinutes = 0;
             seqLegs.forEach(l => {
-                totalPayMinutes += (l.LegTotalFlying ?? 0) + (l.LegPC ?? 0);
+                // totalPayMinutes += (l.LegTotalFlying ?? 0) + (l.LegPC ?? 0);
+                totalPayMinutes += l.LegPC ?? 0;
                 totalCreditMinutes += (l.LegTotalFlying ?? 0);
             });
 
