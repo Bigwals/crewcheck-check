@@ -389,7 +389,7 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
             let totalCreditMinutes = 0;
             seqLegs.forEach(l => {
                 // totalPayMinutes += (l.LegTotalFlying ?? 0) + (l.LegPC ?? 0);
-                totalPayMinutes += l.LegPC ?? 0;
+                totalPayMinutes += (l.LegPC ?? 0);
                 totalCreditMinutes += (l.LegTotalFlying ?? 0);
             });
 
@@ -401,7 +401,9 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
             const flightPay = (totalPayMinutes / 60) * baseRate;
             const creditPay = (totalCreditMinutes / 60) * baseRate;
             const premiumPay = ((seq.SeqPremTime ?? 0) / 60) * baseRate;
-            const totalEarnings = flightPay + tafPerDiem + premiumPay;
+            // const totalEarnings = flightPay + tafPerDiem + premiumPay;
+
+            const totalEarnings = creditPay + tafPerDiem + premiumPay;
 
             // ✅ Final structured sequence
             return {
@@ -775,7 +777,7 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
             let totalPayMinutes = 0;
             let totalCreditMinutes = 0;
             seqLegs.forEach(l => {
-                totalPayMinutes += (l.LegTotalFlying ?? 0) + (l.LegPC ?? 0);
+                totalPayMinutes += (l.LegPC ?? 0);
                 totalCreditMinutes += (l.LegTotalFlying ?? 0);
             });
 
@@ -875,12 +877,21 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
             );
 
             // 🔹 Convert existing formatted hours ("Xh Ym") back to total minutes
+            // const parseFormattedMinutes = (formatted: string): number => {
+            //     if (!formatted) return 0;
+            //     const match = formatted.match(/(\d+)h\s*(\d+)m/);
+            //     if (!match) return 0;
+            //     const [, h, m] = match.map(Number);
+            //     return h * 60 + (m || 0);
+            // };
+
             const parseFormattedMinutes = (formatted: string): number => {
                 if (!formatted) return 0;
-                const match = formatted.match(/(\d+)h\s*(\d+)m/);
+                const match = formatted.match(/(\d+):(\d+)/);
                 if (!match) return 0;
-                const [, h, m] = match.map(Number);
-                return h * 60 + (m || 0);
+                const h = parseInt(match[1], 10);
+                const m = parseInt(match[2], 10);
+                return h * 60 + m;
             };
 
             // 🔹 Sum all minutes for pay, credit, tafb
@@ -943,12 +954,21 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
         let completedBoardings = 0;
 
         if (completedSequences.length > 0) {
+            // const parseFormattedMinutes = (formatted: string): number => {
+            //     if (!formatted) return 0;
+            //     const match = formatted.match(/(\d+)h\s*(\d+)m/);
+            //     if (!match) return 0;
+            //     const [, h, m] = match.map(Number);
+            //     return h * 60 + (m || 0);
+            // };
+
             const parseFormattedMinutes = (formatted: string): number => {
                 if (!formatted) return 0;
-                const match = formatted.match(/(\d+)h\s*(\d+)m/);
+                const match = formatted.match(/(\d+):(\d+)/);
                 if (!match) return 0;
-                const [, h, m] = match.map(Number);
-                return h * 60 + (m || 0);
+                const h = parseInt(match[1], 10);
+                const m = parseInt(match[2], 10);
+                return h * 60 + m;
             };
 
             const completedPayHoursTotal = completedSequences.reduce(
@@ -1093,7 +1113,7 @@ export const applyPosition = async (req: Request, res: Response): Promise<any> =
             return res.status(StatusCode.NOT_FOUND).json({ message: Messages.NOT_FOUND });
         }
 
-        const newUserSequenceId = await addSequenceDataInUserSequence(userId, updatedSeqCrewPos);
+        const newUserSequenceId = await addSequenceDataInUserSequence(userId, updatedSeqCrewPos, position, updatedSeqCrewPos.originalDigit);
         const newUserLegId = await addLegDataInUserLeg(seqNo, effDate, newUserSequenceId);
 
         return res.status(StatusCode.OK).json({
@@ -1184,80 +1204,195 @@ export const basePay = async (req: Request, res: Response): Promise<any> => {
         return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({ message: Messages.INTERNAL_SERVER_ERROR, error: error.message });
     }
 }
+// old
+// export const deleteSequence = async (req: Request, res: Response): Promise<any> => {
+//     try {
+//         const { userId, seqNo, bidMonth } = req.body;
 
+//         if (!userId || !seqNo || !bidMonth) {
+//             return res
+//                 .status(StatusCode.BAD_REQUEST || 400)
+//                 .json({ message: "userId, seqNo, and bidMonth are required." });
+//         }
+
+//         const pool = await getPool();
+
+//         // Step 1: Fetch the UserSequenceID for validation
+//         const { recordset: sequenceResult } = await pool
+//             .request()
+//             .input("UserID", userId)
+//             .input("SeqNo", seqNo)
+//             .input("BidMonth", bidMonth)
+//             .query(`
+//         SELECT TOP 1 UserSequenceID 
+//         FROM UserSequence 
+//         WHERE UserID = @UserID AND SeqNo = @SeqNo AND BidMonth = @BidMonth
+//       `);
+
+//         if (sequenceResult.length === 0) {
+//             return res
+//                 .status(StatusCode.NOT_FOUND || 404)
+//                 .json({ message: "No sequence found for this user." });
+//         }
+
+//         const userSequenceId = sequenceResult[0].UserSequenceID;
+
+//         // Step 2: Begin transaction
+//         const transaction = pool.transaction();
+//         await transaction.begin();
+
+//         try {
+//             // Step 3: Delete associated UserLegs (new request)
+//             await transaction
+//                 .request()
+//                 .input("UserSequenceID", userSequenceId)
+//                 .query(`DELETE FROM UserLeg WHERE UserSequenceID = @UserSequenceID`);
+
+//             // Step 4: Delete the UserSequence (new request)
+//             await transaction
+//                 .request()
+//                 .input("UserSequenceID", userSequenceId)
+//                 .query(`DELETE FROM UserSequence WHERE UserSequenceID = @UserSequenceID`);
+
+//             // Step 5: Commit transaction
+//             await transaction.commit();
+
+//             console.log(`✅ Sequence ${userSequenceId} and its legs deleted successfully.`);
+
+//             return res.status(StatusCode.OK || 200).json({
+//                 message: "Sequence and its associated legs deleted successfully."
+//             });
+//         } catch (innerError: any) {
+//             await transaction.rollback();
+//             console.error("❌ Transaction rolled back:", innerError);
+//             return res.status(StatusCode.INTERNAL_SERVER_ERROR || 500).json({
+//                 message: Messages.INTERNAL_SERVER_ERROR || "Internal Server Error",
+//                 error: innerError.message
+//             });
+//         }
+//     } catch (error: any) {
+//         console.error("Error in deleteSequence:", error);
+//         return res.status(StatusCode.INTERNAL_SERVER_ERROR || 500).json({
+//             message: Messages.INTERNAL_SERVER_ERROR || "Internal Server Error",
+//             error: error.message
+//         });
+//     }
+// };
+
+// new
 export const deleteSequence = async (req: Request, res: Response): Promise<any> => {
     try {
         const { userId, seqNo, bidMonth } = req.body;
 
         if (!userId || !seqNo || !bidMonth) {
             return res
-                .status(StatusCode.BAD_REQUEST || 400)
+                .status(StatusCode.BAD_REQUEST)
                 .json({ message: "userId, seqNo, and bidMonth are required." });
         }
 
         const pool = await getPool();
 
-        // Step 1: Fetch the UserSequenceID for validation
+        // Step 1: Fetch the UserSequence record (we need the PositionAppliedOn)
         const { recordset: sequenceResult } = await pool
             .request()
             .input("UserID", userId)
             .input("SeqNo", seqNo)
             .input("BidMonth", bidMonth)
             .query(`
-        SELECT TOP 1 UserSequenceID 
+        SELECT TOP 1 UserSequenceID, PositionAppliedOn
         FROM UserSequence 
         WHERE UserID = @UserID AND SeqNo = @SeqNo AND BidMonth = @BidMonth
       `);
 
         if (sequenceResult.length === 0) {
             return res
-                .status(StatusCode.NOT_FOUND || 404)
+                .status(StatusCode.NOT_FOUND)
                 .json({ message: "No sequence found for this user." });
         }
 
         const userSequenceId = sequenceResult[0].UserSequenceID;
+        const positionAppliedOn = sequenceResult[0].PositionAppliedOn;
 
         // Step 2: Begin transaction
         const transaction = pool.transaction();
         await transaction.begin();
 
         try {
-            // Step 3: Delete associated UserLegs (new request)
+            // Step 3: Fetch the current SeqCrewPos for this sequence
+            const { recordset: seqData } = await transaction
+                .request()
+                .input("SeqNo", seqNo)
+                .input("BidMonth", bidMonth)
+                .query(`
+          SELECT SeqCrewPos 
+          FROM Sequence 
+          WHERE SeqNo = @SeqNo AND BidMonth = @BidMonth
+        `);
+
+            if (seqData.length > 0) {
+                let seqCrewPos = seqData[0].SeqCrewPos;
+                let seqCrewPosArr = seqCrewPos.split("");
+
+                // Step 4: Revert that position back to "1" (make it available again)
+                if (positionAppliedOn > 0 && positionAppliedOn <= seqCrewPosArr.length) {
+                    seqCrewPosArr[positionAppliedOn - 1] = "1";
+                }
+
+                const updatedSeqCrewPos = seqCrewPosArr.join("");
+
+                // Step 5: Update Sequence table
+                await transaction
+                    .request()
+                    .input("SeqNo", seqNo)
+                    .input("BidMonth", bidMonth)
+                    .input("SeqCrewPos", sql.NVarChar, updatedSeqCrewPos)
+                    .query(`
+            UPDATE Sequence
+            SET SeqCrewPos = @SeqCrewPos
+            WHERE SeqNo = @SeqNo AND BidMonth = @BidMonth
+          `);
+            }
+
+            // Step 6: Delete associated UserLegs
             await transaction
                 .request()
                 .input("UserSequenceID", userSequenceId)
                 .query(`DELETE FROM UserLeg WHERE UserSequenceID = @UserSequenceID`);
 
-            // Step 4: Delete the UserSequence (new request)
+            // Step 7: Delete the UserSequence
             await transaction
                 .request()
                 .input("UserSequenceID", userSequenceId)
                 .query(`DELETE FROM UserSequence WHERE UserSequenceID = @UserSequenceID`);
 
-            // Step 5: Commit transaction
+            // Step 8: Commit transaction
             await transaction.commit();
 
-            console.log(`✅ Sequence ${userSequenceId} and its legs deleted successfully.`);
+            console.log(`✅ Sequence ${userSequenceId} deleted and position reverted successfully.`);
 
-            return res.status(StatusCode.OK || 200).json({
-                message: "Sequence and its associated legs deleted successfully."
+            return res.status(StatusCode.OK).json({
+                message: "Sequence deleted and position made available again."
             });
+
         } catch (innerError: any) {
             await transaction.rollback();
             console.error("❌ Transaction rolled back:", innerError);
-            return res.status(StatusCode.INTERNAL_SERVER_ERROR || 500).json({
-                message: Messages.INTERNAL_SERVER_ERROR || "Internal Server Error",
+            return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({
+                message: "Internal Server Error",
                 error: innerError.message
             });
         }
+
     } catch (error: any) {
         console.error("Error in deleteSequence:", error);
-        return res.status(StatusCode.INTERNAL_SERVER_ERROR || 500).json({
-            message: Messages.INTERNAL_SERVER_ERROR || "Internal Server Error",
+        return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({
+            message: "Internal Server Error",
             error: error.message
         });
     }
 };
+
+
 // flight stubs
 
 // === Core function to call FlightAware API ===
