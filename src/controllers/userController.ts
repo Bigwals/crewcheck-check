@@ -928,16 +928,16 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
         }
 
         // ✅ Combine past + all upcoming (future + today)
-        const earningsSummary = {
-            payHours,
-            creditHours,
-            tafb,
-            seqPremiumTime,
-            boardings,
-            upcoming: upcomingEarnings,
-            total: totalEarnings,
-            display: `${totalEarnings + completedSequencesTotalEarnings}`
-        };
+        // const earningsSummary = {
+        //     payHours,
+        //     creditHours,
+        //     tafb,
+        //     seqPremiumTime,
+        //     boardings,
+        //     upcoming: upcomingEarnings,
+        //     total: totalEarnings,
+        //     display: `${totalEarnings + completedSequencesTotalEarnings}`
+        // };
 
 
         // const completedSequences = sequences.filter(s => new Date(s.EffDate) < today);
@@ -1011,6 +1011,77 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
             lastCompletedEarnings = parseFloat(lastCompletedSeq.earnings.totalSequenceEarnings);
         }
 
+        // const completedSequencesEarningsSummary = {
+        //     total: completedSequencesTotalEarnings,
+        //     lastCompleted: lastCompletedEarnings,
+        //     completedPayHours,
+        //     completedCreditHours,
+        //     completedTafb,
+        //     completedSeqPremiumTime,
+        //     completedBoardings
+        // };
+
+        // const earningsSummary = {
+        //     payHours + completedPayHours,
+        //     creditHours + completedCreditHours,
+        //     tafb + completedTafb,
+        //     seqPremiumTime + completedSeqPremiumTime,
+        //     boardings + completedBoardings,
+        //     upcoming: upcomingEarnings,
+        //     total: totalEarnings,
+        //     display: `${totalEarnings + completedSequencesTotalEarnings}`
+        // };
+
+        // // const prevCompletedSequences = prevSequences.filter(s => new Date(s.EffDate) < today);
+        // // return res.json({ prevBidMonth:  currentMonthSeqs });
+
+        // // const prevCompletedSummary = {
+        // //     total: prevCompletedSequences.reduce((sum, s) => sum + parseFloat(s.earnings.totalSequenceEarnings || 0), 0),
+        // //     completedPayHours: prevCompletedSequences.reduce((sum, s) => sum + parseFloat(s.payHours), 0),
+        // //     completedCreditHours: prevCompletedSequences.reduce((sum, s) => sum + parseFloat(s.creditHours), 0),
+        // //     completedTafb: prevCompletedSequences.reduce((sum, s) => sum + parseFloat(s.tafb), 0),
+        // //     completedSeqPremiumTime: prevCompletedSequences.reduce((sum, s) => sum + parseFloat(s.seqPremiumTime), 0),
+        // //     completedBoardings: prevCompletedSequences.reduce((sum, s) => sum + parseFloat(s.NBR_Legs), 0),
+        // // };
+
+        // return res.status(200).json({
+        //     message: "User Sequence Data with User Legs",
+        //     earningsSummary,
+        //     completedSequencesEarningsSummary,
+        //     prevBidMonth: prevBidMonth,
+        //     // prevCompletedSummary,
+        //     completedSequences,
+        //     upcomingSequences
+        // });
+// new
+        // Helper: convert "HH:mm" → total minutes
+        const parseTimeToMinutes = (formatted: string): number => {
+            if (!formatted) return 0;
+            const match = formatted.match(/(\d+):(\d+)/);
+            if (!match) return 0;
+            const h = parseInt(match[1], 10);
+            const m = parseInt(match[2], 10);
+            return h * 60 + m;
+        };
+
+        // ✅ Combine upcoming + completed earnings and times
+        const combinedPayMinutes =
+            parseTimeToMinutes(payHours) + parseTimeToMinutes(completedPayHours);
+        const combinedCreditMinutes =
+            parseTimeToMinutes(creditHours) + parseTimeToMinutes(completedCreditHours);
+        const combinedTafbMinutes =
+            parseTimeToMinutes(tafb) + parseTimeToMinutes(completedTafb);
+        const combinedSeqPremiumMinutes =
+            parseTimeToMinutes(seqPremiumTime) + parseTimeToMinutes(completedSeqPremiumTime);
+
+        // ✅ Combine boardings (these are numbers)
+        const combinedBoardings = (boardings ?? 0) + (completedBoardings ?? 0);
+
+        // ✅ Combine earnings
+        const combinedTotalEarnings =
+            (totalEarnings ?? 0) + (completedSequencesTotalEarnings ?? 0);
+
+        // ✅ Build final summaries
         const completedSequencesEarningsSummary = {
             total: completedSequencesTotalEarnings,
             lastCompleted: lastCompletedEarnings,
@@ -1021,24 +1092,23 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
             completedBoardings
         };
 
-        const prevCompletedSequences = prevSequences.filter(s => new Date(s.EffDate) < today);
-        // return res.json({ prevBidMonth:  currentMonthSeqs });
-
-        const prevCompletedSummary = {
-            total: prevCompletedSequences.reduce((sum, s) => sum + parseFloat(s.earnings.totalSequenceEarnings || 0), 0),
-            completedPayHours: prevCompletedSequences.reduce((sum, s) => sum + parseFloat(s.payHours), 0),
-            completedCreditHours: prevCompletedSequences.reduce((sum, s) => sum + parseFloat(s.creditHours), 0),
-            completedTafb: prevCompletedSequences.reduce((sum, s) => sum + parseFloat(s.tafb), 0),
-            completedSeqPremiumTime: prevCompletedSequences.reduce((sum, s) => sum + parseFloat(s.seqPremiumTime), 0),
-            completedBoardings: prevCompletedSequences.reduce((sum, s) => sum + parseFloat(s.NBR_Legs), 0),
+        const earningsSummary = {
+            payHours: formatMinutes(combinedPayMinutes),
+            creditHours: formatMinutes(combinedCreditMinutes),
+            tafb: formatMinutes(combinedTafbMinutes),
+            seqPremiumTime: formatMinutes(combinedSeqPremiumMinutes),
+            boardings: combinedBoardings,
+            upcoming: upcomingEarnings,
+            total: totalEarnings,
+            display: combinedTotalEarnings.toFixed(2)
         };
 
+        // ✅ Send response
         return res.status(200).json({
             message: "User Sequence Data with User Legs",
             earningsSummary,
             completedSequencesEarningsSummary,
-            prevBidMonth: prevBidMonth,
-            prevCompletedSummary,
+            prevBidMonth,
             completedSequences,
             upcomingSequences
         });
