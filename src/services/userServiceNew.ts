@@ -63,7 +63,6 @@ export const findByCrewId = async (crewId: number, firstName: string, lastName: 
   return result.recordset.length > 0 ? result.recordset[0] : null;
 };
 
-
 export const findBySequenceNo = async (seqNo: number, bidMonth: string) => {
   const pool = await getPool();
 
@@ -179,9 +178,9 @@ export const updatePosition = async (seqNo: number, position: number, effDate: D
 
 export const addSequenceDataInUserSequence = async (
   userId: string,
-  crewSeqPos: any, 
-  position: number,  
-  digit: string,  
+  crewSeqPos: any,
+  position: number,
+  digit: string,
   // effDate: string
 ) => {
   const userSequenceId = uuidv4();
@@ -243,6 +242,10 @@ export const addSequenceDataInUserSequence = async (
   request.input("IPD", sql.Bit, crewSeqPos.IPD);
   request.input("NIPD", sql.Bit, crewSeqPos.NIPD);
   request.input("Notes", sql.NVarChar, crewSeqPos.Notes);
+  request.input("CvtSeqFlyTime", sql.NVarChar, crewSeqPos.CvtSeqFlyTime);
+  request.input("CvtSeqPC", sql.NVarChar, crewSeqPos.CvtSeqPC);
+  request.input("CvtTAFB", sql.NVarChar, crewSeqPos.CvtTAFB);
+  request.input("CvtSeqPremTime", sql.NVarChar, crewSeqPos.CvtSeqPremTime);
   request.input("BidMonth", sql.NVarChar, crewSeqPos.BidMonth);
   request.input("PositionAppliedOn", sql.Int, position);
   request.input("PositionAppliedOnLetter", sql.Char, digit);
@@ -253,7 +256,8 @@ export const addSequenceDataInUserSequence = async (
       ThruDate, Frequency, SeqNo, SeqType, NBR_Legs, NBR_Days, NBR_Duty, SeqCrewPos, SeqFlyTime, SeqPC, TAFB,
       AutoExp, Pay, PriorSeq, DateRmvd, SeqPremTime, Language1, Language2, Reserved, B777300, B77W300, B772_200,
       B787_900, B787_800, B787P_900, A321_AK, A321_XLR, A321_NEO, A321, A320, A319, B737_MAX, B737, E190, CovidStationRestriction,
-      Redeye, ODAN, IPDPremium, Charter,Satellite, CoTerminal, PremiumTranscon, Rocket, IPD, NIPD, Notes, BidMonth, PositionAppliedOn, PositionAppliedOnLetter
+      Redeye, ODAN, IPDPremium, Charter,Satellite, CoTerminal, PremiumTranscon, Rocket, IPD, NIPD, Notes, CvtSeqFlyTime, CvtSeqPC,
+      CvtTAFB, CvtSeqPremTime, BidMonth, PositionAppliedOn, PositionAppliedOnLetter
     )
     VALUES (
       @UserSequenceID, @UserID, @UniqueSeqNo, @RecordType, @CrewCat, @CrewBase, @SeqCategory, @DataVersion, @EffDate,
@@ -261,7 +265,8 @@ export const addSequenceDataInUserSequence = async (
       @AutoExp,
       @Pay, @PriorSeq, @DateRmvd, @SeqPremTime, @Language1, @Language2, @Reserved, @B777300, @B77W300, @B772_200, @B787_900,
       @B787_800, @B787P_900, @A321_AK, @A321_XLR, @A321_NEO, @A321, @A320, @A319, @B737_MAX, @B737, @E190, @CovidStationRestriction,
-      @Redeye, @ODAN, @IPDPremium, @Charter, @Satellite, @CoTerminal, @PremiumTranscon, @Rocket, @IPD, @NIPD, @Notes, @BidMonth, @PositionAppliedOn, @PositionAppliedOnLetter
+      @Redeye, @ODAN, @IPDPremium, @Charter, @Satellite, @CoTerminal, @PremiumTranscon, @Rocket, @IPD, @NIPD, @Notes, @CvtSeqFlyTime, @CvtSeqPC,
+      @CvtTAFB, @CvtSeqPremTime, @BidMonth, @PositionAppliedOn, @PositionAppliedOnLetter
     )`;
 
   await request.query(query);
@@ -714,4 +719,54 @@ export const getUserLanguages = async (userId: string) => {
   const crewLanguages = crewResult.recordset;
 
   return crewLanguages
+}
+
+export async function getDynamicBaseRate(yearsOfService: number): Promise<number> {
+  const now = new Date();
+  // const currentYear = now.getFullYear();
+  // const nextOctober = new Date(`${currentYear}-10-01`);
+
+  // console.log("🔍 Using column:", now);
+  // // 🧠 Determine which pay column to use dynamically
+  // const payColumn =
+  //   now < nextOctober
+  //     ? `Pay_10/1/${String(currentYear).slice(-2)}`
+  //     : `Pay_10/1/${String(currentYear + 1).slice(-2)}`;
+
+  let effectiveYear = now.getFullYear();
+
+  // Get the Oct 1st of this year
+  const currentOct = new Date(`${effectiveYear}-10-01`);
+
+  // If we are before Oct 1 of this year, pay is based on last October
+  if (now < currentOct) {
+    effectiveYear = effectiveYear - 1;
+  }
+
+  // Now use the pay rate effective from October of `effectiveYear`
+  const payColumn = `Pay_10/1/${String(effectiveYear).slice(-2)}`;
+
+  console.log("🔍 Using column:", payColumn);
+
+  try {
+    const pool = await getPool();
+
+    // 1. Get crew hireDate
+    // const crewResult = await pool.request()
+    const query = `
+      SELECT [${payColumn}] AS baseRate
+      FROM dbo.BasePay
+      WHERE YearsOfService = @yearsOfService
+    `;
+
+    const result = await pool
+      .request()
+      .input("YearsOfService", sql.Int, yearsOfService)
+      .query(query);
+
+    return result.recordset.length ? Number(result.recordset[0].baseRate) : 0;
+  } catch (err) {
+    console.error("Error fetching dynamic base rate:", err);
+    return 0;
+  }
 }
