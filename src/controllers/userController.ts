@@ -344,10 +344,13 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
         const sequences = [];
 
         for (const seq of sequenceData) {
-            const seqLegs = allLegs.filter(
-                (l) => l.SeqNo === seq.SeqNo && dateKey(l.EffDate) === dateKey(seq.EffDate)
-            );
+            // const seqLegs = allLegs.filter(
+            //     (l) => l.SeqNo == seq.SeqNo && dateKey(l.EffDate) == dateKey(seq.EffDate)
+            // );
 
+            const seqLegs = allLegs.filter(
+                (l) => l.SeqNo == seq.SeqNo && l.BidMonth === seq.BidMonth
+            );
             // ---- Handle Calendar_40Day ----
             const calendar = seq.Calendar_40Day || "";
             const flightDays: number[] = [];
@@ -1220,7 +1223,8 @@ export const getStubs = async (req: Request, res: Response): Promise<any> => {
             return res.status(400).json({ success: false, message: "flightNumber and date are required" });
         }
 
-        const FLIGHTAWARE_BASE_URL = "https://aeroapi.flightaware.com/aeroapi";
+        // const FLIGHTAWARE_BASE_URL = "https://aeroapi.flightaware.com/aeroapi";
+        const FLIGHTAWARE_BASE_URL = process.env.FLIGHTAWARE_BASE_URL;
         const API_KEY = process.env.FLIGHTAWARE_API_KEY;
 
         const start = `${date}T00:00:00Z`;
@@ -1284,21 +1288,6 @@ const toDecimalHours = (value: string | number | null | undefined): number => {
 
 
 // ---------- helpers ----------
-// const toDecimalHours = (value: string | number | null | undefined): number => {
-//     if (!value && value !== 0) return 0;
-//     if (typeof value === "number") return value;
-//     const s = String(value).trim();
-//     if (!s) return 0;
-//     // accept "HH:MM" or "H:MM" or numeric string "2.5"
-//     if (s.includes(":")) {
-//         const [hStr, mStr] = s.split(":");
-//         const h = parseInt(hStr || "0", 10) || 0;
-//         const m = parseInt(mStr || "0", 10) || 0;
-//         return h + m / 60;
-//     }
-//     const n = parseFloat(s);
-//     return isNaN(n) ? 0 : n;
-// };
 
 const formatHHMMFromDecimal = (hoursDecimal: number): string => {
     const h = Math.floor(hoursDecimal);
@@ -1320,12 +1309,4 @@ const calculateBoardingTime = (dptTime: number): number => {
     }
     return boarding;
 };
-
-// const parseFormattedMinutes = (formatted: string): number => {
-//     if (!formatted) return 0;
-//     const match = formatted.match(/(\d+)h\s*(\d+)m/);
-//     if (!match) return 0;
-//     const [, h, m] = match.map(Number);
-//     return h * 60 + (m || 0);
-// };
 
