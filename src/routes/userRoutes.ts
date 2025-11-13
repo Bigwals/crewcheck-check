@@ -18,8 +18,10 @@ router.get('/get-crew-bases', authenticate, getCrewBaseRanking);
 router.post('/upload-avatar', authenticate, upload.single('file'), uploadAvatar);
 
 // sequence or userSequence
-router.get('/sequence-calender', authenticate, sequence)
-router.get('/sequence-with-legs', authenticate, sequenceWithLegs)
+// router.get('/sequence-calender', authenticate, sequence)
+// router.get('/sequence-with-legs', authenticate, sequenceWithLegs)
+router.get('/calender-sequence', authenticate, sequence)
+router.get('/sequence-search', authenticate, sequenceWithLegs)
 router.get('/filter-by-date', authenticate, filterByDate)
 router.patch('/apply-position', authenticate, applyPosition)
 router.delete('/delete-sequence', authenticate, deleteSequence)
