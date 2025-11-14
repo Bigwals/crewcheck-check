@@ -47,7 +47,6 @@ export const getProfile = async (req: Request, res: Response): Promise<any> => {
     }
 };
 
-// new
 export const getCrewBaseRanking = async (req: Request, res: Response): Promise<any> => {
     try {
         const crewId = (req as any).user.crewId;
@@ -98,15 +97,6 @@ export const getCrewBaseRanking = async (req: Request, res: Response): Promise<a
 
         for (const base of allBases) {
             // Get all crew IDs in this base
-            // const baseCrewResult = await pool.request()
-            //     .input("base", sql.NVarChar, base)
-            //     .query(`
-            //         SELECT CrewID
-            //         FROM dbo.Roster
-            //         WHERE Base = @base
-            //     `);
-
-            // const crewIds = baseCrewResult.recordset.map((c: any) => c.CrewID);
             const baseCrewResult = await pool.request()
                 .input("base", sql.NVarChar, base)
                 .input("crewId", sql.Int, crewId)
@@ -128,14 +118,6 @@ export const getCrewBaseRanking = async (req: Request, res: Response): Promise<a
                 continue;
             }
 
-            // 🚀 Bulk fetch all experiences at once
-            // const services = await getCrewPayDetail(crewIds);
-
-            // const withExperience = crewIds.map((id, idx) => ({
-            //     crewId: id,
-            //     experience: services[idx]?.basePay.YearsOfService ?? 0,
-            // }));
-
             const services = await getCrewPayDetail(crewIds);
 
             const withExperience = crewIds.map((id, idx) => ({
@@ -156,10 +138,6 @@ export const getCrewBaseRanking = async (req: Request, res: Response): Promise<a
                     break;
                 }
             }
-
-            // const rankPercent = totalMembers > 0
-            //     ? Math.round(((totalMembers - userRank + 1) / totalMembers) * 100)
-            //     : null;
 
             const rankPercent = totalMembers > 0
                 ? ((totalMembers - userRank + 1) / totalMembers) * 100
@@ -212,7 +190,7 @@ export const changePassword = async (req: Request, res: Response): Promise<any> 
         return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({ message: Messages.INTERNAL_SERVER_ERROR, error: error.message });
     }
 }
-// userController.ts
+
 export const uploadAvatar = async (req: Request, res: Response): Promise<any> => {
     try {
         const crewId = (req as any).user.crewId;
@@ -274,7 +252,6 @@ export const updateReserve = async (req: Request, res: Response): Promise<any> =
     }
 };
 
-// new
 export const sequenceWithLegs = async (req: Request, res: Response): Promise<any> => {
     try {
         const seqNo = Number(req.query.seqNo);
@@ -370,8 +347,10 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
                     departure: leg.DeptStn,
                     arrival: leg.ArrvStn,
                     flightNo: leg.FitNo,
-                    dptTime: toHHmm(leg.DptTime),
-                    arvTime: toHHmm(leg.ArvTime),
+                    // dptTime: toHHmm(leg.DptTime),
+                    // arvTime: toHHmm(leg.ArvTime),
+                    dptTime: toDecimalHours(leg.CvtDptTime),
+                    arvTime: toDecimalHours(leg.CvtArvTime),
                     flyingHours: leg.CvtSeqFlyTime ?? leg.LegTotalFlying,
                     legPc: leg.LegPC,
                     layover: leg.Layover ? formatMinutes(leg.Layover) : null,
@@ -551,6 +530,7 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
                 SELECT *
                 FROM dbo.UserLeg
                 WHERE UserSequenceID = @userSequenceId
+                ORDER BY SeqLegNo ASC
                 `);
 
             const seqLegs = legsResult.recordset || [];
@@ -1100,7 +1080,6 @@ export const basePay = async (req: Request, res: Response): Promise<any> => {
     }
 }
 
-// new
 export const deleteSequence = async (req: Request, res: Response): Promise<any> => {
     try {
         const { userId, seqNo, bidMonth } = req.body;
