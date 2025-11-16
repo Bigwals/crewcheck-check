@@ -264,7 +264,7 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
         if (!bidMonth) {
             return res.status(400).json({ message: "bidMonth is required" });
         }
-
+        console.time("SQL_TIME");
         // 1️⃣ Fetch sequence data
         const sequenceData = await findBySequenceNo(seqNo, bidMonth);
         if (!sequenceData.length) {
@@ -477,6 +477,7 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
                 },
             });
         }
+        console.timeEnd("SQL_TIME");
 
         return res.status(200).json({
             message: "Sequence(s) & legs fetched successfully",
@@ -485,6 +486,7 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
 
     } catch (error: any) {
         console.error("Error in sequenceWithLegs:", error);
+        console.timeEnd("SQL_TIME");
         return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({
             message: Messages.INTERNAL_SERVER_ERROR,
             error: error.message,
