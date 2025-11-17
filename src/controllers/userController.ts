@@ -347,8 +347,10 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
                     departure: leg.DeptStn,
                     arrival: leg.ArrvStn,
                     flightNo: leg.FitNo,
-                    dptTime: toHHmm(leg.DptTime),
-                    arvTime: toHHmm(leg.ArvTime),
+                    // dptTime: toHHmm(leg.DptTime),
+                    // arvTime: toHHmm(leg.ArvTime),
+                    dptTime: leg.CvtDptTime,
+                    arvTime: leg.CvtArvTime,
                     // dptTime: toDecimalHours(leg.CvtDptTime),
                     // arvTime: toDecimalHours(leg.CvtArvTime),
                     flyingHours: leg.CvtSeqFlyTime ?? leg.LegTotalFlying,
@@ -447,8 +449,14 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
                 seqNo: seq.SeqNo,
                 crewBase: seq.CrewBase,
                 category: seq.SeqCategory,
-                effDate: seq.EffDate,
-                thruDate: seq.ThruDate,
+                // effDate: seq.EffDate,
+                // thruDate: seq.ThruDate,
+                effDate: seq.EffDate instanceof Date
+                    ? seq.EffDate.toISOString().split("T")[0]
+                    : seq.EffDate,
+                thruDate: seq.ThruDate instanceof Date
+                    ? seq.ThruDate.toISOString().split("T")[0]
+                    : seq.ThruDate,
                 totalLegs: seq.NBR_Legs,
                 totalDays: seq.NBR_Days,
                 totalDuty: seq.NBR_Duty,
@@ -946,7 +954,9 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
 export const filterByDate = async (req: Request, res: Response): Promise<any> => {
     try {
         const seqNo = Number(req.query.seqNo);
-        const effDate = new Date(req.query.effDate as string);
+        const effDates = new Date(req.query.effDate as string);
+        // const effDate = req.query.effDate as string; // "2025-11-17"
+        const effDate = (req.query.effDate as string).split("T")[0];
 
         if (!seqNo || isNaN(seqNo)) {
             return res.status(400).json({ message: "seqNo is required and must be numeric" });
@@ -956,6 +966,8 @@ export const filterByDate = async (req: Request, res: Response): Promise<any> =>
         }
 
         const data = await findByDateAndSeqNo(seqNo, effDate);
+        console.log("Eff Date", effDate)
+        console.log("Eff Dates", effDates)
 
         if (!data) {
             return res.status(404).json({ message: "No legs found for given seqNo and effDate" });
