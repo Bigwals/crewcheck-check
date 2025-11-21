@@ -64,7 +64,7 @@ const register = async (req, res) => {
             .input("CreatedAt", db_1.sql.DateTime, CreatedAt)
             .input("DeviceToken", db_1.sql.NVarChar, deviceToken)
             .query(`
-        INSERT INTO Users 
+        INSERT INTO user 
           (UserID, CrewId, FirstName, LastName, HireDate, OccDate, Base, Seniority, Airline, Email, PasswordHash, PhoneNumber, Purser, Speaker, RoleID, ActiveStatus, DeviceToken, CreatedAt)
         VALUES 
           (@UserID, @CrewId, @FirstName, @LastName, @HireDate, @OccDate, @Base, @Seniority, @Airline, @Email, @PasswordHash, @PhoneNumber, @Purser, @Speaker, @RoleID, @ActiveStatus, @DeviceToken, @CreatedAt)
@@ -93,7 +93,7 @@ const getLanguages = async (req, res) => {
         const pool = await (0, db_1.getPool)();
         const result = await pool.request().query(`
     SELECT *
-    FROM dbo.Language
+    FROM dbo.language
   `);
         const languages = result.recordset;
         return res
