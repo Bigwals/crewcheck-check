@@ -99,7 +99,7 @@ export const findUserAppliedSequenceNo = async (seqNo: number, bidMonth: string,
   return result.recordset;
 };
 
-export const findByDateAndSeqNo = async (seqNo: number, effDate: Date) => {
+export const findByDateAndSeqNo = async (seqNo: number, effDate: String) => {
   const pool = await getPool();
   const result = await pool.request()
     .input("seqNo", sql.Int, seqNo)
