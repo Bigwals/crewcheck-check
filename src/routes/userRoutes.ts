@@ -15,6 +15,7 @@ const router = Router();
 router.post('/change-password', authenticate, changePassword);
 router.get('/get-profile', authenticate, getProfile);
 router.get('/get-crew-bases', authenticate, getCrewBaseRanking);
+// router.get('/get-crew-bases', getCrewBaseRanking);
 router.post('/upload-avatar', authenticate, upload.single('file'), uploadAvatar);
 
 // sequence or userSequence
