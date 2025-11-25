@@ -49,118 +49,145 @@ export const getProfile = async (req: Request, res: Response): Promise<any> => {
 
 export const getCrewBaseRanking = async (req: Request, res: Response): Promise<any> => {
     try {
-        const crewId = (req as any).user.crewId;
+        // const crewId = (req as any).user.crewId;
+        const crewId = 5896;
         const pool = await getPool();
 
         // 1) Get logged-in crew
-        const crewResult = await pool
+        const fetchBases = await pool
             .request()
-            .input("crewId", sql.Int, crewId)
             .query(`
-                SELECT CrewID, Base, OccDate
-                FROM dbo.Roster
-                WHERE CrewID = @crewId
+                SELECT id, iata_code, name FROM Airports
+                WHERE crewbase = 1
             `);
-        // return res.json({ data: crewResult });
-        if (!crewResult.recordset[0]) {
+        if (!fetchBases.recordset[0]) {
             return res.status(404).json({ message: "Crew not found" });
         }
 
-        const crew = crewResult.recordset[0];
-
-        // Logged-in user’s experience
-        const userService = await getCrewPayDetail([crewId]); // pass as array
-        const userExperience = userService[0]?.basePay.YearsOfService ?? 0;
-
-        // 2) Get all bases from user’s applied sequences
-        const appliedSeqResult = await pool.request()
-            .input("userId", sql.UniqueIdentifier, (req as any).user.id)
-            .query(`
-                SELECT DISTINCT UL.DeptStn AS Base
-                FROM dbo.UserSequence US
-                JOIN dbo.UserLeg UL ON US.UserSequenceID = UL.UserSequenceID
-                WHERE US.UserID = @userId
-                UNION
-                SELECT DISTINCT UL.ArrvStn AS Base
-                FROM dbo.UserSequence US
-                JOIN dbo.UserLeg UL ON US.UserSequenceID = UL.UserSequenceID
-                WHERE US.UserID = @userId
-            `);
-
-        const flightBases = appliedSeqResult.recordset.map((r: any) => r.Base).filter(Boolean);
-
-        // Merge primary base with applied sequence bases
-        const allBases = Array.from(new Set([crew.Base, ...flightBases]));
-
-        // 3) Rankings
-        const rankings = [];
-
-        for (const base of allBases) {
-            // Get all crew IDs in this base
-            const baseCrewResult = await pool.request()
-                .input("base", sql.NVarChar, base)
-                .input("crewId", sql.Int, crewId)
-                .query(`
-                SELECT CrewID
-                FROM dbo.Roster
-                WHERE Base = @base
-                UNION
-                SELECT CrewID
-                FROM dbo.Roster
-                WHERE CrewID = @crewId
-            `);
-
-            const crewIds = baseCrewResult.recordset.map((c: any) => c.CrewID);
-
-
-            if (crewIds.length === 0) {
-                rankings.push({ base, totalMembers: 0, userRank: 0, rankPercent: null });
-                continue;
-            }
-
-            const services = await getCrewPayDetail(crewIds);
-
-            const withExperience = crewIds.map((id, idx) => ({
-                crewId: id,
-                experience: services[idx]?.yearsOfService ?? 0, // ✅ use computed years
-            }));
-
-            // Sort by experience DESC
-            withExperience.sort((a, b) => b.experience - a.experience);
-
-            const totalMembers = withExperience.length;
-
-            // Find user rank
-            let userRank = 0;
-            for (let i = 0; i < withExperience.length; i++) {
-                if (withExperience[i].crewId === crewId) {
-                    userRank = i + 1;
-                    break;
-                }
-            }
-
-            const rankPercent = totalMembers > 0
-                ? ((totalMembers - userRank + 1) / totalMembers) * 100
-                : null;
-
-            rankings.push({
-                base,
-                totalMembers,
-                userRank,
-                rankPercent,
-            });
-        }
-
-        return res.status(200).json({
-            primaryBase: crew.Base,
-            userExperience,
-            rankings,
-        });
+        const crew = await findCrewById(crewId)
+        // return res.json({ data: crew });
+        const crewBases = fetchBases.recordset;
+        // return res.json({ data: crewBases });
+        return res.status(200).json({ message: "Crew Bases Found", crewBases, seniority: crew?.Seniority, base: crew?.Base });
     } catch (err: any) {
         console.error("Error in getCrewBaseRanking:", err);
         return res.status(500).json({ message: "Internal Server Error", error: err.message });
     }
 };
+// export const getCrewBaseRanking = async (req: Request, res: Response): Promise<any> => {
+//     try {
+//         const crewId = (req as any).user.crewId;
+//         const pool = await getPool();
+
+//         // 1) Get logged-in crew
+//         const crewResult = await pool
+//             .request()
+//             .input("crewId", sql.Int, crewId)
+//             .query(`
+//                 SELECT CrewID, Base, OccDate
+//                 FROM dbo.Roster
+//                 WHERE CrewID = @crewId
+//             `);
+//         // return res.json({ data: crewResult });
+//         if (!crewResult.recordset[0]) {
+//             return res.status(404).json({ message: "Crew not found" });
+//         }
+
+//         const crew = crewResult.recordset[0];
+
+//         // Logged-in user’s experience
+//         const userService = await getCrewPayDetail([crewId]); // pass as array
+//         const userExperience = userService[0]?.basePay.YearsOfService ?? 0;
+
+//         // 2) Get all bases from user’s applied sequences
+//         const appliedSeqResult = await pool.request()
+//             .input("userId", sql.UniqueIdentifier, (req as any).user.id)
+//             .query(`
+//                 SELECT DISTINCT UL.DeptStn AS Base
+//                 FROM dbo.UserSequence US
+//                 JOIN dbo.UserLeg UL ON US.UserSequenceID = UL.UserSequenceID
+//                 WHERE US.UserID = @userId
+//                 UNION
+//                 SELECT DISTINCT UL.ArrvStn AS Base
+//                 FROM dbo.UserSequence US
+//                 JOIN dbo.UserLeg UL ON US.UserSequenceID = UL.UserSequenceID
+//                 WHERE US.UserID = @userId
+//             `);
+
+//         const flightBases = appliedSeqResult.recordset.map((r: any) => r.Base).filter(Boolean);
+
+//         // Merge primary base with applied sequence bases
+//         const allBases = Array.from(new Set([crew.Base, ...flightBases]));
+
+//         // 3) Rankings
+//         const rankings = [];
+
+//         for (const base of allBases) {
+//             // Get all crew IDs in this base
+//             const baseCrewResult = await pool.request()
+//                 .input("base", sql.NVarChar, base)
+//                 .input("crewId", sql.Int, crewId)
+//                 .query(`
+//                 SELECT CrewID
+//                 FROM dbo.Roster
+//                 WHERE Base = @base
+//                 UNION
+//                 SELECT CrewID
+//                 FROM dbo.Roster
+//                 WHERE CrewID = @crewId
+//             `);
+
+//             const crewIds = baseCrewResult.recordset.map((c: any) => c.CrewID);
+
+
+//             if (crewIds.length === 0) {
+//                 rankings.push({ base, totalMembers: 0, userRank: 0, rankPercent: null });
+//                 continue;
+//             }
+
+//             const services = await getCrewPayDetail(crewIds);
+
+//             const withExperience = crewIds.map((id, idx) => ({
+//                 crewId: id,
+//                 experience: services[idx]?.yearsOfService ?? 0, // ✅ use computed years
+//             }));
+
+//             // Sort by experience DESC
+//             withExperience.sort((a, b) => b.experience - a.experience);
+
+//             const totalMembers = withExperience.length;
+
+//             // Find user rank
+//             let userRank = 0;
+//             for (let i = 0; i < withExperience.length; i++) {
+//                 if (withExperience[i].crewId === crewId) {
+//                     userRank = i + 1;
+//                     break;
+//                 }
+//             }
+
+//             const rankPercent = totalMembers > 0
+//                 ? ((totalMembers - userRank + 1) / totalMembers) * 100
+//                 : null;
+
+//             rankings.push({
+//                 base,
+//                 totalMembers,
+//                 userRank,
+//                 rankPercent,
+//             });
+//         }
+
+//         return res.status(200).json({
+//             primaryBase: crew.Base,
+//             userExperience,
+//             rankings,
+//         });
+//     } catch (err: any) {
+//         console.error("Error in getCrewBaseRanking:", err);
+//         return res.status(500).json({ message: "Internal Server Error", error: err.message });
+//     }
+// };
 
 export const changePassword = async (req: Request, res: Response): Promise<any> => {
     try {
@@ -271,6 +298,9 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
             return res.status(404).json({ message: "No sequence found for the given SeqNo and BidMonth." });
         }
 
+        const pool = await getPool();
+        // return res.json({ sequenceData });
+
         // 2️⃣ Crew service info
         const crewId = (req as any).user?.crewId;
         const service = crewId ? await getCrewPayDetails(crewId) : null;
@@ -279,7 +309,6 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
         const baseRate = await getDynamicBaseRate(yearsOfService);
 
         // 3️⃣ Dynamic PerDiem rate logic (based on current date)
-        const pool = await getPool();
         // determine per-diem effective Oct1 based on current date (use local now)
         const now = new Date();
         let effectiveYear = now.getFullYear();
@@ -291,10 +320,14 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
         const perDiemResult = await pool.request()
             .input("perDiemDate", sql.DateTime, perDiemEffectiveDate)
             .query(`
-            SELECT TOP 1 EffectiveDate, DOM, INT
+            SELECT TOP 1 effective_date, dom, int
             FROM PerDiem
-            WHERE EffectiveDate <= @perDiemDate
-        `);
+            WHERE effective_date <= @perDiemDate
+            `);
+            // .query(`
+            // SELECT TOP 1 EffectiveDate, DOM, INT
+            // FROM PerDiem
+            // WHERE EffectiveDate <= @perDiemDate
 
         const perDiemRow = perDiemResult.recordset?.[0] ?? null;
         const perDiem_dom = perDiemRow ? parseFloat(perDiemRow.DOM || 0) : 0;
@@ -324,6 +357,16 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
             // const seqLegs = allLegs.filter(
             //     (l) => l.SeqNo == seq.SeqNo && dateKey(l.EffDate) == dateKey(seq.EffDate)
             // );
+
+            const UniqueSeqNo = seq.UniqueSeqNo;
+
+            const frequency = await pool.request()
+                .input("UniqueSeqNo", sql.VarChar, UniqueSeqNo)
+                .query(`
+            SELECT * FROM Frequency2025
+            WHERE unique_seq_no = @UniqueSeqNo
+        `);
+            const effDates = frequency.recordset || [];
 
             const seqLegs = allLegs.filter(
                 (l) => l.SeqNo == seq.SeqNo && l.BidMonth === seq.BidMonth
@@ -423,7 +466,6 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
             const numBoardings = parseInt(seq.NBR_Legs ?? String(seqLegs.length ?? 0), 10) || seqLegs.length || 0;
             const totalBoardingPay = parseFloat((boardingRatePerLeg * numBoardings).toFixed(2));
 
-
             const boardingPay = totalBoardingPay;
 
             // 🧮 Premium Pay
@@ -466,11 +508,10 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
                 creditHours: decimalHoursToHHMM(creditHours),
                 tafb: decimalHoursToHHMM(tafbHours),
                 seqPremiumTime: decimalHoursToHHMM(premiumHours),
+                effDates,
                 boardingRow,
-
                 flightDays,
                 dayWiseLegs,
-
                 earnings: {
                     yearsOfService,
                     baseRate,
@@ -651,10 +692,13 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
             const perDiemResult = await pool.request()
                 .input("perDiemDate", sql.DateTime, perDiemEffectiveDate)
                 .query(`
-                SELECT TOP 1 DOM, INT
+                SELECT TOP 1 effective_date, dom, int
                 FROM PerDiem
-                WHERE EffectiveDate <= @perDiemDate
+                WHERE effective_date <= @perDiemDate
                 `);
+                // SELECT TOP 1 DOM, INT
+                // FROM PerDiem
+                // WHERE EffectiveDate <= @perDiemDate
 
             const perDiemRow = perDiemResult.recordset?.[0] ?? { DOM: 0, INT: 0 };
             let perDiemRate = 0;
@@ -1284,8 +1328,6 @@ const toDecimalHours = (value: string | number | null | undefined): number => {
     }
     return 0;
 };
-
-
 // ---------- helpers ----------
 
 const formatHHMMFromDecimal = (hoursDecimal: number): string => {
