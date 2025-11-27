@@ -67,10 +67,15 @@ export const getCrewBaseRanking = async (req: Request, res: Response): Promise<a
         const crew = await findCrewById(crewId)
         // return res.json({ data: crew });
         const crewBases = fetchBases.recordset;
+        const crewBase = crew?.Base;
+
+        console.log("crewBase:", crewBase);
+        console.log("crewId:", crewId);
 
         const baseSeniority = await pool
             .request()
-            .input("crewId", sql.Int, crewId) // ✅ You MUST pass this
+            .input("crewId", sql.Int, crewId)
+            .input("crewBase", sql.NVarChar, crewBase)   // ✅ You MUST pass this
             .query(`
             SELECT *
             FROM (
@@ -79,17 +84,21 @@ export const getCrewBaseRanking = async (req: Request, res: Response): Promise<a
                     Base,
                     ROW_NUMBER() OVER (ORDER BY HireDate ASC) AS PositionNumber
                 FROM Roster
-                WHERE Base = @crew?.Base
+                WHERE Base = @crewBase
             ) AS Ranked
             WHERE CrewID = @crewId;
         `);
 
-        if (!baseSeniority.recordset[0]) {
+        // return res.json({ baseSeniority })
+        if (baseSeniority.recordset.length == 0) {
             return res.status(404).json({ message: "Crew not found" });
         }
 
+        // ✅ Extract the position
+        const position = baseSeniority.recordset[0].PositionNumber;
+
         // return res.json({ data: crewBases });
-        return res.status(200).json({ message: "Crew Bases Found", crewBases, seniority: crew?.Seniority, baseSeniority, base: crew?.Base });
+        return res.status(200).json({ message: "Crew Bases Found", crewBases, seniority: crew?.Seniority, baseSeniority: position, base: crew?.Base });
     } catch (err: any) {
         console.error("Error in getCrewBaseRanking:", err);
         return res.status(500).json({ message: "Internal Server Error", error: err.message });
