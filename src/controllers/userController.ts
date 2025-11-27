@@ -1055,19 +1055,20 @@ export const filterByDate = async (req: Request, res: Response): Promise<any> =>
 
 export const applyPosition = async (req: Request, res: Response): Promise<any> => {
     try {
-        const { seqNo, position, effDate } = req.body;
+        const { seqNo, position, effDate, bidMonth } = req.body;
         const userId = (req as any).user.id
         if (!seqNo || !position) {
             return res.status(StatusCode.BAD_REQUEST).json({ message: "seqNo and position are required" });
         }
 
-        const updatedSeqCrewPos = await updatePosition(Number(seqNo), Number(position), effDate);
+        // const updatedSeqCrewPos = await updatePosition(Number(seqNo), Number(position), effDate);
+        const updatedSeqCrewPos = await updatePosition(Number(seqNo), Number(position), bidMonth);
 
         if (!updatedSeqCrewPos) {
             return res.status(StatusCode.NOT_FOUND).json({ message: Messages.NOT_FOUND });
         }
 
-        const newUserSequenceId = await addSequenceDataInUserSequence(userId, updatedSeqCrewPos, position, updatedSeqCrewPos.originalDigit);
+        const newUserSequenceId = await addSequenceDataInUserSequence(userId, updatedSeqCrewPos, position, effDate, updatedSeqCrewPos.originalDigit);
         const newUserLegId = await addLegDataInUserLeg(seqNo, effDate, newUserSequenceId);
 
         return res.status(StatusCode.OK).json({
