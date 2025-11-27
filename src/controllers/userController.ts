@@ -82,7 +82,7 @@ export const getCrewBaseRanking = async (req: Request, res: Response): Promise<a
                 SELECT 
                     CrewID,
                     Base,
-                    ROW_NUMBER() OVER (ORDER BY HireDate ASC) AS PositionNumber
+                    ROW_NUMBER() OVER (ORDER BY CrewID) AS PositionNumber
                 FROM Roster
                 WHERE Base = @crewBase
             ) AS Ranked
