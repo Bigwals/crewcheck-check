@@ -49,8 +49,8 @@ export const getProfile = async (req: Request, res: Response): Promise<any> => {
 
 export const getCrewBaseRanking = async (req: Request, res: Response): Promise<any> => {
     try {
-        // const crewId = (req as any).user.crewId;
-        const crewId = 5896;
+        const crewId = (req as any).user.crewId;
+        // const crewId = 5896;
         const pool = await getPool();
 
         // 1) Get logged-in crew
@@ -67,8 +67,29 @@ export const getCrewBaseRanking = async (req: Request, res: Response): Promise<a
         const crew = await findCrewById(crewId)
         // return res.json({ data: crew });
         const crewBases = fetchBases.recordset;
+
+        const baseSeniority = await pool
+            .request()
+            .input("crewId", sql.Int, crewId) // ✅ You MUST pass this
+            .query(`
+            SELECT *
+            FROM (
+                SELECT 
+                    CrewID,
+                    Base,
+                    ROW_NUMBER() OVER (ORDER BY HireDate ASC) AS PositionNumber
+                FROM Roster
+                WHERE Base = @crew?.Base
+            ) AS Ranked
+            WHERE CrewID = @crewId;
+        `);
+
+        if (!baseSeniority.recordset[0]) {
+            return res.status(404).json({ message: "Crew not found" });
+        }
+
         // return res.json({ data: crewBases });
-        return res.status(200).json({ message: "Crew Bases Found", crewBases, seniority: crew?.Seniority, base: crew?.Base });
+        return res.status(200).json({ message: "Crew Bases Found", crewBases, seniority: crew?.Seniority, baseSeniority, base: crew?.Base });
     } catch (err: any) {
         console.error("Error in getCrewBaseRanking:", err);
         return res.status(500).json({ message: "Internal Server Error", error: err.message });
@@ -324,10 +345,10 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
             FROM PerDiem
             WHERE effective_date <= @perDiemDate
             `);
-            // .query(`
-            // SELECT TOP 1 EffectiveDate, DOM, INT
-            // FROM PerDiem
-            // WHERE EffectiveDate <= @perDiemDate
+        // .query(`
+        // SELECT TOP 1 EffectiveDate, DOM, INT
+        // FROM PerDiem
+        // WHERE EffectiveDate <= @perDiemDate
 
         const perDiemRow = perDiemResult.recordset?.[0] ?? null;
         const perDiem_dom = perDiemRow ? parseFloat(perDiemRow.DOM || 0) : 0;
@@ -696,9 +717,9 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
                 FROM PerDiem
                 WHERE effective_date <= @perDiemDate
                 `);
-                // SELECT TOP 1 DOM, INT
-                // FROM PerDiem
-                // WHERE EffectiveDate <= @perDiemDate
+            // SELECT TOP 1 DOM, INT
+            // FROM PerDiem
+            // WHERE EffectiveDate <= @perDiemDate
 
             const perDiemRow = perDiemResult.recordset?.[0] ?? { DOM: 0, INT: 0 };
             let perDiemRate = 0;
