@@ -22,6 +22,9 @@ export const getProfile = async (req: Request, res: Response): Promise<any> => {
     try {
         const userId = (req as any).user.id;
         const crewId = (req as any).user.crewId;
+
+        const pool = await getPool();
+
         // const userId = (req as any).query?.userId;
         console.log("User ==>>", crewId);
         // return res.json({user: crewId});
@@ -35,10 +38,37 @@ export const getProfile = async (req: Request, res: Response): Promise<any> => {
         if (!crew) {
             return res.status(StatusCode.NOT_FOUND).json({ message: Messages.NOT_FOUND });
         }
+        const crewBase = crew?.Base;
+
+        const baseSeniority = await pool
+            .request()
+            .input("crewId", sql.Int, crewId)
+            .input("crewBase", sql.NVarChar, crewBase)   // ✅ You MUST pass this
+            .query(`
+            SELECT *
+            FROM (
+                SELECT 
+                    CrewID,
+                    Base,
+                    ROW_NUMBER() OVER (ORDER BY CrewID) AS PositionNumber
+                FROM Roster
+                WHERE Base = @crewBase
+            ) AS Ranked
+            WHERE CrewID = @crewId;
+        `);
+
+        // return res.json({ baseSeniority })
+        if (baseSeniority.recordset.length == 0) {
+            return res.status(404).json({ message: "Crew not found" });
+        }
+
+        // ✅ Extract the position
+        const position = baseSeniority.recordset[0].PositionNumber;
+
 
         const service = await getCrewPayDetails(crewId);
         const languages = await getUserLanguages(userId);
-        if (service) return res.status(200).json({ message: Messages.USER_PROFILE, crew, languages, service });
+        if (service) return res.status(200).json({ message: Messages.USER_PROFILE, crew, baseSeniority: position, languages, service });
         // const crewBases = await getCrewBaseRanking()
         return res.status(200).json({ message: Messages.USER_PROFILE, crew, languages });
     } catch (error: any) {
@@ -470,9 +500,9 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
             const totalDPDeadheadHours = toDecimalHours(deadheadResult.recordset?.[0]?.TotalDPDeadheadHours ?? 0);
 
             // 🧮 Calculations
-            const payHours = cvtSeqPC + totalDPDeadheadHours;
-            const creditHours = cvtSeqFlyTime;
-            const tafbHours = cvtTAFB;
+            const payHours = cvtSeqPC + totalDPDeadheadHours; //+ CvtSeqFlyTime +cvtDeadheadTime
+            const creditHours = cvtSeqFlyTime; // +cvtDeadheadTime
+            const tafbHours = cvtTAFB; // time away from base
             const premiumHours = cvtSeqPremTime;
 
             const category = seq.SeqCategory?.toUpperCase() ?? "DOM";
@@ -1099,7 +1129,7 @@ export const applyPosition = async (req: Request, res: Response): Promise<any> =
         }
 
         const newUserSequenceId = await addSequenceDataInUserSequence(userId, updatedSeqCrewPos, position, effDate, updatedSeqCrewPos.originalDigit);
-        const newUserLegId = await addLegDataInUserLeg(seqNo, effDate, newUserSequenceId);
+        const newUserLegId = await addLegDataInUserLeg(seqNo, bidMonth, newUserSequenceId);
 
         return res.status(StatusCode.OK).json({
             message: "Position Applied Successfully",

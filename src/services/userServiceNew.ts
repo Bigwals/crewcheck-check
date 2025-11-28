@@ -291,16 +291,17 @@ export const addLegDataInUserLeg = async (
   const legs = await pool.request()
     .input("seqNo", sql.Int, seqNo)
     // .input("effDate", sql.NVarChar(50), effDate)
-    .input("bidMonth", sql.NVarChar(50), bidMonth)
+    .input("bidMonth", sql.NVarChar, bidMonth)
     .query(`
       SELECT *
       FROM Leg
       WHERE SeqNo = @seqNo AND BidMonth = @bidMonth
       `);
-      // WHERE SeqNo = @seqNo AND EffDate = @effDate
+  // WHERE SeqNo = @seqNo AND EffDate = @effDate
 
   if (legs.recordset.length === 0) return [];
 
+  console.log("-->>", legs);
   // 2) Insert each leg into UserLeg
   for (const leg of legs.recordset) {
     // ✅ Generate unique ID for each insert
