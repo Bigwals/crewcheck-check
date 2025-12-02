@@ -930,8 +930,9 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
                 `);
             const cvtDPDeadheadTime = toDecimalHours(deadheadResult.recordset?.[0]?.TotalDPDeadheadHours ?? 0);
 
-            const payHours = cvtSeqPC + cvtDPDeadheadTime + cvtSeqFlyTime;
-            const creditHours = cvtSeqFlyTime + cvtDPDeadheadTime;
+            // const payHours = cvtSeqPC + cvtDPDeadheadTime + cvtSeqFlyTime;
+            const payHours = 0
+            const creditHours = cvtSeqPC + cvtSeqFlyTime + cvtDPDeadheadTime;
             const tafbHours = cvtTAFB;
             const premiumHours = cvtSeqPremTime;
 
@@ -950,11 +951,12 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
                 tafbPay = tafbHours * perDiemRate;
             }
 
+
             // CASE 2: INT -> per-leg detailed calculation
             else if (category === "INT") {
                 for (const leg of seqLegs) {
                     // leg CvtLegTAFBTotal should include flying + layover total if present
-                    const legTAFB_total = toDecimalHours(leg.CvtLegTotalFlying);
+                    const legTAFB_total = toDecimalHours(leg.CvtDPOnDutyTime);
                     // prefer explicit layover column if available
                     const layoverHours = toDecimalHours(leg.CvtLayover ?? leg.Layover ?? 0);
                     // flight part = total - layover (if total present)
@@ -962,7 +964,7 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
 
                     // fallback: if total is zero but we have flying time, compute flightPart from flying column
                     if (legTAFB_total === 0) {
-                        flightPart = toDecimalHours(leg.CvtLegFlyTime ?? leg.CvtSeqFlyTime ?? leg.LegTotalFlying ?? 0);
+                        flightPart = toDecimalHours(leg.CvtDPOnDutyTime ?? leg.CvtDPOnDutyTime ?? leg.CvtDPOnDutyTime ?? 0);
                     }
 
                     sanityLegTAFBTotal += (flightPart + layoverHours);
@@ -1044,13 +1046,13 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
             }
 
             const numBoardings = parseInt(seq.NBR_Legs ?? String(seqLegs.length ?? 0), 10) || seqLegs.length || 0;
-            const totalBoardingPay = parseFloat((hourlyBoardingRate * numBoardings).toFixed(2));
+            const totalBoardingPay = parseFloat((hourlyBoardingRate * numBoardings).toFixed(2)); // add hourlyRate not multiply.
             const boardingPay = totalBoardingPay;
 
             let premiumRate = 0;
             if (category === "IPD") premiumRate = 3.75;
-            else if (category === "INT") premiumRate = 3.0;
-            else if (category === "SPK") premiumRate = 2.0;
+            else if (category === "INT") premiumRate = 3.0; // HAW = INT
+            // else if (category === "SPK") premiumRate = 2.0;
 
             const userId = (req as any).user.id;
 
@@ -1076,8 +1078,8 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
                 payHoursDollars +
                 creditHoursDollars +
                 tafbPay +
-                premiumWithSpeaker +
-                boardingPay;
+                premiumWithSpeaker
+                // boardingPay;
 
             // push result
             sequences.push({
@@ -1343,7 +1345,8 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
                 `);
             const cvtDPDeadheadTime = toDecimalHours(deadheadResult.recordset?.[0]?.TotalDPDeadheadHours ?? 0);
 
-            const payHours = cvtSeqPC + cvtDPDeadheadTime + cvtSeqFlyTime;
+            // const payHours = cvtSeqPC + cvtDPDeadheadTime + cvtSeqFlyTime;
+            const payHours = 0;
             const creditHours = cvtSeqFlyTime + cvtDPDeadheadTime;
             const tafbHours = cvtTAFB;
             const premiumHours = cvtSeqPremTime;
@@ -1368,7 +1371,7 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
                 for (const leg of seqLegs) {
                     console.log("Inside the ")
                     // leg CvtLegTAFBTotal should include flying + layover total if present
-                    const legTAFB_total = toDecimalHours(leg.CvtLegTotalFlying);
+                    const legTAFB_total = toDecimalHours(leg.CvtDPOnDutyTime);
                     // prefer explicit layover column if available
                     const layoverHours = toDecimalHours(leg.CvtLayoverTime ?? leg.LayoverTime ?? 0);
                     // flight part = total - layover (if total present)
@@ -1376,7 +1379,7 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
 
                     // fallback: if total is zero but we have flying time, compute flightPart from flying column
                     if (legTAFB_total === 0) {
-                        flightPart = toDecimalHours(leg.CvtLegFlyTime ?? leg.CvtSeqFlyTime ?? leg.LegTotalFlying ?? 0);
+                        flightPart = toDecimalHours(leg.CvtDPOnDutyTime ?? leg.CvtDPOnDutyTime ?? leg.CvtDPOnDutyTime ?? 0);
                     }
 
                     sanityLegTAFBTotal += (flightPart + layoverHours);
@@ -1511,7 +1514,11 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
 
             // 8) Total sequence earnings
             const totalSequenceEarnings = Number(
-                payHoursDollars + creditHoursDollars + tafbPay + premiumWithSpeaker + totalBoardingPay
+                payHoursDollars + 
+                creditHoursDollars + 
+                tafbPay + 
+                premiumWithSpeaker 
+                // totalBoardingPay
             );
 
             // 9) Prepare the same output shape as before (frontend unchanged).
