@@ -362,7 +362,7 @@ export const addLegDataInUserLeg = async (
       .input("CvtLegNiteFly", sql.VarChar(5), leg.CvtLegNiteFly)
       .input("CvtLegPC", sql.VarChar(5), leg.CvtLegPC)
       .input("CvtLegTotalFlying", sql.VarChar(5), leg.CvtLegTotalFlying)
-      .input("CvtLayoverTime", sql.VarChar(7), leg.CvtLayoverTime)
+      .input("CvtLayoverTime", sql.VarChar(7), leg.CvtLayover)
       .input("BidMonth", sql.VarChar(7), leg.BidMonth)
       .query(`
         INSERT INTO UserLeg (
@@ -714,21 +714,42 @@ export const getCrewPayDetail = async (crewIds: number[]) => {
   });
 };
 
+// old
+// export const getUserLanguages = async (userId: string) => {
+//   const pool = await getPool();
+
+//   // 1. Get crew hireDate
+//   const crewResult = await pool.request()
+//     .input("userId", sql.UniqueIdentifier, userId)
+//     .query(`
+//       SELECT *
+//       FROM UserLanguage
+//       WHERE UserID = @userId
+//     `);
+//   const crewLanguages = crewResult.recordset;
+
+//   return crewLanguages
+// }
+
+// new
+
 export const getUserLanguages = async (userId: string) => {
   const pool = await getPool();
 
-  // 1. Get crew hireDate
-  const crewResult = await pool.request()
+  const result = await pool.request()
     .input("userId", sql.UniqueIdentifier, userId)
     .query(`
-      SELECT *
-      FROM UserLanguage
-      WHERE UserID = @userId
+      SELECT 
+        UL.LanguageID,
+        L.SpokenLanguage
+      FROM UserLanguage UL
+      INNER JOIN Language L
+        ON UL.LanguageID = L.LanguageID
+      WHERE UL.UserID = @userId
     `);
-  const crewLanguages = crewResult.recordset;
 
-  return crewLanguages
-}
+  return result.recordset;  // array of languages with names
+};
 
 export async function getDynamicBaseRate(yearsOfService: number): Promise<number> {
   const now = new Date();
