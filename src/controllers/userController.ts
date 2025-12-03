@@ -901,7 +901,7 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
                     flightNo: leg.FitNo,
                     dptTime: leg.CvtDptTime,
                     arvTime: leg.CvtArvTime,
-                    flyingHours: leg.CvtSeqFlyTime ?? leg.LegTotalFlying,
+                    flyingHours: leg.CvtSeqFlyTime ?? leg.CvtLegTotalFlying,
                     legPc: leg.LegPC,
                     layover: leg.Layover ? formatMinutes(leg.Layover) : null,
                     eod: leg.EOD,
@@ -2297,11 +2297,22 @@ export const getStubs = async (req: Request, res: Response): Promise<any> => {
 };
 
 // helper functions
-const formatMinutes = (mins: number) => {
-    const h = Math.floor(mins / 60);
-    const m = mins % 60;
-    return `${h}:${m}`;
-}
+// const formatMinutes = (mins: number) => {
+//     const h = Math.floor(mins / 60);
+//     const m = mins % 60;
+//     return `${h}:${m}`;
+// }
+
+const formatMinutes = (totalMinutes: number): string => {
+    const h = Math.floor(totalMinutes / 60);
+    const m = totalMinutes % 60;
+
+    const hh = h.toString().padStart(2, "0");
+    const mm = m.toString().padStart(2, "0");
+
+    return `${hh}:${mm}`;
+};
+
 
 const toHHmm = (time: number): string => {
     const hh = Math.floor(time / 60);
