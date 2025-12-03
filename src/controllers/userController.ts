@@ -864,6 +864,7 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
         const baseRate = await getDynamicBaseRate(yearsOfService);
 
         // ---------- build sequences ----------
+        const leg_equip_types: any[] = [];
         const sequences: any[] = [];
 
         for (const seq of sequenceData) {
@@ -911,6 +912,12 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
                     currentDayLegs = [];
                     dayCounter++;
                 }
+
+                leg_equip_types.push({
+                    leg_equip_type: leg.leg_equip_type
+                });
+
+                console.log("Leg Equip Type:", leg.leg_equip_type);
             });
             if (currentDayLegs.length > 0) dayWiseLegs.push({ day: dayCounter, legs: currentDayLegs });
 
@@ -1005,13 +1012,114 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
 
             seq.tafbPay = tafbPay;
 
+            console.log("LegEquip Type Array", leg_equip_types);
+
+            // Boarding Pay
+            let hourlyBoardingRate = 0;
+            let boarding_type = 0;
+
+            // Fetch Boarding Pay ROW only once (no need to fetch again & again)
+            const boardingResult = await pool.request()
+                .input("YearsOfService", sql.Int, yearsOfService)
+                .query(`
+                SELECT TOP 1 *
+                FROM boarding_pay
+                WHERE YearsOfService = @YearsOfService
+            `);
+
+            const boardingRow = boardingResult.recordset?.[0] ?? null;
+
+            if (!boardingRow) {
+                console.log("⚠️ No boarding pay row found for YearsOfService:", yearsOfService);
+            }
+
+            for (const leg of leg_equip_types) {
+
+                const positionPremiumPay = await pool.request()
+                    .input("leg", sql.Int, leg.leg_equip_type)
+                    .query(`
+                SELECT TOP 1 *
+                FROM position_premium_pay
+                WHERE leg_equip_type = @leg
+            `);
+
+                const posRow = positionPremiumPay.recordset?.[0] ?? null;
+
+                console.log("leg:", leg.leg_equip_type);
+                console.log("position premium pay:", posRow);
+
+                if (!posRow || !boardingRow) {
+                    continue; // skip invalid rows
+                }
+
+                // const seqCat = posRow.seq_catagory;
+                const seqCat = category;
+                const boardingType = Number(posRow.boarding_type); // ensure numeric comparison
+
+                // ───────────────────────────────────────────────
+                // DOMESTIC (DOM)
+                // ───────────────────────────────────────────────
+                if (seqCat === "DOM") {
+                    if (boardingType === 35) {
+                        console.log("boardingType", boardingType)
+                        console.log("SeqCat", seqCat)
+                        boarding_type = parseFloat(boardingRow.boarding_35_type)
+                        console.log("boarding_type", boarding_type)
+                        hourlyBoardingRate += parseFloat(boardingRow.hourly_boarding_rate ?? 0);
+                    }
+                    else if (boardingType === 40) {
+                        console.log("boardingType", boardingType)
+                        console.log("SeqCat", seqCat)
+                        boarding_type = parseFloat(boardingRow.boarding_40_type)
+                        console.log("boarding_type", boarding_type)
+                        hourlyBoardingRate += parseFloat(boardingRow.hourly_boarding_rate ?? 0);
+                    }
+                }
+
+                // ───────────────────────────────────────────────
+                // INTERNATIONAL (INT)
+                // ───────────────────────────────────────────────
+                else if (seqCat === "INT") {
+                    if (boardingType === 50) {
+                        console.log("boardingType", boardingType)
+                        console.log("SeqCat", seqCat)
+                        boarding_type = parseFloat(boardingRow.boarding_50_type)
+                        console.log("boarding_type", boarding_type)
+                        hourlyBoardingRate += parseFloat(boardingRow.hourly_boarding_rate ?? 0);
+                    }
+                }
+
+                // ───────────────────────────────────────────────
+                // IPD / HAW
+                // ───────────────────────────────────────────────
+                else if (["IPD", "HAW"].includes(seqCat)) {
+                    if (boardingType === 50) {
+                        console.log("boardingType", boardingType)
+                        console.log("SeqCat", seqCat)
+                        boarding_type = parseFloat(boardingRow.boarding_50_type)
+                        console.log("boarding_type", boarding_type)
+                        hourlyBoardingRate += parseFloat(boardingRow.hourly_boarding_rate ?? 0);
+                    }
+                }
+
+                // ───────────────────────────────────────────────
+                // FALLBACK (no matching category)
+                // ───────────────────────────────────────────────
+                else {
+                    console.log("No matching seq category for leg:", seqCat);
+                }
+            }
+            const boardingPay = hourlyBoardingRate;
+
+            console.log("Final Boarding Pay:", hourlyBoardingRate);
+
             // -------------------------
             // Boarding / Premium / Earnings (unchanged)
             // -------------------------
-            const boardingResult = await pool.request()
-                .input("YearsOfService", sql.Int, yearsOfService)
-                .query(`SELECT TOP 1 * FROM BoardingPay WHERE YearsOfService = @YearsOfService`);
-            const boardingRow = boardingResult.recordset?.[0] ?? null;
+            // const boardingResult = await pool.request()
+            //     .input("YearsOfService", sql.Int, yearsOfService)
+            //     .query(`SELECT TOP 1 * FROM BoardingPay WHERE YearsOfService = @YearsOfService`);
+            // const boardingRow = boardingResult.recordset?.[0] ?? null;
 
             // let boardingRatePerLeg = 0;
 
@@ -1022,36 +1130,36 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
             //     else boardingRatePerLeg = parseFloat(boardingRow.Boarding40Min ?? 0);
             // }
 
-            let boardingRatePerLeg = 0;
-            let hourlyBoardingRate = 0;
+            // console.log(leg)
 
-            if (boardingRow) {
-                if (seq.SeqCategory === "DOM") {
-                    boardingRatePerLeg = parseFloat(boardingRow.Boarding40Min ?? 0);
-                    hourlyBoardingRate = parseFloat(boardingRow.hourlyBoardingRate ?? 0);
-                }
-                else if (seq.SeqCategory === "INT") {
-                    boardingRatePerLeg = parseFloat(boardingRow.Boarding50Min ?? 0);
-                    hourlyBoardingRate = parseFloat(boardingRow.HourlyBoardingRate ?? 0);
-                }
-                else if (["IPD", "HAW"].includes(seq.SeqCategory)) {
-                    boardingRatePerLeg = parseFloat(boardingRow.Boarding55Min ?? 0);
-                    hourlyBoardingRate = parseFloat(boardingRow.HourlyBoardingRate ?? 0);
-                }
-                else {
-                    // fallback
-                    boardingRatePerLeg = parseFloat(boardingRow.Boarding40Min ?? 0);
-                    hourlyBoardingRate = parseFloat(boardingRow.HourlyBoardingRate ?? 0);
-                }
-            }
+
+            // if (boardingRow) {
+            //     if (seq.SeqCategory === "DOM") {
+            //         boardingRatePerLeg = parseFloat(boardingRow.Boarding40Min ?? 0);
+            //         hourlyBoardingRate = parseFloat(boardingRow.hourlyBoardingRate ?? 0);
+            //     }
+            //     else if (seq.SeqCategory === "INT") {
+            //         boardingRatePerLeg = parseFloat(boardingRow.Boarding50Min ?? 0);
+            //         hourlyBoardingRate = parseFloat(boardingRow.HourlyBoardingRate ?? 0);
+            //     }
+            //     else if (["IPD", "HAW"].includes(seq.SeqCategory)) {
+            //         boardingRatePerLeg = parseFloat(boardingRow.Boarding55Min ?? 0);
+            //         hourlyBoardingRate = parseFloat(boardingRow.HourlyBoardingRate ?? 0);
+            //     }
+            //     else {
+            //         // fallback
+            //         boardingRatePerLeg = parseFloat(boardingRow.Boarding40Min ?? 0);
+            //         hourlyBoardingRate = parseFloat(boardingRow.HourlyBoardingRate ?? 0);
+            //     }
+            // }
 
             const numBoardings = parseInt(seq.NBR_Legs ?? String(seqLegs.length ?? 0), 10) || seqLegs.length || 0;
-            const totalBoardingPay = parseFloat((hourlyBoardingRate * numBoardings).toFixed(2)); // add hourlyRate not multiply.
-            const boardingPay = totalBoardingPay;
+            const totalBoardingPay = parseFloat((hourlyBoardingRate).toFixed(2)); // add hourlyRate not multiply.
 
+            // Premium Pay
             let premiumRate = 0;
             if (category === "IPD") premiumRate = 3.75;
-            else if (category === "INT") premiumRate = 3.0; // HAW = INT
+            else if (category === "INT" || category === "HAW") premiumRate = 3.0; // HAW = INT
             // else if (category === "SPK") premiumRate = 2.0;
 
             const userId = (req as any).user.id;
@@ -1078,8 +1186,8 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
                 payHoursDollars +
                 creditHoursDollars +
                 tafbPay +
-                premiumWithSpeaker
-                // boardingPay;
+                premiumWithSpeaker +
+                boardingPay;
 
             // push result
             sequences.push({
@@ -1190,6 +1298,7 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
         });
 
         // new
+        const leg_equip_types: any[] = [];
         const sequences: any[] = [];
 
         for (const seq of currentMonthSeqs) {
@@ -1259,6 +1368,12 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
                         legs: currentDayLegs
                     });
                 }
+
+                leg_equip_types.push({
+                    leg_equip_type: leg.LegEqupType
+                });
+
+                console.log("Leg Equip Type:", leg);
             });
 
             if (currentDayLegs.length > 0) {
@@ -1407,6 +1522,12 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
                     }
 
                     tafbPay += legPay;
+
+                    // leg_equip_types.push({
+                    //     leg_equip_type: leg.leg_equip_type
+                    // });
+
+                    console.log("Leg Equip Type:", leg.leg_equip_type);
                     console.log("==......>>>>", tafbPay)
                 }
 
@@ -1424,12 +1545,111 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
             // return res.json({ seq.tafbPay })
             // ================================
 
-            // 5) BoardingPay: fetch by YearsOfService
+
+            let hourlyBoardingRate = 0;
+            let boarding_type = 0;
+
+            // Fetch Boarding Pay ROW only once (no need to fetch again & again)
             const boardingResult = await pool.request()
                 .input("YearsOfService", sql.Int, yearsOfService)
-                .query(`SELECT TOP 1 * FROM BoardingPay WHERE YearsOfService = @YearsOfService`);
+                .query(`
+                SELECT TOP 1 *
+                FROM boarding_pay
+                WHERE YearsOfService = @YearsOfService
+            `);
 
             const boardingRow = boardingResult.recordset?.[0] ?? null;
+
+            if (!boardingRow) {
+                console.log("⚠️ No boarding pay row found for YearsOfService:", yearsOfService);
+            }
+
+            for (const leg of leg_equip_types) {
+
+                const positionPremiumPay = await pool.request()
+                    .input("leg", sql.Int, leg.leg_equip_type)
+                    .query(`
+                SELECT TOP 1 *
+                FROM position_premium_pay
+                WHERE leg_equip_type = @leg
+            `);
+
+                const posRow = positionPremiumPay.recordset?.[0] ?? null;
+
+                console.log("leg:", leg.leg_equip_type);
+                console.log("position premium pay:", posRow);
+
+                if (!posRow || !boardingRow) {
+                    continue; // skip invalid rows
+                }
+
+                // const seqCat = posRow.seq_catagory;
+                const seqCat = category;
+                const boardingType = Number(posRow.boarding_type); // ensure numeric comparison
+
+                // ───────────────────────────────────────────────
+                // DOMESTIC (DOM)
+                // ───────────────────────────────────────────────
+                if (seqCat === "DOM") {
+                    if (boardingType === 35) {
+                        console.log("boardingType", boardingType)
+                        console.log("SeqCat", seqCat)
+                        boarding_type = parseFloat(boardingRow.boarding_35_type)
+                        console.log("boarding_type", boarding_type)
+                        hourlyBoardingRate += parseFloat(boardingRow.hourly_boarding_rate ?? 0);
+                    }
+                    else if (boardingType === 40) {
+                        console.log("boardingType", boardingType)
+                        console.log("SeqCat", seqCat)
+                        boarding_type = parseFloat(boardingRow.boarding_40_type)
+                        console.log("boarding_type", boarding_type)
+                        hourlyBoardingRate += parseFloat(boardingRow.hourly_boarding_rate ?? 0);
+                    }
+                }
+
+                // ───────────────────────────────────────────────
+                // INTERNATIONAL (INT)
+                // ───────────────────────────────────────────────
+                else if (seqCat === "INT") {
+                    if (boardingType === 50) {
+                        console.log("boardingType", boardingType)
+                        console.log("SeqCat", seqCat)
+                        boarding_type = parseFloat(boardingRow.boarding_50_type)
+                        console.log("boarding_type", boarding_type)
+                        hourlyBoardingRate += parseFloat(boardingRow.hourly_boarding_rate ?? 0);
+                    }
+                }
+
+                // ───────────────────────────────────────────────
+                // IPD / HAW
+                // ───────────────────────────────────────────────
+                else if (["IPD", "HAW"].includes(seqCat)) {
+                    if (boardingType === 50) {
+                        console.log("boardingType", boardingType)
+                        console.log("SeqCat", seqCat)
+                        boarding_type = parseFloat(boardingRow.boarding_50_type)
+                        console.log("boarding_type", boarding_type)
+                        hourlyBoardingRate += parseFloat(boardingRow.hourly_boarding_rate ?? 0);
+                    }
+                }
+
+                // ───────────────────────────────────────────────
+                // FALLBACK (no matching category)
+                // ───────────────────────────────────────────────
+                else {
+                    console.log("No matching seq category for leg:", seqCat);
+                }
+            }
+            const totalBoardingPay = hourlyBoardingRate;
+
+            console.log("Final Boarding Pay:", hourlyBoardingRate);
+
+            // 5) BoardingPay: fetch by YearsOfService
+            // const boardingResult = await pool.request()
+            //     .input("YearsOfService", sql.Int, yearsOfService)
+            //     .query(`SELECT TOP 1 * FROM BoardingPay WHERE YearsOfService = @YearsOfService`);
+
+            // const boardingRow = boardingResult.recordset?.[0] ?? null;
 
             // choose boarding rate value depending on SeqCategory (these columns hold $ amounts per boarding)
             // old
@@ -1449,34 +1669,33 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
 
             // const boardingRow = boardingResult.recordset?.[0] ?? null;
 
-            let boardingRatePerLeg = 0;
-            let hourlyBoardingRate = 0;
+            // let boardingRatePerLeg = 0;
+            // let hourlyBoardingRate = 0;
 
-            if (boardingRow) {
-                if (seq.SeqCategory === "DOM") {
-                    boardingRatePerLeg = parseFloat(boardingRow.Boarding40Min ?? 0);
-                    hourlyBoardingRate = parseFloat(boardingRow.hourlyBoardingRate ?? 0);
-                }
-                else if (seq.SeqCategory === "INT") {
-                    boardingRatePerLeg = parseFloat(boardingRow.Boarding50Min ?? 0);
-                    hourlyBoardingRate = parseFloat(boardingRow.HourlyBoardingRate ?? 0);
-                }
-                else if (["IPD", "HAW"].includes(seq.SeqCategory)) {
-                    boardingRatePerLeg = parseFloat(boardingRow.Boarding55Min ?? 0);
-                    hourlyBoardingRate = parseFloat(boardingRow.HourlyBoardingRate ?? 0);
-                }
-                else {
-                    // fallback
-                    boardingRatePerLeg = parseFloat(boardingRow.Boarding40Min ?? 0);
-                    hourlyBoardingRate = parseFloat(boardingRow.HourlyBoardingRate ?? 0);
-                }
-            }
+            // if (boardingRow) {
+            //     if (seq.SeqCategory === "DOM") {
+            //         boardingRatePerLeg = parseFloat(boardingRow.Boarding40Min ?? 0);
+            //         hourlyBoardingRate = parseFloat(boardingRow.hourlyBoardingRate ?? 0);
+            //     }
+            //     else if (seq.SeqCategory === "INT") {
+            //         boardingRatePerLeg = parseFloat(boardingRow.Boarding50Min ?? 0);
+            //         hourlyBoardingRate = parseFloat(boardingRow.HourlyBoardingRate ?? 0);
+            //     }
+            //     else if (["IPD", "HAW"].includes(seq.SeqCategory)) {
+            //         boardingRatePerLeg = parseFloat(boardingRow.Boarding55Min ?? 0);
+            //         hourlyBoardingRate = parseFloat(boardingRow.HourlyBoardingRate ?? 0);
+            //     }
+            //     else {
+            //         // fallback
+            //         boardingRatePerLeg = parseFloat(boardingRow.Boarding40Min ?? 0);
+            //         hourlyBoardingRate = parseFloat(boardingRow.HourlyBoardingRate ?? 0);
+            //     }
+            // }
 
-            console.log("Hourly Boarding Rate", hourlyBoardingRate);
-            // number of boardings: prefer NBR_Legs if present, otherwise seqLegs.length
-            const numBoardings = parseFloat(seq.NBR_Legs ?? seqLegs.length ?? 0);
-            // const totalBoardingPay = parseFloat((boardingRatePerLeg * (numBoardings || 0)).toFixed(2));
-            const totalBoardingPay = parseFloat((hourlyBoardingRate * (numBoardings || 0)).toFixed(2));
+            // console.log("Hourly Boarding Rate", hourlyBoardingRate);
+            // // number of boardings: prefer NBR_Legs if present, otherwise seqLegs.length
+            // const numBoardings = parseFloat(seq.NBR_Legs ?? seqLegs.length ?? 0);
+            // // const totalBoardingPay = parseFloat((boardingRatePerLeg * (numBoardings || 0)).toFixed(2));
 
             const userId = (req as any).user.id;
 
@@ -1494,8 +1713,8 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
             // 6) Premium pay rules (per your doc)
             let premiumRatePerHour = 0;
             if (seq.SeqCategory === "IPD") premiumRatePerHour = 3.75;
-            else if (seq.SeqCategory === "INT") premiumRatePerHour = 3.00;
-            else if (seq.SeqCategory === "SPK") premiumRatePerHour = 2.00;
+            else if (seq.SeqCategory === "INT" || seq.SeqCategory === 'HAW') premiumRatePerHour = 3.00;
+            // else if (seq.SeqCategory === "SPK") premiumRatePerHour = 2.00;
             else premiumRatePerHour = 0;             // TAFB $
 
             const payHoursDollars = parseFloat((payHours * (baseRate || 0)).toFixed(2));
@@ -1514,11 +1733,11 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
 
             // 8) Total sequence earnings
             const totalSequenceEarnings = Number(
-                payHoursDollars + 
-                creditHoursDollars + 
-                tafbPay + 
-                premiumWithSpeaker 
-                // totalBoardingPay
+                payHoursDollars +
+                creditHoursDollars +
+                tafbPay +
+                premiumWithSpeaker +
+                totalBoardingPay
             );
 
             // 9) Prepare the same output shape as before (frontend unchanged).
