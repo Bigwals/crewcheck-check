@@ -120,7 +120,7 @@ export const getBoardingPayByYears = async (YearsOfService: number) => {
     .input("YearsOfService", sql.Int, YearsOfService)
     .query(`
             SELECT *
-            FROM BoardingPay
+            FROM boarding_pay
             WHERE YearsOfService = @YearsOfService 
         `);
 

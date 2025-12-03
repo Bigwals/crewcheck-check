@@ -1178,8 +1178,11 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
             // if user has languages → apply speaker pay
             if (languages) {
                 speakerPay = premiumHours * 2;
-                premiumWithSpeaker = premiumPay + speakerPay;
+                // premiumWithSpeaker = premiumPay + speakerPay;
+                premiumWithSpeaker += Math.round(speakerPay);
                 console.log("Languages.....", languages);
+                console.log("premiumPay.....", premiumPay);
+                console.log("speakerPay.....", speakerPay);
             }
 
             const totalEarnings =
@@ -2117,9 +2120,11 @@ export const basePay = async (req: Request, res: Response): Promise<any> => {
         }
 
         const boardingPay = {
-            min40: boardingPayRate?.Boarding40Min,
-            min45: boardingPayRate?.Boarding45Min,
-            min55: boardingPayRate?.Boarding55Min
+            min35: boardingPayRate?.boarding_35_type,
+            min40: boardingPayRate?.boarding_40_type,
+            min45: boardingPayRate?.boarding_45_type,
+            min50: boardingPayRate?.boarding_50_type,
+            min55: boardingPayRate?.boarding_55_type
         }
 
         const premiumPay = {
