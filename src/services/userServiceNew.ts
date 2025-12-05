@@ -325,7 +325,7 @@ export const addLegDataInUserLeg = async (
       .input("FitLegNo", sql.Int, leg.FitLegNo)
       .input("EOD", sql.Bit, leg.EOD)
       .input("LegTotalFlying", sql.Int, leg.LegTotalFlying)
-      .input("LegEqupType", sql.Int, leg.leg_equip_type)
+      .input("LegEqupType", sql.Int, leg.LegEqupType)
       .input("LegDeadheadCode", sql.Bit, leg.LegDeadheadCode)
       .input("LegMidnightCode", sql.Int, leg.LegMidnightCode)
       .input("LegPC", sql.Int, leg.LegPC)
@@ -362,7 +362,7 @@ export const addLegDataInUserLeg = async (
       .input("CvtLegNiteFly", sql.VarChar(5), leg.CvtLegNiteFly)
       .input("CvtLegPC", sql.VarChar(5), leg.CvtLegPC)
       .input("CvtLegTotalFlying", sql.VarChar(5), leg.CvtLegTotalFlying)
-      .input("CvtLayoverTime", sql.VarChar(7), leg.CvtLayover)
+      .input("CvtLayover", sql.VarChar(7), leg.CvtLayover)
       .input("BidMonth", sql.VarChar(7), leg.BidMonth)
       .query(`
         INSERT INTO UserLeg (
@@ -372,7 +372,7 @@ export const addLegDataInUserLeg = async (
           Calendar_40Day, Terminal, GateNumber, FlightStatus, BookingCode, SeatNumber, TailNumber, UserSequenceId,
           LegEndDateLocal, LegEndDateUtc, LegStartDateLocal, LegStartDateUtc, LegEndTimeLocal, LegEndTimeUtc,
           LegStartTimeLocal, LegStartTimeUtc, CvtArvTime, CvtDPDeadheadTime, CvtDPOnDutyTime, CvtDptTime,
-          CvtLegNiteFly, CvtLegPC, CvtLegTotalFlying, CvtLayoverTime, BidMonth
+          CvtLegNiteFly, CvtLegPC, CvtLegTotalFlying, CvtLayover, BidMonth
         )
         VALUES (
           @UserLegID, @UniqueSeqNo, @SeqNo, @SeqLegNo, @DeptStn, @ArrvStn, @DptTime, @DptZone, @ArvTime, @ArvZone,
@@ -381,7 +381,7 @@ export const addLegDataInUserLeg = async (
           @Calendar_40Day, @Terminal, @GateNumber, @FlightStatus, @BookingCode, @SeatNumber, @TailNumber, @UserSequenceId,
           @LegEndDateLocal, @LegEndDateUtc, @LegStartDateLocal, @LegStartDateUtc, @LegEndTimeLocal, @LegEndTimeUtc,
           @LegStartTimeLocal, @LegStartTimeUtc, @CvtArvTime, @CvtDPDeadheadTime, @CvtDPOnDutyTime, @CvtDptTime,
-          @CvtLegNiteFly, @CvtLegPC, @CvtLegTotalFlying, @CvtLayoverTime, @BidMonth
+          @CvtLegNiteFly, @CvtLegPC, @CvtLegTotalFlying, @CvtLayover, @BidMonth
         )
       `);
   }
