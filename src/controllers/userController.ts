@@ -393,6 +393,7 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
             const premiumHours = cvtSeqPremTime;
 
             const category = seq.SeqCategory?.toUpperCase() ?? "DOM";
+            const premiumTranscon = seq.PremiumTranscon;
 
             // -------------------------
             // PER DIEM / TAFB PAY LOGIC
@@ -402,8 +403,13 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
             let sanityLegTAFBTotal = 0;
 
             // CASE 1: DOM / IPD / HAW -> simple sequence-level rate
-            if (category === "DOM" || category === "IPD" || category === "HAW") {
-                const perDiemRate = category === "DOM" ? perDiem_dom : perDiem_int;
+            if (category === "DOM") {
+                const perDiemRate = premiumTranscon !== 1 ? perDiem_dom : perDiem_int;
+                tafbPay = tafbHours * perDiemRate;
+            }
+
+            else if (category === 'IPD' || category === 'HAW') {
+                const perDiemRate = perDiem_int;
                 tafbPay = tafbHours * perDiemRate;
             }
 
@@ -431,7 +437,7 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
                     const isArrINT = airportIntl[arr] === true;
 
                     // Determine flight rate (if either station is INT -> INT rate, else DOM)
-                    const flightRate = (isDepINT || isArrINT) ? perDiem_int : perDiem_dom;
+                    const legRate = (isDepINT || isArrINT) ? perDiem_int : perDiem_dom;
 
                     // ---- IMPORTANT: EOD layover handling ----
                     // If EOD === 1 => apply arrival-based rate to layoverHours.
@@ -440,10 +446,10 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
                     if (layoverHours > 0 && Number(leg.EOD) === 1) {
                         // arrival-based layover rate per your rule:
                         const layoverRate = isArrINT ? perDiem_int : perDiem_dom;
-                        legPay = (flightPart * flightRate) + (layoverHours * layoverRate);
+                        legPay = (flightPart * legRate) + (layoverHours * layoverRate);
                     } else {
                         // no special layover pay: pay entire leg total at flightRate
-                        legPay = (flightPart + layoverHours) * flightRate;
+                        legPay = (flightPart + layoverHours) * legRate;
                     }
 
                     tafbPay += legPay;
@@ -571,49 +577,6 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
 
             console.log("Final Boarding Pay:", hourlyBoardingRate);
 
-            // -------------------------
-            // Boarding / Premium / Earnings (unchanged)
-            // -------------------------
-            // const boardingResult = await pool.request()
-            //     .input("YearsOfService", sql.Int, yearsOfService)
-            //     .query(`SELECT TOP 1 * FROM BoardingPay WHERE YearsOfService = @YearsOfService`);
-            // const boardingRow = boardingResult.recordset?.[0] ?? null;
-
-            // let boardingRatePerLeg = 0;
-
-            // if (boardingRow) {
-            //     if (seq.SeqCategory === "DOM") boardingRatePerLeg = parseFloat(boardingRow.Boarding40Min ?? 0);
-            //     else if (seq.SeqCategory === "INT") boardingRatePerLeg = parseFloat(boardingRow.Boarding50Min ?? 0);
-            //     else if (["IPD", "HAW"].includes(seq.SeqCategory)) boardingRatePerLeg = parseFloat(boardingRow.Boarding55Min ?? 0);
-            //     else boardingRatePerLeg = parseFloat(boardingRow.Boarding40Min ?? 0);
-            // }
-
-            // console.log(leg)
-
-
-            // if (boardingRow) {
-            //     if (seq.SeqCategory === "DOM") {
-            //         boardingRatePerLeg = parseFloat(boardingRow.Boarding40Min ?? 0);
-            //         hourlyBoardingRate = parseFloat(boardingRow.hourlyBoardingRate ?? 0);
-            //     }
-            //     else if (seq.SeqCategory === "INT") {
-            //         boardingRatePerLeg = parseFloat(boardingRow.Boarding50Min ?? 0);
-            //         hourlyBoardingRate = parseFloat(boardingRow.HourlyBoardingRate ?? 0);
-            //     }
-            //     else if (["IPD", "HAW"].includes(seq.SeqCategory)) {
-            //         boardingRatePerLeg = parseFloat(boardingRow.Boarding55Min ?? 0);
-            //         hourlyBoardingRate = parseFloat(boardingRow.HourlyBoardingRate ?? 0);
-            //     }
-            //     else {
-            //         // fallback
-            //         boardingRatePerLeg = parseFloat(boardingRow.Boarding40Min ?? 0);
-            //         hourlyBoardingRate = parseFloat(boardingRow.HourlyBoardingRate ?? 0);
-            //     }
-            // }
-
-            // const numBoardings = parseInt(seq.NBR_Legs ?? String(seqLegs.length ?? 0), 10) || seqLegs.length || 0;
-            // const totalBoardingPay = parseFloat((hourlyBoardingRate).toFixed(2)); // add hourlyRate not multiply.
-
             // Premium Pay
             let premiumRate = 0;
             if (category === "IPD") premiumRate = 3.75;
@@ -636,7 +599,7 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
             // if user has languages → apply speaker pay
             if (languages) {
                 speakerPay = premiumHours * 2;
-                
+
                 premiumWithSpeaker += speakerPay;
                 // premiumWithSpeaker += Math.round(speakerPay);
                 console.log("Languages.....", languages);
