@@ -828,6 +828,7 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
             const premiumHours = cvtSeqPremTime;
 
             const category = seq.SeqCategory?.toUpperCase() ?? "DOM";
+            const premiumTranscon = seq.PremiumTranscon;
 
             // -------------------------
             // PER DIEM / TAFB PAY LOGIC
@@ -837,24 +838,22 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
             let sanityLegTAFBTotal = 0;
 
             // CASE 1: DOM / IPD / HAW -> simple sequence-level rate
-            // if (category === "DOM" || category === "IPD" || category === "HAW") {
-            //     const perDiemRate = category === "DOM" ? perDiem_dom : perDiem_int;
+            if (category === "DOM") {
+                const perDiemRate = premiumTranscon !== 1 ? perDiem_dom : perDiem_int;
+                tafbPay = tafbHours * perDiemRate;
+            }
+
+            // else if (category === 'IPD' || category === 'HAW') {
+            //     const perDiemRate = perDiem_int;
             //     tafbPay = tafbHours * perDiemRate;
-
-            //     for (const leg of seqLegs) {
-            //         const leg_equip_types = [];
-
-            //         leg_equip_types.push({
-            //             leg_equip_type: leg.LegEqupType
-            //         });
-            //     }
             // }
-            // let leg_equip_types = any[]: []
+
+
             // RESET FOR EACH SEQUENCE
             const leg_equip_types: any[] = [];
 
-            if (["DOM", "IPD", "HAW"].includes(category)) {
-                const perDiemRate = category === "DOM" ? perDiem_dom : perDiem_int;
+            if (["IPD", "HAW"].includes(category)) {
+                const perDiemRate = perDiem_int;
                 tafbPay = tafbHours * perDiemRate;
 
                 // Correct: push into OUTER array (do NOT redeclare!!)
