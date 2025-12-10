@@ -416,19 +416,20 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
             // CASE 2: INT -> per-leg detailed calculation
             else if (category === "INT") {
                 for (const leg of seqLegs) {
-                    // leg CvtLegTAFBTotal should include flying + layover total if present
-                    const legTAFB_total = toDecimalHours(leg.CvtDPOnDutyTime);
+                    const CvtDPOnDutyTime = toDecimalHours(leg.CvtDPOnDutyTime);
+
+                    console.log("CvtDP")
                     // prefer explicit layover column if available
-                    const layoverHours = toDecimalHours(leg.CvtLayover ?? leg.CvtLayover ?? 0);
-                    // flight part = total - layover (if total present)
-                    let flightPart = Math.max(0, legTAFB_total - layoverHours);
+                    const cvtLayover = toDecimalHours(leg.CvtLayover ?? leg.CvtLayover ?? 0);
+                    // // flight part = total - layover (if total present)
+                    // let flightPart = Math.max(0, legTAFB_total - layoverHours);
 
-                    // fallback: if total is zero but we have flying time, compute flightPart from flying column
-                    if (legTAFB_total === 0) {
-                        flightPart = toDecimalHours(leg.CvtDPOnDutyTime ?? leg.CvtDPOnDutyTime ?? leg.CvtDPOnDutyTime ?? 0);
-                    }
+                    // // fallback: if total is zero but we have flying time, compute flightPart from flying column
+                    // if (legTAFB_total === 0) {
+                    //     flightPart = toDecimalHours(leg.CvtDPOnDutyTime ?? leg.CvtDPOnDutyTime ?? leg.CvtDPOnDutyTime ?? 0);
+                    // }
 
-                    sanityLegTAFBTotal += (flightPart + layoverHours);
+                    sanityLegTAFBTotal += (CvtDPOnDutyTime + cvtLayover);
 
                     const dep = (leg.DeptStn || "").toString().toUpperCase();
                     const arr = (leg.ArrvStn || "").toString().toUpperCase();
@@ -440,24 +441,24 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
                     const legRate = (isDepINT || isArrINT) ? perDiem_int : perDiem_dom;
 
                     // ---- IMPORTANT: EOD layover handling ----
-                    // If EOD === 1 => apply arrival-based rate to layoverHours.
+                    // If EOD === 1 => apply arrival-based rate to cvtLayover.
                     // If EOD !== 1 => include layover in flightPart and pay at flightRate (no special layover pay).
                     let legPay = 0;
-                    if (layoverHours > 0 && Number(leg.EOD) === 1) {
+                    if (cvtLayover > 0 && Number(leg.EOD) === 1) {
                         // arrival-based layover rate per your rule:
                         const layoverRate = isArrINT ? perDiem_int : perDiem_dom;
-                        legPay = (flightPart * legRate) + (layoverHours * layoverRate);
+                        legPay = (CvtDPOnDutyTime * legRate) + (cvtLayover * layoverRate);
                     } else {
                         // no special layover pay: pay entire leg total at flightRate
-                        legPay = (flightPart + layoverHours) * legRate;
+                        legPay = (CvtDPOnDutyTime + cvtLayover) * legRate;
                     }
 
                     tafbPay += legPay;
                 }
 
                 // sanity check vs seq.CvtTAFB
-                if (Math.abs(sanityLegTAFBTotal - tafbHours) > 0.01) {
-                    console.warn("TAFB sanity mismatch for Seq:", seq.SeqNo, {
+                if (Math.abs(sanityLegTAFBTotal) > 0.01) {
+                    console.warn("TAFB sanity match for Seq:", seq.SeqNo, {
                         seqTAFB: tafbHours,
                         summedLegTAFB: sanityLegTAFBTotal,
                     });
@@ -878,18 +879,18 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
                 for (const leg of seqLegs) {
                     console.log("Inside the International")
                     // leg CvtLegTAFBTotal should include flying + layover total if present
-                    const legTAFB_total = toDecimalHours(leg.CvtDPOnDutyTime);
+                    const CvtDPOnDutyTime = toDecimalHours(leg.CvtDPOnDutyTime);
                     // prefer explicit layover column if available
-                    const layoverHours = toDecimalHours(leg.CvtLayover ?? leg.CvtLayover ?? 0);
+                    const cvtLayover = toDecimalHours(leg.CvtLayover ?? leg.CvtLayover ?? 0);
                     // flight part = total - layover (if total present)
-                    let flightPart = Math.max(0, legTAFB_total - layoverHours);
+                    // let flightPart = Math.max(0, legTAFB_total - layoverHours);
 
-                    // fallback: if total is zero but we have flying time, compute flightPart from flying column
-                    if (legTAFB_total === 0) {
-                        flightPart = toDecimalHours(leg.CvtDPOnDutyTime ?? leg.CvtDPOnDutyTime ?? leg.CvtDPOnDutyTime ?? 0);
-                    }
+                    // // fallback: if total is zero but we have flying time, compute flightPart from flying column
+                    // if (legTAFB_total === 0) {
+                    //     flightPart = toDecimalHours(leg.CvtDPOnDutyTime ?? leg.CvtDPOnDutyTime ?? leg.CvtDPOnDutyTime ?? 0);
+                    // }
 
-                    sanityLegTAFBTotal += (flightPart + layoverHours);
+                    sanityLegTAFBTotal += (CvtDPOnDutyTime + cvtLayover);
 
                     const dep = (leg.DeptStn || "").toString().toUpperCase();
                     const arr = (leg.ArrvStn || "").toString().toUpperCase();
@@ -904,13 +905,13 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
                     // If EOD === 1 => apply arrival-based rate to layoverHours.
                     // If EOD !== 1 => include layover in flightPart and pay at flightRate (no special layover pay).
                     let legPay = 0;
-                    if (layoverHours > 0 && Number(leg.EOD) === 1) {
+                    if (cvtLayover > 0 && Number(leg.EOD) === 1) {
                         // arrival-based layover rate per your rule:
                         const layoverRate = isArrINT ? perDiem_int : perDiem_dom;
-                        legPay = (flightPart * flightRate) + (layoverHours * layoverRate);
+                        legPay = (CvtDPOnDutyTime * flightRate) + (cvtLayover * layoverRate);
                     } else {
                         // no special layover pay: pay entire leg total at flightRate
-                        legPay = (flightPart + layoverHours) * flightRate;
+                        legPay = (CvtDPOnDutyTime + cvtLayover) * flightRate;
                     }
 
                     tafbPay += legPay;
