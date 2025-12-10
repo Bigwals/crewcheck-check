@@ -388,7 +388,7 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
 
             // const payHours = cvtSeqPC + cvtDPDeadheadTime + cvtSeqFlyTime;
             const payHours = 0
-            const creditHours = cvtSeqPC + cvtSeqFlyTime + cvtDPDeadheadTime;
+            const creditHours = cvtSeqPC + cvtSeqFlyTime;
             const tafbHours = cvtTAFB;
             const premiumHours = cvtSeqPremTime;
 
@@ -838,9 +838,17 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
             let sanityLegTAFBTotal = 0;
 
             // CASE 1: DOM / IPD / HAW -> simple sequence-level rate
-            if (category === "DOM") {
+            const leg_equip_types: any[] = [];
+            if (category == "DOM") {
                 const perDiemRate = premiumTranscon !== 1 ? perDiem_dom : perDiem_int;
+                // return res.json({ perDiemRate })
                 tafbPay = tafbHours * perDiemRate;
+                
+                leg_equip_types.push(
+                    ...seqLegs.map(leg => ({
+                        leg_equip_type: leg.LegEqupType
+                    }))
+                );
             }
 
             // else if (category === 'IPD' || category === 'HAW') {
@@ -848,9 +856,7 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
             //     tafbPay = tafbHours * perDiemRate;
             // }
 
-
             // RESET FOR EACH SEQUENCE
-            const leg_equip_types: any[] = [];
 
             if (["IPD", "HAW"].includes(category)) {
                 const perDiemRate = perDiem_int;
@@ -932,7 +938,7 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
             // ================================
 
             let hourlyBoardingRate = 0;
-            // let boarding_type = 0;
+            let boarding_type = 0;
 
             // // Fetch Boarding Pay ROW only once (no need to fetch again & again)
             const boardingResult = await pool.request()
@@ -952,7 +958,6 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
             let totalBoardingPay = 0;
 
             for (const leg of leg_equip_types) {
-
                 const positionPremiumPay = await pool.request()
                     .input("leg_equip_type", sql.Int, leg.leg_equip_type)
                     .input("category", sql.NVarChar, category)
@@ -967,10 +972,12 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
 
                 if (!posRow || !boardingRow) continue;
 
+                // return res.json({ category });
                 const boardingType = Number(posRow.boarding_type);
                 let boardingHours = 0;
 
-                if (category === "DOM") {
+                if (category == "DOM") {
+                    // return res.json({ boardingType });
                     if (boardingType == 35) boardingHours = Number(boardingRow.boarding_35_type);
                     else if (boardingType == 40) boardingHours = Number(boardingRow.boarding_40_type);
                 }
@@ -1082,7 +1089,6 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
             // const totalBoardingPay = hourlyBoardingRate;
 
             // console.log("Final Boarding Pay:", hourlyBoardingRate);
-
 
             const userId = (req as any).user.id;
 

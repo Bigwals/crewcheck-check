@@ -313,6 +313,9 @@ export const addLegDataInUserLeg = async (
     await pool.request()
       .input("UserLegID", sql.NVarChar(25), userLegId)
       .input("UniqueSeqNo", sql.VarChar(25), leg.UniqueSeqNo)
+      .input("EffDate", sql.Date, leg.EffDate)
+      .input("ThruDate", sql.Date, leg.ThruDate)
+      .input("Frequency", sql.Float, leg.Frequency)
       .input("SeqNo", sql.Int, leg.SeqNo)
       .input("SeqLegNo", sql.Int, leg.SeqLegNo)
       .input("DeptStn", sql.VarChar(3), leg.DeptStn)
@@ -366,7 +369,7 @@ export const addLegDataInUserLeg = async (
       .input("BidMonth", sql.VarChar(7), leg.BidMonth)
       .query(`
         INSERT INTO UserLeg (
-          UserLegID, UniqueSeqNo, SeqNo, SeqLegNo, DeptStn, ArrvStn, DptTime, DptZone, ArvTime, ArvZone,
+          UserLegID, UniqueSeqNo, EffDate, ThruDate, Frequency, SeqNo, SeqLegNo, DeptStn, ArrvStn, DptTime, DptZone, ArvTime, ArvZone,
           FitNo, FitLegNo, EOD, LegTotalFlying, LegEqupType, LegDeadheadCode, LegMidnightCode, LegPC, PCCode,
           SchedOverFlow, DVSD, DVLA, LayoverTime, DPOnDutyTime, DPDeadheadTime, DVLA2, LegNiteFly, Unused,
           Calendar_40Day, Terminal, GateNumber, FlightStatus, BookingCode, SeatNumber, TailNumber, UserSequenceId,
@@ -375,7 +378,7 @@ export const addLegDataInUserLeg = async (
           CvtLegNiteFly, CvtLegPC, CvtLegTotalFlying, CvtLayover, BidMonth
         )
         VALUES (
-          @UserLegID, @UniqueSeqNo, @SeqNo, @SeqLegNo, @DeptStn, @ArrvStn, @DptTime, @DptZone, @ArvTime, @ArvZone,
+          @UserLegID, @UniqueSeqNo, @EffDate, @ThruDate, @Frequency, @SeqNo, @SeqLegNo, @DeptStn, @ArrvStn, @DptTime, @DptZone, @ArvTime, @ArvZone,
           @FitNo, @FitLegNo, @EOD, @LegTotalFlying, @LegEqupType, @LegDeadheadCode, @LegMidnightCode, @LegPC, @PCCode,
           @SchedOverFlow, @DVSD, @DVLA, @LayoverTime, @DPOnDutyTime, @DPDeadheadTime, @DVLA2, @LegNiteFly, @Unused,
           @Calendar_40Day, @Terminal, @GateNumber, @FlightStatus, @BookingCode, @SeatNumber, @TailNumber, @UserSequenceId,
