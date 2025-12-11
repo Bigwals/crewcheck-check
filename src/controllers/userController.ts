@@ -521,14 +521,14 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
                     if (boardingType == 35) {
                         console.log("boardingType", boardingType)
                         console.log("SeqCat", seqCat)
-                        boarding_type = parseFloat(boardingRow.boarding_35_type)
+                        boarding_type += parseFloat(boardingRow.boarding_35_type)
                         console.log("boarding_type", boarding_type)
                         hourlyBoardingRate += parseFloat(boardingRow.hourly_boarding_rate ?? 0);
                     }
                     else if (boardingType == 40) {
                         console.log("boardingType", boardingType)
                         console.log("SeqCat", seqCat)
-                        boarding_type = parseFloat(boardingRow.boarding_40_type)
+                        boarding_type += parseFloat(boardingRow.boarding_40_type)
                         console.log("boarding_type", boarding_type)
                         hourlyBoardingRate += parseFloat(boardingRow.hourly_boarding_rate ?? 0);
                     }
@@ -541,14 +541,14 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
                     if (boardingType == 45) {
                         console.log("boardingType", boardingType)
                         console.log("SeqCat", seqCat)
-                        boarding_type = parseFloat(boardingRow.boarding_45_type)
+                        boarding_type += parseFloat(boardingRow.boarding_45_type)
                         console.log("boarding_type", boarding_type)
                         hourlyBoardingRate += parseFloat(boardingRow.hourly_boarding_rate ?? 0);
                     }
                     else if (boardingType == 50) {
                         console.log("boardingType", boardingType)
                         console.log("SeqCat", seqCat)
-                        boarding_type = parseFloat(boardingRow.boarding_50_type)
+                        boarding_type += parseFloat(boardingRow.boarding_50_type)
                         console.log("boarding_type", boarding_type)
                         hourlyBoardingRate += parseFloat(boardingRow.hourly_boarding_rate ?? 0);
                     }
@@ -561,7 +561,7 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
                     if (boardingType == 50) {
                         console.log("boardingType", boardingType)
                         console.log("SeqCat", seqCat)
-                        boarding_type = parseFloat(boardingRow.boarding_50_type)
+                        boarding_type += parseFloat(boardingRow.boarding_50_type)
                         console.log("boarding_type", boarding_type)
                         hourlyBoardingRate += parseFloat(boardingRow.hourly_boarding_rate ?? 0);
                     }
@@ -574,7 +574,7 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
                     console.log("No matching seq category for leg:", seqCat);
                 }
             }
-            const boardingPay = hourlyBoardingRate;
+            const boardingPay = boarding_type;
 
             console.log("Final Boarding Pay:", hourlyBoardingRate);
 
@@ -993,7 +993,8 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
                 const rate = Number(boardingRow.hourly_boarding_rate ?? 0);
 
                 // ⭐ The CORRECT calculation
-                totalBoardingPay += rate;
+                // totalBoardingPay += rate;
+                totalBoardingPay += boardingHours;
 
                 console.log("BOARDING HOURS:", boardingHours);
                 console.log("RATE:", rate);
