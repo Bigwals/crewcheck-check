@@ -114,6 +114,23 @@ export const findByDateAndSeqNo = async (seqNo: number, effDate: String) => {
   return result.recordset.length > 0 ? result.recordset : null;
 };
 
+export const checkAlreadyApplied = async (seqNo: number, bidMonth: string, userId: string) => {
+  const pool = await getPool();
+  const result = await pool.request()
+    .input("seqNo", sql.Int, seqNo)
+    .input("bidMonth", sql.VarChar, bidMonth)
+    .input("userId", sql.UniqueIdentifier, userId)
+    .query(`
+            SELECT *
+            FROM UserSequence
+            WHERE SeqNo = @seqNo 
+            AND BidMonth = @bidMonth
+            AND UserID = @userId
+        `);
+
+  return result.recordset.length > 0 ? result.recordset : null;
+}
+
 export const getBoardingPayByYears = async (YearsOfService: number) => {
   const pool = await getPool();
   const result = await pool.request()
@@ -311,15 +328,15 @@ export const addLegDataInUserLeg = async (
       .substring(0, 25);
 
     await pool.request()
-      .input("UserLegID", sql.NVarChar(25), userLegId)
-      .input("UniqueSeqNo", sql.VarChar(25), leg.UniqueSeqNo)
+      .input("UserLegID", sql.NVarChar, userLegId)
+      .input("UniqueSeqNo", sql.VarChar, leg.UniqueSeqNo)
       .input("EffDate", sql.Date, leg.EffDate)
       .input("ThruDate", sql.Date, leg.ThruDate)
       .input("Frequency", sql.Float, leg.Frequency)
       .input("SeqNo", sql.Int, leg.SeqNo)
       .input("SeqLegNo", sql.Int, leg.SeqLegNo)
-      .input("DeptStn", sql.VarChar(3), leg.DeptStn)
-      .input("ArrvStn", sql.VarChar(3), leg.ArrvStn)
+      .input("DeptStn", sql.VarChar, leg.DeptStn)
+      .input("ArrvStn", sql.VarChar, leg.ArrvStn)
       .input("DptTime", sql.Int, leg.DptTime)
       .input("DptZone", sql.Int, leg.DptZone)
       .input("ArvTime", sql.Int, leg.ArvTime)
@@ -342,31 +359,31 @@ export const addLegDataInUserLeg = async (
       .input("DVLA2", sql.Int, leg.DVLA2)
       .input("LegNiteFly", sql.Int, leg.LegNiteFly)
       .input("Unused", sql.Int, leg.Unused)
-      .input("Calendar_40Day", sql.VarChar(50), leg.Calendar_40Day)
-      .input("Terminal", sql.VarChar(25), leg.Terminal)
-      .input("GateNumber", sql.VarChar(10), leg.GateNumber)
-      .input("FlightStatus", sql.VarChar(50), leg.FlightStatus)
-      .input("BookingCode", sql.VarChar(25), leg.BookingCode)
-      .input("SeatNumber", sql.VarChar(3), leg.SeatNumber)
-      .input("TailNumber", sql.VarChar(25), leg.TailNumber)
+      .input("Calendar_40Day", sql.VarChar, leg.Calendar_40Day)
+      .input("Terminal", sql.VarChar, leg.Terminal)
+      .input("GateNumber", sql.VarChar, leg.GateNumber)
+      .input("FlightStatus", sql.VarChar, leg.FlightStatus)
+      .input("BookingCode", sql.VarChar, leg.BookingCode)
+      .input("SeatNumber", sql.VarChar, leg.SeatNumber)
+      .input("TailNumber", sql.VarChar, leg.TailNumber)
       .input("UserSequenceId", sql.UniqueIdentifier, newUserSequenceId)
       .input("LegEndDateLocal", sql.Date, leg.LegEndDateLocal)
       .input("LegEndDateUtc", sql.Date, leg.LegEndDateUtc)
       .input("LegStartDateLocal", sql.Date, leg.LegStartDateLocal)
       .input("LegStartDateUtc", sql.Date, leg.LegStartDateUtc)
-      .input("LegEndTimeLocal", sql.NVarChar(1000), leg.LegEndTimeLocal)
-      .input("LegEndTimeUtc", sql.NVarChar(1000), leg.LegEndTimeUtc)
-      .input("LegStartTimeLocal", sql.NVarChar(1000), leg.LegStartTimeLocal)
-      .input("LegStartTimeUtc", sql.NVarChar(1000), leg.LegStartTimeUtc)
-      .input("CvtArvTime", sql.VarChar(5), leg.CvtArvTime)
-      .input("CvtDPDeadheadTime", sql.VarChar(5), leg.CvtDPDeadheadTime)
-      .input("CvtDPOnDutyTime", sql.VarChar(5), leg.CvtDPOnDutyTime)
-      .input("CvtDptTime", sql.VarChar(5), leg.CvtDptTime)
-      .input("CvtLegNiteFly", sql.VarChar(5), leg.CvtLegNiteFly)
-      .input("CvtLegPC", sql.VarChar(5), leg.CvtLegPC)
-      .input("CvtLegTotalFlying", sql.VarChar(5), leg.CvtLegTotalFlying)
-      .input("CvtLayover", sql.VarChar(7), leg.CvtLayover)
-      .input("BidMonth", sql.VarChar(7), leg.BidMonth)
+      .input("LegEndTimeLocal", sql.NVarChar, leg.LegEndTimeLocal)
+      .input("LegEndTimeUtc", sql.NVarChar, leg.LegEndTimeUtc)
+      .input("LegStartTimeLocal", sql.NVarChar, leg.LegStartTimeLocal)
+      .input("LegStartTimeUtc", sql.NVarChar, leg.LegStartTimeUtc)
+      .input("CvtArvTime", sql.VarChar, leg.CvtArvTime)
+      .input("CvtDPDeadheadTime", sql.VarChar, leg.CvtDPDeadheadTime)
+      .input("CvtDPOnDutyTime", sql.VarChar, leg.CvtDPOnDutyTime)
+      .input("CvtDptTime", sql.VarChar, leg.CvtDptTime)
+      .input("CvtLegNiteFly", sql.VarChar, leg.CvtLegNiteFly)
+      .input("CvtLegPC", sql.VarChar, leg.CvtLegPC)
+      .input("CvtLegTotalFlying", sql.VarChar, leg.CvtLegTotalFlying)
+      .input("CvtLayover", sql.VarChar, leg.CvtLayover)
+      .input("BidMonth", sql.VarChar, leg.BidMonth)
       .query(`
         INSERT INTO UserLeg (
           UserLegID, UniqueSeqNo, EffDate, ThruDate, Frequency, SeqNo, SeqLegNo, DeptStn, ArrvStn, DptTime, DptZone, ArvTime, ArvZone,
@@ -423,141 +440,7 @@ const getYearsOfService = (hireDate: Date, today = new Date()): number => {
   return years + 1;
 };
 
-// export const getCrewPayDetails = async (crewId: number) => {
-//   const pool = await getPool();
 
-//   // 1. Get crew hireDate
-//   const crewResult = await pool.request()
-//     .input("crewId", sql.Int, crewId)
-//     .query(`
-//       SELECT OccDate
-//       FROM Roster
-//       WHERE CrewId = @crewId
-//     `);
-
-//   const crew = crewResult.recordset[0];
-
-//   if (!crew) {
-//     return { basePay: null, yearsOfService: null, moreThan13Years: false, note: "Crew not found" };
-//   }
-
-//   if (!crew.OccDate) {
-//     return { basePay: null, yearsOfService: null, moreThan13Years: false, note: "Hire date not provided" };
-//   }
-
-//   // 2. Calculate years of service
-//   const yearsOfService = getYearsOfService(new Date(crew.OccDate));
-//   const cappedYears = Math.min(yearsOfService, 13);
-
-//   // 3. Get base pay for cappedYears
-//   const basePayResult = await pool.request()
-//     .input("YearsOfService", sql.Int, cappedYears)
-//     .query(`
-//       SELECT TOP 1 *
-//       FROM BasePay
-//       WHERE YearsOfService = @YearsOfService
-//     `);
-
-//   const basePay = basePayResult.recordset[0] || null;
-
-//   return {
-//     basePay,
-//     yearsOfService,
-//     moreThan13Years: yearsOfService > 13,
-//     note: basePay ? null : "Base pay not found for this level of service"
-//   };
-// };
-// old
-// export const getCrewPayDetails = async (crewId: number) => {
-//   const pool = await getPool();
-
-//   // 1️⃣ Get current crew details
-//   const crewResult = await pool.request()
-//     .input("crewId", sql.Int, crewId)
-//     .query(`
-//       SELECT CrewId, OccDate, Base
-//       FROM Roster
-//       WHERE CrewId = @crewId
-//     `);
-
-//   const crew = crewResult.recordset[0];
-//   if (!crew || !crew.OccDate) {
-//     return {
-//       basePay: null,
-//       yearsOfService: null,
-//       companySeniority: null,
-//       aaSeniority: null,
-//       note: "Crew not found or OccDate missing"
-//     };
-//   }
-
-//   // 2️⃣ Compute this crew's years of service
-//   const yearsOfService = getYearsOfService(new Date(crew.OccDate));
-
-//   // 3️⃣ Compute Company Seniority (simple capped %)
-//   const companySeniorityPct = Math.min((yearsOfService / 13) * 100, 100).toFixed(2);
-
-//   // 4️⃣ Get all crews in the same base
-//   const baseCrewResult = await pool.request()
-//     .input("Base", sql.VarChar, crew.Base)
-//     .query(`
-//       SELECT CrewId, OccDate
-//       FROM Roster
-//       WHERE Base = @Base AND OccDate IS NOT NULL
-//     `);
-
-//   const baseCrews = baseCrewResult.recordset;
-
-//   // 5️⃣ Compute each crew’s years of service
-//   const allBaseYears = baseCrews.map(c => ({
-//     crewId: c.CrewId,
-//     years: getYearsOfService(new Date(c.OccDate))
-//   }));
-
-//   // Sort descending (most experienced first)
-//   allBaseYears.sort((a, b) => b.years - a.years);
-
-//   // Find position of current crew
-//   const index = allBaseYears.findIndex(c => c.crewId === crew.CrewId);
-
-//   // 6️⃣ Calculate AA seniority percentage
-//   const total = allBaseYears.length;
-//   let aaSeniorityPct = 0;
-//   if (index !== -1 && total > 1) {
-//     // How many people have less experience than this crew
-//     const below = total - index - 1;
-//     aaSeniorityPct = Number(((below / (total - 1)) * 100).toFixed(2));
-//   }
-
-//   // 7️⃣ Get base pay based on capped years
-//   const cappedYears = Math.min(yearsOfService, 13);
-//   const basePayResult = await pool.request()
-//     .input("YearsOfService", sql.Int, cappedYears)
-//     .query(`
-//       SELECT TOP 1 *
-//       FROM BasePay
-//       WHERE YearsOfService = @YearsOfService
-//     `);
-
-//   const basePay = basePayResult.recordset[0] || null;
-
-//   // 8️⃣ Return final structured result
-//   return {
-//     basePay,
-//     yearsOfService,
-//     companySeniority: {
-//       percentage: companySeniorityPct,
-//       moreThan13Years: yearsOfService > 13
-//     },
-//     aaSeniority: {
-//       base: crew.Base,
-//       rank: index + 1,
-//       totalInBase: total,
-//       percentage: aaSeniorityPct
-//     },
-//     note: basePay ? null : "Base pay not found for this level of service"
-//   };
-// };
 
 // new
 export const getCrewPayDetails = async (crewId: number) => {

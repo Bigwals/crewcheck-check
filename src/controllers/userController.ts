@@ -5,7 +5,7 @@ import { resetPasswordSchema } from '../validations/authValidation';
 // import { deleteMedia, getUserProfile, uploadMedia } from '../services/authService';
 import { deleteFileFromStorage, deleteMedia, updateCrewAvatar, updateCrewReverse, uploadMedia } from '../services/authService';
 // import { findUserById, findUserByEmail, findUserAndUpdate } from '../services/userService';
-import { findCrewById, findCrewByEmail, getCrewPayDetails, UpdatePassword, findBySequenceNo, findByDateAndSeqNo, getBoardingPayByYears, updatePosition, addSequenceDataInUserSequence, findUserAppliedSequenceNo, addLegDataInUserLeg, getAllCrews, getCrewPayDetail, getUserLanguages, getDynamicBaseRate } from '../services/userServiceNew';
+import { findCrewById, findCrewByEmail, getCrewPayDetails, UpdatePassword, findBySequenceNo, findByDateAndSeqNo, getBoardingPayByYears, updatePosition, addSequenceDataInUserSequence, findUserAppliedSequenceNo, addLegDataInUserLeg, getAllCrews, getCrewPayDetail, getUserLanguages, getDynamicBaseRate, checkAlreadyApplied } from '../services/userServiceNew';
 import bcrypt from 'bcrypt';
 import { Types } from 'mongoose';
 import { Sequence } from '../models/Sequence';
@@ -105,7 +105,7 @@ export const getCrewBaseRanking = async (req: Request, res: Response): Promise<a
         const baseSeniority = await pool
             .request()
             .input("crewId", sql.Int, crewId)
-            .input("crewBase", sql.NVarChar, crewBase)   // ✅ You MUST pass this
+            .input("crewBase", sql.NVarChar, crewBase)
             .query(`
             SELECT *
             FROM (
@@ -410,7 +410,7 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
                 tafbPay = tafbHours * perDiemRate;
             }
 
-            else if (category == 'IPD' || category === 'HAW') {
+            else if (category == 'IPD' || category == 'HAW') {
                 const perDiemRate = perDiem_int;
                 tafbPay = tafbHours * perDiemRate;
             }
@@ -418,6 +418,7 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
             // CASE 2: INT -> per-leg detailed calculation
             else if (category == "INT") {
                 for (const leg of seqLegs) {
+                    console.log("seqLegs Inside the Sequence With Leg", seqLegs)
                     const CvtDPOnDutyTime = toDecimalHours(leg.CvtDPOnDutyTime);
 
                     console.log("CvtDP")
@@ -444,7 +445,8 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
                     let legPay = 0;
                     if (cvtLayover > 0 && Number(leg.EOD) == 1) {
                         // arrival-based layover rate per your rule:
-                        const layoverRate = isArrINT ? perDiem_int : perDiem_dom;
+                        // const layoverRate = isArrINT ? perDiem_int : perDiem_dom;
+                        const layoverRate = (isDepINT || isArrINT) ? perDiem_int : perDiem_dom;
                         console.log("layoverRate", layoverRate)
                         legPay = (CvtDPOnDutyTime * legRate) + (cvtLayover * layoverRate);
                         console.log("legPay inside EOD", legPay)
@@ -500,7 +502,7 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
                 console.log("is Arr Int", isArrINT)
                 // Determine flight rate (if either station is INT -> INT rate, else DOM)
                 let SeqCategory = (isDepINT || isArrINT) ? 'INT' : 'DOM'; // if IPD use that one as INT
-                if(category == 'IPD') {SeqCategory = 'IPD'};
+                if (category == 'IPD') { SeqCategory = 'IPD' };
                 const positionPremiumPay = await pool.request()
                     .input("leg", sql.Int, leg.leg_equip_type)
                     .input("category", sql.NVarChar, SeqCategory)
@@ -738,7 +740,7 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
         const airportRows = airportResult.recordset || [];
         const airportIntl: Record<string, boolean> = {};
         airportRows.forEach(a => {
-            if (a && a.IATA_Code) airportIntl[a.IATA_Code.toUpperCase()] = a.IsInternational === 1;
+            if (a && a.IATA_Code) airportIntl[a.IATA_Code.toUpperCase()] = a.IsInternational == 1;
         });
 
         // new
@@ -842,8 +844,8 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
 
             // const payHours = cvtSeqPC + cvtDPDeadheadTime + cvtSeqFlyTime;
             const payHours = 0;
-            const creditHours = cvtSeqPC + cvtSeqFlyTime + cvtDPDeadheadTime;
-            const tafbHours = cvtTAFB;
+            const creditHours = cvtSeqPC + cvtSeqFlyTime;
+            let tafbHours = cvtTAFB;
             const premiumHours = cvtSeqPremTime;
 
             const category = seq.SeqCategory?.toUpperCase() ?? "DOM";
@@ -865,36 +867,36 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
 
                 leg_equip_types.push(
                     ...seqLegs.map(leg => ({
-                        leg_equip_type: leg.LegEqupType
+                        leg_equip_type: leg.LegEqupType,
+                        dep_stn: leg.DeptStn,
+                        arr_stn: leg.ArrvStn
                     }))
                 );
             }
 
-            // else if (category === 'IPD' || category === 'HAW') {
-            //     const perDiemRate = perDiem_int;
-            //     tafbPay = tafbHours * perDiemRate;
-            // }
-
             // RESET FOR EACH SEQUENCE
 
-            if (["IPD", "HAW"].includes(category)) {
+            else if (["IPD", "HAW"].includes(category)) {
                 const perDiemRate = perDiem_int;
                 tafbPay = tafbHours * perDiemRate;
 
                 // Correct: push into OUTER array (do NOT redeclare!!)
                 leg_equip_types.push(
                     ...seqLegs.map(leg => ({
-                        leg_equip_type: leg.LegEqupType
+                        leg_equip_type: leg.LegEqupType,
+                        dep_stn: leg.DeptStn,
+                        arr_stn: leg.ArrvStn
                     }))
                 );
 
                 console.log("DOM/IPD/HAW Equip Types:", leg_equip_types);
             }
-            // console.log("Equip Types:", leg_equip_types);
-
             // CASE 2: INT -> per-leg detailed calculation
-            else if (category === "INT") {
+            // old
+            else if (category == "INT") {
+
                 for (const leg of seqLegs) {
+                    console.log("seqLegs Inside the Sequence", seqLegs)
                     console.log("Inside the International")
                     // leg CvtLegTAFBTotal should include flying + layover total if present
                     const CvtDPOnDutyTime = toDecimalHours(leg.CvtDPOnDutyTime);
@@ -906,8 +908,8 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
                     const dep = (leg.DeptStn || "").toString().toUpperCase();
                     const arr = (leg.ArrvStn || "").toString().toUpperCase();
 
-                    const isDepINT = airportIntl[dep] === true;
-                    const isArrINT = airportIntl[arr] === true;
+                    const isDepINT = airportIntl[dep] == true;
+                    const isArrINT = airportIntl[arr] == true;
 
                     // Determine flight rate (if either station is INT -> INT rate, else DOM)
                     const flightRate = (isDepINT || isArrINT) ? perDiem_int : perDiem_dom;
@@ -916,22 +918,28 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
                     // If EOD === 1 => apply arrival-based rate to layoverHours.
                     // If EOD !== 1 => include layover in flightPart and pay at flightRate (no special layover pay).
                     let legPay = 0;
-                    if (cvtLayover > 0 && Number(leg.EOD) === 1) {
+                    if (cvtLayover > 0 && Number(leg.EOD) == 1) {
                         // arrival-based layover rate per your rule:
-                        const layoverRate = isArrINT ? perDiem_int : perDiem_dom;
+                        // const layoverRate = isArrINT ? perDiem_int : perDiem_dom;
+                        const layoverRate = (isDepINT || isArrINT) ? perDiem_int : perDiem_dom;
+                        console.log("layoverRate", layoverRate)
                         legPay = (CvtDPOnDutyTime * flightRate) + (cvtLayover * layoverRate);
+                        console.log("legPay inside EOD", legPay)
                     } else {
                         // no special layover pay: pay entire leg total at flightRate
                         legPay = (CvtDPOnDutyTime + cvtLayover) * flightRate;
+                        console.log("legPay outside EOD", legPay)
                     }
 
                     tafbPay += legPay;
 
                     leg_equip_types.push({
-                        leg_equip_type: leg.LegEqupType
+                        leg_equip_type: leg.LegEqupType,
+                        dep_stn: leg.DeptStn,
+                        arr_stn: leg.ArrvStn,
                     });
 
-                    console.log("Leg Equip Type:", leg.leg_equip_type);
+                    console.log("Leg Equip Type:", leg_equip_types);
                     console.log("==......>>>>", tafbPay)
                 }
 
@@ -943,6 +951,71 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
                     });
                 }
             }
+            // new
+            // else if (category == "INT") {
+
+            //     let rebuiltTAFB = 0;          // 🔑 single source of truth
+            //     tafbPay = 0;                  // 🔑 reset pay for INT sequences
+
+            //     for (const leg of seqLegs) {
+            //         // ---- Time components ----
+            //         const CvtDPOnDutyTime = toDecimalHours(leg.CvtDPOnDutyTime);
+            //         const cvtLayover = toDecimalHours(leg.CvtLayover ?? 0);
+
+            //         const legTAFB = CvtDPOnDutyTime + cvtLayover;
+            //         rebuiltTAFB += legTAFB;
+
+            //         // ---- Stations ----
+            //         const dep = (leg.DeptStn || "").toString().toUpperCase();
+            //         const arr = (leg.ArrvStn || "").toString().toUpperCase();
+
+            //         const isDepINT = airportIntl[dep] === true;
+            //         const isArrINT = airportIntl[arr] === true;
+
+            //         // ---- Flight rate ----
+            //         const flightRate = (isDepINT || isArrINT)
+            //             ? perDiem_int
+            //             : perDiem_dom;
+
+            //         // ---- Pay calculation ----
+            //         let legPay = 0;
+
+            //         if (cvtLayover > 0 && Number(leg.EOD) === 1) {
+            //             // Arrival-based layover rule
+            //             const layoverRate = isArrINT
+            //                 ? perDiem_int
+            //                 : perDiem_dom;
+
+            //             legPay =
+            //                 (CvtDPOnDutyTime * flightRate) +
+            //                 (cvtLayover * layoverRate);
+            //         } else {
+            //             // Entire leg paid at flight rate
+            //             legPay = legTAFB * flightRate;
+            //         }
+
+            //         tafbPay += legPay;
+
+            //         // ---- Equipment tracking (unchanged) ----
+            //         leg_equip_types.push({
+            //             leg_equip_type: leg.LegEqupType,
+            //             dep_stn: leg.DeptStn,
+            //             arr_stn: leg.ArrvStn,
+            //         });
+            //     }
+
+            //     // 🔑 Override sequence TAFB for INT (authoritative)
+            //     tafbHours = rebuiltTAFB;
+
+            //     // ---- Sanity check (informational only) ----
+            //     if (Math.abs(rebuiltTAFB - seq.CvtTAFB) > 0.01) {
+            //         console.warn("TAFB mismatch (INT)", {
+            //             seqNo: seq.SeqNo,
+            //             seqTAFB: seq.CvtTAFB,
+            //             rebuiltTAFB,
+            //         });
+            //     }
+            // }
 
             seq.tafbPay = tafbPay;
 
@@ -967,9 +1040,22 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
             let totalBoardingPay = 0;
 
             for (const leg of leg_equip_types) {
+
+                const dep = (leg.dep_stn || "").toString().toUpperCase();
+                const arr = (leg.arr_stn || "").toString().toUpperCase();
+
+                const isDepINT = airportIntl[dep] == true;
+                const isArrINT = airportIntl[arr] == true;
+
+                console.log("is Dept Int", isDepINT)
+                console.log("is Arr Int", isArrINT)
+                // Determine flight rate (if either station is INT -> INT rate, else DOM)
+                let SeqCategory = (isDepINT || isArrINT) ? 'INT' : 'DOM'; // if IPD use that one as INT
+                if (category == 'IPD') { SeqCategory = 'IPD' };
+
                 const positionPremiumPay = await pool.request()
                     .input("leg_equip_type", sql.Int, leg.leg_equip_type)
-                    .input("category", sql.NVarChar, category)
+                    .input("category", sql.NVarChar, SeqCategory)
                     .query(`
                     SELECT *
                     FROM position_premium_pay
@@ -982,19 +1068,20 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
                 if (!posRow || !boardingRow) continue;
 
                 // return res.json({ category });
+                const seqCat = SeqCategory;
                 const boardingType = Number(posRow.boarding_type);
                 let boardingHours = 0;
 
-                if (category == "DOM") {
+                if (seqCat == "DOM") {
                     // return res.json({ boardingType });
                     if (boardingType == 35) boardingHours = Number(boardingRow.boarding_35_type);
                     else if (boardingType == 40) boardingHours = Number(boardingRow.boarding_40_type);
                 }
-                else if (category == "INT") {
+                else if (seqCat == "INT") {
                     if (boardingType == 45) boardingHours = Number(boardingRow.boarding_45_type);
                     else if (boardingType == 50) boardingHours = Number(boardingRow.boarding_50_type);
                 }
-                else if (["IPD", "HAW"].includes(category)) {
+                else if (["IPD", "HAW"].includes(seqCat)) {
                     if (boardingType == 50) boardingHours = Number(boardingRow.boarding_50_type);
                 }
 
@@ -1025,8 +1112,8 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
 
             // 6) Premium pay rules (per your doc)
             let premiumRatePerHour = 0;
-            if (seq.SeqCategory === "IPD") premiumRatePerHour = 3.75;
-            else if (seq.SeqCategory === "INT" || seq.SeqCategory === 'HAW') premiumRatePerHour = 3.00;
+            if (seq.SeqCategory == "IPD") premiumRatePerHour = 3.75;
+            else if (seq.SeqCategory == "INT" || seq.SeqCategory == 'HAW') premiumRatePerHour = 3.00;
             // else if (seq.SeqCategory === "SPK") premiumRatePerHour = 2.00;
             else premiumRatePerHour = 0;             // TAFB $
 
@@ -1038,7 +1125,7 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
             let premiumWithSpeaker = premiumPay;
 
             // if user has languages → apply speaker pay
-            if (languages) {
+            if (languages.length > 0) {
                 speakerPay = premiumHours * 2;
                 // premiumWithSpeaker += Math.round(speakerPay);
 
@@ -1367,6 +1454,11 @@ export const applyPosition = async (req: Request, res: Response): Promise<any> =
         const userId = (req as any).user.id
         if (!seqNo || !position) {
             return res.status(StatusCode.BAD_REQUEST).json({ message: "seqNo and position are required" });
+        }
+
+        const checkAlreadyAppliedOnSequnce = await checkAlreadyApplied(seqNo, bidMonth, userId)
+        if(checkAlreadyAppliedOnSequnce){
+            return res.status(409).json({"message": "Already Applied on this sequence"});
         }
 
         // const updatedSeqCrewPos = await updatePosition(Number(seqNo), Number(position), effDate);
