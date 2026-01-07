@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 // import { createUser } from '../services/authService';
 import { addLanguages, updateCrew } from '../services/authService';
 // import { findUserByEmail, findUserByCrewId, findUserByClientCrewId, getCrewPayDetails, findCrewOld } from '../services/userService';
-import { findCrewByEmail, findByCrewId, getCrewPayDetails, findCrewById, UpdatePassword } from '../services/userServiceNew';
+import { findCrewByEmail, findByCrewId, getCrewPayDetails, findCrewById, UpdatePassword, getCrewPayDetail, getUserLanguages, getDynamicBaseRate } from '../services/userServiceNew';
 import bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
 import { generateToken } from '../utils/jwt';
@@ -142,17 +142,57 @@ export const verifyOTP = async (req: Request, res: Response): Promise<any> => {
         if (!crew || crew.Otp != otp) {
             return res.status(StatusCode.BAD_REQUEST).json({ message: Messages.INVALID_OTP_OR_EXPIRED });
         }
-
+        const userId = crew?.UserID;
+        const crewId = crew.CrewID;
         await deleteOtp(email);
         // await deviceModel.createDeviceId(savedOtp.id, deviceId, deviceType);
         // const token = generateToken({ id: crew?.id, crewId: crew?.crewId, email: crew?.email });
         const token = generateToken({ id: crew?.UserID, crewId: crew?.CrewID, email: crew?.Email, roleId: crew?.RoleID });
+
+        const crewBase = crew?.Base;
+        const pool = await getPool();
+
+        const baseSeniority = await pool
+            .request()
+            .input("crewId", sql.Int, crewId)
+            .input("crewBase", sql.NVarChar, crewBase)   // ✅ You MUST pass this
+            .query(`
+                    SELECT *
+                    FROM (
+                        SELECT 
+                            CrewID,
+                            Base,
+                            ROW_NUMBER() OVER (ORDER BY CrewID) AS PositionNumber
+                        FROM Roster
+                        WHERE Base = @crewBase
+                    ) AS Ranked
+                    WHERE CrewID = @crewId;
+                `);
+
+        // return res.json({ baseSeniority })
+        if (baseSeniority.recordset.length == 0) {
+            return res.status(404).json({ message: "Crew not found" });
+        }
+
+        // ✅ Extract the position
+        const position = baseSeniority.recordset[0].PositionNumber;
+
+        // const service = await getCrewPayDetail(crewId);
+        const service = crewId ? await getCrewPayDetails(crewId) : null;
+        const yearsOfService = service?.basePay?.YearsOfService ?? 1;
+        const baseRate = await getDynamicBaseRate(yearsOfService);
+        const languages = await getUserLanguages(userId);
+        // if (service) return res.status(200).json({ message: Messages.USER_PROFILE, crew, baseSeniority: position, languages, service });
 
         // Mark crew as verified in DB here
         return res.status(StatusCode.OK).json(
             {
                 message: Messages.OTP_VERIFIED,
                 crew: crew,
+                basePayRate: baseRate,
+                baseSeniority: position,
+                languages,
+                // service,
                 token: token,
             }
         );
@@ -378,12 +418,14 @@ export const resendOtp = async (req: Request, res: Response): Promise<any> => {
         if (!existing) {
             return res.status(StatusCode.NOT_FOUND).json({ message: Messages.NOT_FOUND })
         }
-        const otp = await generateOtp();
-        await saveOtp(email, otp)
-        await sendOtpEmail(existing.email, existing.firstName, otp);
-        return res.status(StatusCode.CREATED).json({ message: Messages.OTP_SENT, otp: existing.otp });
-    } catch (error) {
-        return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({ message: Messages.INTERNAL_SERVER_ERROR });
+        console.log("existing crew", existing);
+        // const otp = await generateOtp();
+        const otp = randomUUID().slice(0, 4);
+        await saveOtp(existing?.Email, otp)
+        await sendOtpEmail(existing?.Email, existing?.FirstName, otp);
+        return res.status(StatusCode.OK).json({ message: Messages.OTP_SENT, otp: existing.otp });
+    } catch (error: any) {
+        return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({ message: Messages.INTERNAL_SERVER_ERROR, error: error.message });
     }
 }
 
@@ -423,7 +465,7 @@ export const resetPassword = async (req: Request, res: Response): Promise<any> =
             return res.status(StatusCode.BAD_REQUEST).json({ message: Messages.PASSWORD_DOES_NOT_MATCH });
         }
         const hashedPassword = await bcrypt.hash(password, Number(process.env.SALT) || 10);
-       const pool = await getPool();
+        const pool = await getPool();
 
         await pool
             .request()

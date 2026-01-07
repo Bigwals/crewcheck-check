@@ -6,14 +6,47 @@ export const generateOtp = async (): Promise<any> => {
     return Math.floor(100000 + Math.random() * 900000);
 }
 
+// export const saveOtp = async (email: string, otp: string) => {
+//     const crew = await NewCrew.findOne({ email });
+//     if (crew) {
+//         crew.Otp = otp;
+//         crew.OtpVerified = false;
+//         return await crew.save();
+//     }
+//     return false;
+// };
+
 export const saveOtp = async (email: string, otp: string) => {
-    const crew = await NewCrew.findOne({ email });
-    if (crew) {
-        crew.Otp = otp;
-        crew.OtpVerified = false;
-        return await crew.save();
+    const pool = await getPool();
+
+    // Update OTP
+    const updateResult = await pool
+        .request()
+        .input("email", email)
+        .input("Otp", otp)
+        .query(`
+      UPDATE Users
+      SET 
+        Otp = @Otp,
+        OtpVerified = 0
+      WHERE email = @email;
+    `);
+
+    if (updateResult.rowsAffected[0] === 0) {
+        return false; // user not found
     }
-    return false;
+
+    // Return updated user
+    const fetchResult = await pool
+        .request()
+        .input("email", email)
+        .query(`
+      SELECT * 
+      FROM Users
+      WHERE email = @email;
+    `);
+
+    return fetchResult.recordset[0];
 };
 
 // export const deleteOtp = async (email: string) => {
@@ -28,13 +61,13 @@ export const saveOtp = async (email: string, otp: string) => {
 // };
 
 export const deleteOtp = async (email: string) => {
-  const pool = await getPool();
+    const pool = await getPool();
 
-  // Update OTP
-  const updateResult = await pool
-    .request()
-    .input("email", email)
-    .query(`
+    // Update OTP
+    const updateResult = await pool
+        .request()
+        .input("email", email)
+        .query(`
       UPDATE Users
       SET 
         Otp = '0',
@@ -42,19 +75,19 @@ export const deleteOtp = async (email: string) => {
       WHERE email = @email;
     `);
 
-  if (updateResult.rowsAffected[0] === 0) {
-    return false; // user not found
-  }
+    if (updateResult.rowsAffected[0] === 0) {
+        return false; // user not found
+    }
 
-  // Return updated user
-  const fetchResult = await pool
-    .request()
-    .input("email", email)
-    .query(`
+    // Return updated user
+    const fetchResult = await pool
+        .request()
+        .input("email", email)
+        .query(`
       SELECT * 
       FROM Users
       WHERE email = @email;
     `);
 
-  return fetchResult.recordset[0];
+    return fetchResult.recordset[0];
 };
