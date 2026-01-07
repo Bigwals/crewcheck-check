@@ -11,7 +11,7 @@ const transporter = nodemailer.createTransport({
     },
 });
 
-export const sendOtpEmail = async (to: string, firstName: string, otp: number) => {
+export const sendOtpEmail = async (to: string, firstName: string, otp: string) => {
     console.log(firstName, otp);
     const html = otpEmailTemplate(otp, firstName);
     const subject = "Your OTP Code"

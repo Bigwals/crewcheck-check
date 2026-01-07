@@ -11,7 +11,7 @@ import { Messages } from "../constants/responseMessages";
 import { StatusCode } from "../constants/statusCodes";
 import { sendOtpEmail, sendPasswordEmail } from '../utils/mailer';
 import { registerSchema, loginSchema, resetPasswordSchema } from '../validations/authValidation';
-import { randomUUID } from 'crypto';
+import { randomInt, randomUUID } from 'crypto';
 import { getPool, sql } from "../config/db";
 import { now } from 'mongoose';
 
@@ -24,6 +24,7 @@ export const register = async (req: Request, res: Response): Promise<any> => {
             lastName,
             telephone,
             email,
+            sex,
             purser,
             speaker,
             languages,
@@ -31,6 +32,8 @@ export const register = async (req: Request, res: Response): Promise<any> => {
             // commuterAirportCode,
         } = registerSchema.parse(req.body);
 
+        const otp = randomUUID().slice(0, 4);
+        console.log('OTP ', otp);
         const existingEmail = await findCrewByEmail(email);
         if (existingEmail) {
             return res
@@ -67,6 +70,7 @@ export const register = async (req: Request, res: Response): Promise<any> => {
             .input("Base", sql.NVarChar, existingCrew.Base)
             .input("Seniority", sql.Int, existingCrew.Seniority)
             .input("Email", sql.NVarChar, email)
+            .input("Sex", sql.Bit, existingCrew.sex ?? sex)
             .input("PasswordHash", sql.NVarChar, hashedPassword)
             .input("PhoneNumber", sql.NVarChar, telephone)
             .input("Airline", sql.NVarChar, airline)
@@ -76,17 +80,19 @@ export const register = async (req: Request, res: Response): Promise<any> => {
             .input("ActiveStatus", sql.Bit, ActiveStatus)
             .input("CreatedAt", sql.DateTime, CreatedAt)
             .input("DeviceToken", sql.NVarChar, deviceToken)
+            .input("Otp", sql.VarChar, otp)
             .query(`
         INSERT INTO Users 
-          (UserID, CrewId, FirstName, LastName, HireDate, OccDate, Base, Seniority, Airline, Email, PasswordHash, PhoneNumber, Purser, Speaker, RoleID, ActiveStatus, DeviceToken, CreatedAt)
+          (UserID, CrewId, FirstName, LastName, HireDate, OccDate, Base, Seniority, Airline, Email, Sex, PasswordHash, PhoneNumber, Purser, Speaker, RoleID, ActiveStatus, DeviceToken, Otp, CreatedAt)
         VALUES 
-          (@UserID, @CrewId, @FirstName, @LastName, @HireDate, @OccDate, @Base, @Seniority, @Airline, @Email, @PasswordHash, @PhoneNumber, @Purser, @Speaker, @RoleID, @ActiveStatus, @DeviceToken, @CreatedAt)
+          (@UserID, @CrewId, @FirstName, @LastName, @HireDate, @OccDate, @Base, @Seniority, @Airline, @Email, @Sex, @PasswordHash, @PhoneNumber, @Purser, @Speaker, @RoleID, @ActiveStatus, @DeviceToken, @Otp, @CreatedAt)
       `);
         console.log("Languages from request:", languages);
 
         await addLanguages(UserID, languages ?? []);
         // Send password via email
-        await sendPasswordEmail(email, firstName, password);
+        // await sendPasswordEmail(email, firstName, password);
+        await sendOtpEmail(email, firstName, otp);
 
         return res
             .status(StatusCode.CREATED)
@@ -133,23 +139,25 @@ export const verifyOTP = async (req: Request, res: Response): Promise<any> => {
         // Example dummy logic — replace with your actual verification
         const crew = await findCrewByEmail(email);
         console.log("crew==>> ", crew)
-        if (!crew || crew.otp !== otp) {
+        if (!crew || crew.Otp != otp) {
             return res.status(StatusCode.BAD_REQUEST).json({ message: Messages.INVALID_OTP_OR_EXPIRED });
         }
 
         await deleteOtp(email);
         // await deviceModel.createDeviceId(savedOtp.id, deviceId, deviceType);
         // const token = generateToken({ id: crew?.id, crewId: crew?.crewId, email: crew?.email });
+        const token = generateToken({ id: crew?.UserID, crewId: crew?.CrewID, email: crew?.Email, roleId: crew?.RoleID });
+
         // Mark crew as verified in DB here
         return res.status(StatusCode.OK).json(
             {
                 message: Messages.OTP_VERIFIED,
                 crew: crew,
-                // token: token,
+                token: token,
             }
         );
-    } catch (error) {
-        return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({ message: Messages.INTERNAL_SERVER_ERROR });
+    } catch (error: any) {
+        return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({ message: Messages.INTERNAL_SERVER_ERROR, error: error.message, });
     }
 };
 // old
@@ -415,8 +423,17 @@ export const resetPassword = async (req: Request, res: Response): Promise<any> =
             return res.status(StatusCode.BAD_REQUEST).json({ message: Messages.PASSWORD_DOES_NOT_MATCH });
         }
         const hashedPassword = await bcrypt.hash(password, Number(process.env.SALT) || 10);
-        existing.password = hashedPassword;
-        await existing.save();
+       const pool = await getPool();
+
+        await pool
+            .request()
+            .input("PasswordHash", sql.NVarChar, hashedPassword)
+            .query(`
+        UPDATE Users Set  
+          (PasswordHash)
+        VALUES 
+          (@PasswordHash)
+      `);
         return res.status(StatusCode.OK).json({ message: Messages.PASSWORD_CHANGED });
     } catch (error) {
         return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({ message: Messages.INTERNAL_SERVER_ERROR });

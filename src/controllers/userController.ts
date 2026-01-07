@@ -65,7 +65,6 @@ export const getProfile = async (req: Request, res: Response): Promise<any> => {
         // ✅ Extract the position
         const position = baseSeniority.recordset[0].PositionNumber;
 
-
         const service = await getCrewPayDetails(crewId);
         const languages = await getUserLanguages(userId);
         if (service) return res.status(200).json({ message: Messages.USER_PROFILE, crew, baseSeniority: position, languages, service });
@@ -167,16 +166,17 @@ export const changePassword = async (req: Request, res: Response): Promise<any> 
 export const uploadAvatar = async (req: Request, res: Response): Promise<any> => {
     try {
         const crewId = (req as any).user.crewId;
-        const file = req.file;
+        const { url } = req.body;
+        // const file = req.file;
 
-        if (!file) {
-            return res.status(400).json({ message: 'No file uploaded' });
-        }
+        // if (!file) {
+        //     return res.status(400).json({ message: 'No file uploaded' });
+        // }
 
-        const MAX_SIZE = 2 * 1024 * 1024; // 2MB
-        if (file.size > MAX_SIZE) {
-            return res.status(400).json({ message: 'File is large. Max allowed size is 2MB.' });
-        }
+        // const MAX_SIZE = 2 * 1024 * 1024; // 2MB
+        // if (file.size > MAX_SIZE) {
+        //     return res.status(400).json({ message: 'File is large. Max allowed size is 2MB.' });
+        // }
 
         // ✅ Get crew from SQL Server
         const crew = await findCrewById(crewId);
@@ -190,7 +190,7 @@ export const uploadAvatar = async (req: Request, res: Response): Promise<any> =>
         }
 
         // ✅ Update SQL Server with new avatar filename
-        const updatedCrew = await updateCrewAvatar(crewId, file.filename);
+        const updatedCrew = await updateCrewAvatar(crewId, url);
 
         return res.status(StatusCode.OK).json({
             message: Messages.AVATAR_UPLOADED,
@@ -1457,8 +1457,8 @@ export const applyPosition = async (req: Request, res: Response): Promise<any> =
         }
 
         const checkAlreadyAppliedOnSequnce = await checkAlreadyApplied(seqNo, bidMonth, userId)
-        if(checkAlreadyAppliedOnSequnce){
-            return res.status(409).json({"message": "Already Applied on this sequence"});
+        if (checkAlreadyAppliedOnSequnce) {
+            return res.status(409).json({ "message": "Already Applied on this sequence" });
         }
 
         // const updatedSeqCrewPos = await updatePosition(Number(seqNo), Number(position), effDate);

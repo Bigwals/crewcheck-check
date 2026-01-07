@@ -10,8 +10,8 @@ export interface ICrew extends Document {
     commuterAirportCode: string;
     hireDate: Date,
     base: string,
-    otp: number;
-    otpVerified: boolean;
+    Otp: string;
+    OtpVerified: boolean;
     isActive: boolean;
     email: string;
     airport: string;
@@ -30,8 +30,8 @@ const NewCrewSchema: Schema = new Schema<ICrew>({
     commuterAirportCode: { type: String },
     hireDate: { type: Date },
     base: { type: String },
-    otp: { type: Number },
-    otpVerified: { type: Boolean, default: false },
+    Otp: { type: String },
+    OtpVerified: { type: Boolean, default: false },
     isActive: { type: Boolean, default: false },
     email: { type: String },
     password: { type: String },
