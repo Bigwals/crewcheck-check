@@ -152,30 +152,106 @@ export const verifyOTP = async (req: Request, res: Response): Promise<any> => {
         const crewBase = crew?.Base;
         const pool = await getPool();
 
-        const baseSeniority = await pool
-            .request()
-            .input("crewId", sql.Int, crewId)
-            .input("crewBase", sql.NVarChar, crewBase)   // ✅ You MUST pass this
-            .query(`
-                    SELECT *
-                    FROM (
-                        SELECT 
-                            CrewID,
-                            Base,
-                            ROW_NUMBER() OVER (ORDER BY CrewID) AS PositionNumber
-                        FROM Roster
-                        WHERE Base = @crewBase
-                    ) AS Ranked
-                    WHERE CrewID = @crewId;
-                `);
+        // const baseSeniority = await pool
+        //     .request()
+        //     .input("crewId", sql.Int, crewId)
+        //     .input("crewBase", sql.NVarChar, crewBase)   // ✅ You MUST pass this
+        //     .query(`
+        //             SELECT *
+        //             FROM (
+        //                 SELECT 
+        //                     CrewID,
+        //                     Base,
+        //                     ROW_NUMBER() OVER (ORDER BY CrewID) AS PositionNumber
+        //                 FROM Roster
+        //                 WHERE Base = @crewBase
+        //             ) AS Ranked
+        //             WHERE CrewID = @crewId;
+        //         `);
 
-        // return res.json({ baseSeniority })
-        if (baseSeniority.recordset.length == 0) {
-            return res.status(404).json({ message: "Crew not found" });
+        // // return res.json({ baseSeniority })
+        // if (baseSeniority.recordset.length == 0) {
+        //     return res.status(404).json({ message: "Crew not found" });
+        // }
+
+        // // ✅ Extract the position
+        // const position = baseSeniority.recordset[0].PositionNumber;
+        const currentBASE = null;
+        const result = await pool
+            .request()
+            .input("mySeniority", sql.Int, crew.Seniority)
+            .input("currentBase", sql.NVarChar, crew.Base)
+            .query(`
+                WITH BaseSizes AS (
+                    SELECT 
+                        Base,
+                        COUNT(*) AS BaseSize
+                    FROM Roster
+                    GROUP BY Base
+                ),
+                ProjectedRanks AS (
+                    SELECT
+                        b.Base,
+                        COUNT(CASE WHEN r.Seniority < @mySeniority THEN 1 END) + 1 AS ProjectedRank
+                    FROM (SELECT DISTINCT Base FROM Roster) b
+                    LEFT JOIN Roster r
+                        ON r.Base = b.Base
+                    GROUP BY b.Base
+                ),
+                CurrentBaseStats AS (
+                    SELECT
+                        COUNT(CASE WHEN Seniority < @mySeniority THEN 1 END) + 1 AS CurrentBaseRank,
+                        COUNT(*) AS CurrentBaseSize
+                    FROM Roster
+                    WHERE Base = @currentBase
+                )
+                SELECT
+                    p.Base AS iata_code,
+                    a.name AS airportName,
+                    a.IsInternational,
+                    s.BaseSize,
+                    p.ProjectedRank,
+                    c.CurrentBaseRank,
+                    c.CurrentBaseSize
+                FROM ProjectedRanks p
+                JOIN BaseSizes s ON s.Base = p.Base
+                LEFT JOIN Airports a ON a.iata_code = p.Base
+                CROSS JOIN CurrentBaseStats c
+                ORDER BY p.Base;
+            `);
+
+        // ✅ FIXED: use iata_code instead of Base
+        const currentBaseRow = result.recordset.find(
+            r => r.iata_code === crew.Base
+        );
+
+        if (!currentBaseRow) {
+            return res.status(404).json({ message: "Current base stats not found" });
         }
 
-        // ✅ Extract the position
-        const position = baseSeniority.recordset[0].PositionNumber;
+        const currentBaseRank = currentBaseRow.CurrentBaseRank;
+        const currentBaseSize = currentBaseRow.CurrentBaseSize;
+        const currentPercentile = +(
+            (currentBaseRank / currentBaseSize) * 100
+        ).toFixed(2);
+
+        const projections = result.recordset.map(row => ({
+            baseCode: row.iata_code,
+            airportName: row.airportName,
+            isInternational: row.IsInternational,
+            projectedRank: row.ProjectedRank,
+            baseSize: row.BaseSize,
+            projectedPercentile: +(
+                (row.ProjectedRank / row.BaseSize) * 100
+            ).toFixed(2),
+            direction: row.ProjectedRank < currentBaseRank ? "up" : "down",
+            isCurrentBase: row.iata_code === crew.Base,
+            currentBASE: crew.Base
+        }));
+
+        const currentBaseProjection = projections.find(p => p.isCurrentBase);
+
+        const baseSeniority = currentBaseProjection?.projectedRank ?? null;
 
         // const service = await getCrewPayDetail(crewId);
         const service = crewId ? await getCrewPayDetails(crewId) : null;
@@ -190,7 +266,7 @@ export const verifyOTP = async (req: Request, res: Response): Promise<any> => {
                 message: Messages.OTP_VERIFIED,
                 crew: crew,
                 basePayRate: baseRate,
-                baseSeniority: position,
+                baseSeniority,
                 languages,
                 // service,
                 token: token,
@@ -217,7 +293,6 @@ export const login = async (req: Request, res: Response): Promise<any> => {
 
         // ✅ If user exists, validate credentials
         if (crew) {
-
             if (!crew.PasswordHash) {
                 return res.status(StatusCode.BAD_REQUEST).json({ message: Messages.PASSWORD_DOES_NOT_MATCH });
             }

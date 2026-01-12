@@ -75,64 +75,322 @@ export const getProfile = async (req: Request, res: Response): Promise<any> => {
         return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({ message: Messages.INTERNAL_SERVER_ERROR, error: error.message });
     }
 };
+// old
+// export const getCrewBaseRanking = async (req: Request, res: Response): Promise<any> => {
+//     try {
+//         const crewId = (req as any).user.crewId;
+//         // const crewId = 5896;
+//         const pool = await getPool();
 
+//         // 1) Get logged-in crew
+//         const fetchBases = await pool
+//             .request()
+//             .query(`
+//                 SELECT id, iata_code, name FROM Airports
+//                 WHERE crewbase = 1
+//             `);
+//         if (!fetchBases.recordset[0]) {
+//             return res.status(404).json({ message: "Crew not found" });
+//         }
+
+//         const crew = await findCrewById(crewId)
+//         // return res.json({ data: crew });
+//         const crewBases = fetchBases.recordset;
+//         const crewBase = crew?.Base;
+
+//         console.log("crewBase:", crewBase);
+//         console.log("crewId:", crewId);
+
+//         const baseSeniority = await pool
+//             .request()
+//             .input("crewId", sql.Int, crewId)
+//             .input("crewBase", sql.NVarChar, crewBase)
+//             .query(`
+//             SELECT *
+//             FROM (
+//                 SELECT 
+//                     CrewID,
+//                     Base,
+//                     ROW_NUMBER() OVER (ORDER BY CrewID) AS PositionNumber
+//                 FROM Roster
+//                 WHERE Base = @crewBase
+//             ) AS Ranked
+//             WHERE CrewID = @crewId;
+//         `);
+
+//         // return res.json({ baseSeniority })
+//         if (baseSeniority.recordset.length == 0) {
+//             return res.status(404).json({ message: "Crew not found" });
+//         }
+
+//         // ✅ Extract the position
+//         const position = baseSeniority.recordset[0].PositionNumber;
+
+//         // return res.json({ data: crewBases });
+//         return res.status(200).json({ message: "Crew Bases Found", crewBases, seniority: crew?.Seniority, baseSeniority: position, base: crew?.Base });
+//     } catch (err: any) {
+//         console.error("Error in getCrewBaseRanking:", err);
+//         return res.status(500).json({ message: "Internal Server Error", error: err.message });
+//     }
+// };
+
+// new 1
 export const getCrewBaseRanking = async (req: Request, res: Response): Promise<any> => {
+    // try {
+    //     const crewId = (req as any).user.crewId;
+    //     const pool = await getPool();
+
+    //     const crew = await findCrewById(crewId);
+    //     if (!crew) {
+    //         return res.status(404).json({ message: "Crew not found" });
+    //     }
+
+    //     const result = await pool
+    //         .request()
+    //         .input("mySeniority", sql.Int, crew.Seniority)
+    //         .input("currentBase", sql.NVarChar, crew.Base)
+    //         .query(`
+    //             WITH BaseRanks AS (
+    //                 SELECT
+    //                     Base,
+    //                     COUNT(CASE WHEN Seniority < @mySeniority THEN 1 END) + 1 AS PositionInBase,
+    //                     CASE 
+    //                         WHEN MAX(CASE WHEN Seniority < @mySeniority THEN Seniority END) IS NULL
+    //                         THEN MIN(Seniority) - 1
+    //                         ELSE MAX(CASE WHEN Seniority < @mySeniority THEN Seniority END) + 1
+    //                     END AS NewBaseSeniority
+    //                 FROM Roster
+    //                 GROUP BY Base
+    //             ),
+    //             CurrentBase AS (
+    //                 SELECT 
+    //                     COUNT(*) + 1 AS CurrentBasePosition
+    //                 FROM Roster
+    //                 WHERE Base = @currentBase
+    //                   AND Seniority < @mySeniority
+    //             )
+    //             SELECT 
+    //                 b.Base,
+    //                 b.PositionInBase,
+    //                 b.NewBaseSeniority,
+    //                 CASE 
+    //                     WHEN b.PositionInBase < c.CurrentBasePosition THEN CAST(1 AS BIT)
+    //                     ELSE CAST(0 AS BIT)
+    //                 END AS IsUp
+    //             FROM BaseRanks b
+    //             CROSS JOIN CurrentBase c
+    //             ORDER BY b.Base;
+    //         `);
+
+    //     return res.status(200).json({
+    //         currentBase: crew.Base,
+    //         currentPosition: result.recordset.find(r => r.Base === crew.Base)?.PositionInBase,
+    //         bases: result.recordset
+    //     });
+
+    // } catch (err: any) {
+    //     console.error("Error in getCrewBaseRanking:", err);
+    //     return res.status(500).json({ message: "Internal Server Error", error: err.message });
+    // }
+
     try {
         const crewId = (req as any).user.crewId;
-        // const crewId = 5896;
         const pool = await getPool();
 
-        // 1) Get logged-in crew
-        const fetchBases = await pool
+        const crew = await findCrewById(crewId);
+        if (!crew) {
+            return res.status(404).json({ message: "Crew not found" });
+        }
+
+        const result = await pool
             .request()
+            .input("mySeniority", sql.Int, crew.Seniority)
+            .input("currentBase", sql.NVarChar, crew.Base)
             .query(`
-                SELECT id, iata_code, name FROM Airports
-                WHERE crewbase = 1
+                WITH BaseSizes AS (
+                    SELECT 
+                        Base,
+                        COUNT(*) AS BaseSize
+                    FROM Roster
+                    GROUP BY Base
+                ),
+                ProjectedRanks AS (
+                    SELECT
+                        b.Base,
+                        COUNT(CASE WHEN r.Seniority < @mySeniority THEN 1 END) + 1 AS ProjectedRank
+                    FROM (SELECT DISTINCT Base FROM Roster) b
+                    LEFT JOIN Roster r
+                        ON r.Base = b.Base
+                    GROUP BY b.Base
+                ),
+                CurrentBaseStats AS (
+                    SELECT
+                        COUNT(CASE WHEN Seniority < @mySeniority THEN 1 END) + 1 AS CurrentBaseRank,
+                        COUNT(*) AS CurrentBaseSize
+                    FROM Roster
+                    WHERE Base = @currentBase
+                )
+                SELECT
+                    p.Base AS iata_code,
+                    a.name AS airportName,
+                    a.IsInternational,
+                    s.BaseSize,
+                    p.ProjectedRank,
+                    c.CurrentBaseRank,
+                    c.CurrentBaseSize
+                FROM ProjectedRanks p
+                JOIN BaseSizes s ON s.Base = p.Base
+                LEFT JOIN Airports a ON a.iata_code = p.Base
+                CROSS JOIN CurrentBaseStats c
+                ORDER BY p.Base;
             `);
-        if (!fetchBases.recordset[0]) {
-            return res.status(404).json({ message: "Crew not found" });
+
+        // ✅ FIXED: use iata_code instead of Base
+        const currentBaseRow = result.recordset.find(
+            r => r.iata_code === crew.Base
+        );
+
+        if (!currentBaseRow) {
+            return res.status(404).json({ message: "Current base stats not found" });
         }
 
-        const crew = await findCrewById(crewId)
-        // return res.json({ data: crew });
-        const crewBases = fetchBases.recordset;
-        const crewBase = crew?.Base;
+        const currentBaseRank = currentBaseRow.CurrentBaseRank;
+        const currentBaseSize = currentBaseRow.CurrentBaseSize;
+        const currentPercentile = +(
+            (currentBaseRank / currentBaseSize) * 100
+        ).toFixed(2);
 
-        console.log("crewBase:", crewBase);
-        console.log("crewId:", crewId);
+        const projections = result.recordset.map(row => ({
+            baseCode: row.iata_code,
+            airportName: row.airportName,
+            isInternational: row.IsInternational,
+            projectedRank: row.ProjectedRank,
+            baseSize: row.BaseSize,
+            projectedPercentile: +(
+                (row.ProjectedRank / row.BaseSize) * 100
+            ).toFixed(2),
+            direction: row.ProjectedRank < currentBaseRank ? "up" : "down",
+            isCurrentBase: row.iata_code === crew.Base
+        }));
 
-        const baseSeniority = await pool
-            .request()
-            .input("crewId", sql.Int, crewId)
-            .input("crewBase", sql.NVarChar, crewBase)
-            .query(`
-            SELECT *
-            FROM (
-                SELECT 
-                    CrewID,
-                    Base,
-                    ROW_NUMBER() OVER (ORDER BY CrewID) AS PositionNumber
-                FROM Roster
-                WHERE Base = @crewBase
-            ) AS Ranked
-            WHERE CrewID = @crewId;
-        `);
+        return res.status(200).json({
+            aaId: crew.CrewID,
+            firstName: crew.FirstName,
+            lastName: crew.LastName,
+            yearsOfService: crew.YearsOfService,
+            currentBase: crew.Base,
+            currentBaseRank,
+            currentBaseSize,
+            currentPercentile,
+            projections
+        });
 
-        // return res.json({ baseSeniority })
-        if (baseSeniority.recordset.length == 0) {
-            return res.status(404).json({ message: "Crew not found" });
-        }
-
-        // ✅ Extract the position
-        const position = baseSeniority.recordset[0].PositionNumber;
-
-        // return res.json({ data: crewBases });
-        return res.status(200).json({ message: "Crew Bases Found", crewBases, seniority: crew?.Seniority, baseSeniority: position, base: crew?.Base });
     } catch (err: any) {
-        console.error("Error in getCrewBaseRanking:", err);
-        return res.status(500).json({ message: "Internal Server Error", error: err.message });
-    }
+        console.error("Error in getCrewBaseProjections:", err);
+        return res.status(500).json({
+            message: "Internal Server Error",
+            error: err.message
+        });
+    };
 };
+
+// new 2
+// export const getCrewBaseRanking = async (req: Request, res: Response) => {
+//     try {
+//         const crewId = (req as any).user.crewId;
+//         const pool = await getPool();
+
+//         const crew = await findCrewById(crewId);
+//         if (!crew) {
+//             return res.status(404).json({ message: "Crew not found" });
+//         }
+
+//         const result = await pool
+//             .request()
+//             .input("mySeniority", sql.Int, crew.Seniority)
+//             .input("currentBase", sql.NVarChar, crew.Base)
+//             .query(`
+//                 WITH BaseSizes AS (
+//                     -- Total crew count per base
+//                     SELECT 
+//                         Base,
+//                         COUNT(*) AS BaseSize
+//                     FROM Roster
+//                     GROUP BY Base
+//                 ),
+//                 ProjectedRanks AS (
+//                     -- Where this crew would rank in each base
+//                     SELECT
+//                         b.Base,
+//                         COUNT(CASE WHEN r.Seniority < @mySeniority THEN 1 END) + 1 AS ProjectedRank
+//                     FROM (SELECT DISTINCT Base FROM Roster) b
+//                     LEFT JOIN Roster r
+//                         ON r.Base = b.Base
+//                     GROUP BY b.Base
+//                 ),
+//                 CurrentBaseStats AS (
+//                     -- Current base rank & size
+//                     SELECT
+//                         COUNT(CASE WHEN Seniority < @mySeniority THEN 1 END) + 1 AS CurrentBaseRank,
+//                         COUNT(*) AS CurrentBaseSize
+//                     FROM Roster
+//                     WHERE Base = @currentBase
+//                 )
+//                 SELECT
+//                     p.Base,
+//                     s.BaseSize,
+//                     p.ProjectedRank,
+//                     c.CurrentBaseRank,
+//                     c.CurrentBaseSize
+//                 FROM ProjectedRanks p
+//                 JOIN BaseSizes s ON s.Base = p.Base
+//                 CROSS JOIN CurrentBaseStats c
+//                 ORDER BY p.Base;
+//             `);
+
+//         const currentBaseRow = result.recordset.find(
+//             r => r.Base === crew.Base
+//         );
+
+//         if (!currentBaseRow) {
+//             return res.status(404).json({ message: "Current base stats not found" });
+//         }
+
+//         const currentBaseRank = currentBaseRow.CurrentBaseRank;
+//         const currentBaseSize = currentBaseRow.CurrentBaseSize;
+//         const currentPercentile = +(
+//             (currentBaseRank / currentBaseSize) * 100
+//         ).toFixed(2);
+
+//         const projections = result.recordset.map(row => ({
+//             baseCode: row.Base,
+//             airportName: null, // can be joined from Airports later
+//             projectedRank: row.ProjectedRank,
+//             baseSize: row.BaseSize,
+//             projectedPercentile: +(
+//                 (row.ProjectedRank / row.BaseSize) * 100
+//             ).toFixed(2),
+//             direction: row.ProjectedRank < currentBaseRank ? "up" : "down",
+//             isCurrentBase: row.Base === crew.Base
+//         }));
+
+//         return res.status(200).json({
+//             aaId: crew.CrewID,
+//             firstName: crew.FirstName,
+//             lastName: crew.LastName,
+//             yearsOfService: crew.YearsOfService,
+//             currentBase: crew.Base,
+//             currentBaseRank,
+//             currentBaseSize,
+//             currentPercentile,
+//             projections
+//         });
+
+//     } catch (err: any) {
+//         console.error("Error in getCrewBaseProjections:", err);
+//         return res.status(500).json({ message: "Internal Server Error", error: err.message });
+//     }
+// };
 
 export const changePassword = async (req: Request, res: Response): Promise<any> => {
     try {
