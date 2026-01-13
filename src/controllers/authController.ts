@@ -32,7 +32,8 @@ export const register = async (req: Request, res: Response): Promise<any> => {
             // commuterAirportCode,
         } = registerSchema.parse(req.body);
 
-        const otp = randomUUID().slice(0, 4);
+        // const otp = randomUUID().slice(0, 4);
+        const otp = await generateOtp();
         console.log('OTP ', otp);
         const existingEmail = await findCrewByEmail(email);
         if (existingEmail) {
@@ -80,7 +81,7 @@ export const register = async (req: Request, res: Response): Promise<any> => {
             .input("ActiveStatus", sql.Bit, ActiveStatus)
             .input("CreatedAt", sql.DateTime, CreatedAt)
             .input("DeviceToken", sql.NVarChar, deviceToken)
-            .input("Otp", sql.VarChar, otp)
+            .input("Otp", sql.Int, otp)
             .query(`
         INSERT INTO Users 
           (UserID, CrewId, FirstName, LastName, HireDate, OccDate, Base, Seniority, Airline, Email, Sex, PasswordHash, PhoneNumber, Purser, Speaker, RoleID, ActiveStatus, DeviceToken, Otp, CreatedAt)
@@ -494,8 +495,8 @@ export const resendOtp = async (req: Request, res: Response): Promise<any> => {
             return res.status(StatusCode.NOT_FOUND).json({ message: Messages.NOT_FOUND })
         }
         console.log("existing crew", existing);
-        // const otp = await generateOtp();
-        const otp = randomUUID().slice(0, 4);
+        const otp = await generateOtp();
+        // const otp = randomUUID().slice(0, 4);
         await saveOtp(existing?.Email, otp)
         await sendOtpEmail(existing?.Email, existing?.FirstName, otp);
         return res.status(StatusCode.OK).json({ message: Messages.OTP_SENT, otp: existing.otp });

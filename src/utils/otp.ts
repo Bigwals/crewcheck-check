@@ -2,8 +2,14 @@ import { NewCrew } from '../models/newCrewModel';
 import { User } from '../models/userModel';
 import { getPool, sql } from "../config/db";
 
+// 6 digit
+// export const generateOtp = async (): Promise<any> => {
+//     return Math.floor(100000 + Math.random() * 900000);
+// }
+
+// 4 digit
 export const generateOtp = async (): Promise<any> => {
-    return Math.floor(100000 + Math.random() * 900000);
+    return Math.floor(1000 + Math.random() * 9000);
 }
 
 // export const saveOtp = async (email: string, otp: string) => {
