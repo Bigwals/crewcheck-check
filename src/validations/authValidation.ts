@@ -14,7 +14,7 @@ export const registerSchema = z.object({
   ).optional(),
   // commuterAirportCode: z.string().min(1, "commuterAirportCode is Required"),
   email: z.string().email().min(1, "email is Required"),
-  sex: z.string().min(1, "sex is Required"),
+  // sex: z.string().min(1, "sex is Required"),
   deviceToken: z.string().min(1, "device is Required"),
   // password: z.string().min(6).min(1, "Password is Required"),
 });
