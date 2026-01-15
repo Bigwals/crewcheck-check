@@ -17,6 +17,7 @@ import axios from "axios";
 require("dotenv").config()
 import { config } from 'dotenv';
 import cron from "node-cron";
+import { totalmem } from 'os';
 
 export const getProfile = async (req: Request, res: Response): Promise<any> => {
     try {
@@ -596,10 +597,13 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
                 if (calendar[i] == "1") flightDays.push(i + 1);
             }
 
+            const EXTRA_LIMIT_MINUTES = 150; // 2 hours 30 minutes
+            let extraAmount = 0;
+            let layOverHours = 0;
             const dayWiseLegs: any[] = [];
             let currentDayLegs: any[] = [];
             let dayCounter = 1;
-            seqLegs.forEach((leg: any) => {
+            seqLegs.forEach((leg: any, index: number) => {
                 currentDayLegs.push({
                     seqNo: leg.SeqNo,
                     seqLegNo: leg.SeqLegNo,
@@ -613,6 +617,54 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
                     layover: leg.CvtLayover ? leg.CvtLayover : null,
                     eod: leg.EOD,
                 });
+
+                /* 👉 ADDITION STARTS (NO CHANGE ABOVE) */
+
+                const nextLeg = seqLegs[index + 1];
+
+                if (nextLeg && leg.CvtArvTime && nextLeg.CvtDptTime) {
+
+                    const [ah, am] = leg.CvtArvTime.split(":").map(Number);
+                    const [dh, dm] = nextLeg.CvtDptTime.split(":").map(Number);
+
+                    let diffMinutes =
+                        (dh * 60 + dm) - (ah * 60 + am);
+
+                    // handle overnight case
+                    if (diffMinutes < 0) {
+                        diffMinutes += 24 * 60;
+                    }
+
+                    if (diffMinutes > EXTRA_LIMIT_MINUTES) {
+                        // const extraMinutes = diffMinutes - EXTRA_LIMIT_MINUTES;
+                        // const extraHours = Math.floor(extraMinutes / 60);
+                        // const extraMins = extraMinutes % 60;
+
+                        let extraMinutes = diffMinutes - EXTRA_LIMIT_MINUTES;
+
+                        // divide by 2
+                        extraMinutes = Math.floor(extraMinutes / 2);
+
+                        const extraHours = Math.floor(extraMinutes / 60);
+                        const extraMins = extraMinutes % 60;
+
+                        console.log(
+                            `Extra time between leg ${leg.SeqLegNo} → ${nextLeg.SeqLegNo}: ` +
+                            `${extraHours}h ${extraMins}m`
+                        );
+
+                        // 👉 ADD THIS
+                        const totalExtraHours = extraHours + (extraMins / 60);
+                        layOverHours += extraHours + (extraMins / 60);
+                        extraAmount += totalExtraHours * baseRate;
+
+                        console.log(
+                            `Extra time (half): ${extraHours}h ${extraMins}m | Pay: ${extraAmount.toFixed(2)}`
+                        );
+                    }
+                }
+
+                /* 👉 ADDITION ENDS */
 
                 if (leg.EOD == 1) {
                     dayWiseLegs.push({ day: dayCounter, legs: currentDayLegs });
@@ -635,6 +687,11 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
             const cvtSeqFlyTime = toDecimalHours(seq.CvtSeqFlyTime);
             const cvtTAFB = toDecimalHours(seq.CvtTAFB);
             const cvtSeqPremTime = toDecimalHours(seq.CvtSeqPremTime);
+
+            console.log("cvtSeqPC===>>>", cvtSeqPC);
+            console.log("cvtSeqPC===>>>", cvtSeqFlyTime);
+            console.log("cvtSeqPC===>>>", cvtTAFB);
+            console.log("cvtSeqPC===>>>", cvtSeqPremTime);
 
             const deadheadResult = await pool.request()
                 .input("seqNo", sql.Int, seq.SeqNo)
@@ -891,7 +948,8 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
                 creditHoursDollars +
                 tafbPay +
                 premiumWithSpeaker +
-                boardingPay;
+                boardingPay +
+                extraAmount;
 
             // push result
             sequences.push({
@@ -908,12 +966,14 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
                 payHours: decimalHoursToHHMM(payHours),
                 creditHours: decimalHoursToHHMM(creditHours),
                 tafb: decimalHoursToHHMM(tafbHours),
+                sitRigHours: decimalHoursToHHMM(layOverHours),
                 seqPremiumTime: decimalHoursToHHMM(premiumHours),
                 effDates,
                 boardingRow,
                 flightDays,
                 dayWiseLegs,
                 earnings: {
+                    extraAmount,
                     yearsOfService,
                     baseRate,
                     tafbHours,
@@ -1029,6 +1089,13 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
             // ✅ Step 1: sort legs properly by SeqLegNo
             const sortedLegs = [...seqLegs].sort((a, b) => a.SeqLegNo - b.SeqLegNo);
 
+            const service = crewId ? await getCrewPayDetails(crewId) : null;
+            const yearsOfService = service?.basePay?.YearsOfService ?? 1;
+            const baseRate = await getDynamicBaseRate(yearsOfService); // $ per hour
+
+            const EXTRA_LIMIT_MINUTES = 150; // 2 hours 30 minutes
+            let extraAmount = 0;
+            let layOverHours = 0;
             // ✅ Step 2: now group them day-wise by EOD
             const dayWiseLegs: any[] = [];
             let currentDayLegs: any[] = [];
@@ -1055,6 +1122,54 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
                     eod: leg.EOD
                 });
 
+                /* 👉 ADDITION STARTS (NO CHANGE ABOVE) */
+
+                const nextLeg = seqLegs[index + 1];
+
+                if (nextLeg && leg.CvtArvTime && nextLeg.CvtDptTime) {
+
+                    const [ah, am] = leg.CvtArvTime.split(":").map(Number);
+                    const [dh, dm] = nextLeg.CvtDptTime.split(":").map(Number);
+
+                    let diffMinutes =
+                        (dh * 60 + dm) - (ah * 60 + am);
+
+                    // handle overnight case
+                    if (diffMinutes < 0) {
+                        diffMinutes += 24 * 60;
+                    }
+
+                    if (diffMinutes > EXTRA_LIMIT_MINUTES) {
+                        // const extraMinutes = diffMinutes - EXTRA_LIMIT_MINUTES;
+                        // const extraHours = Math.floor(extraMinutes / 60);
+                        // const extraMins = extraMinutes % 60;
+
+                        let extraMinutes = diffMinutes - EXTRA_LIMIT_MINUTES;
+
+                        // divide by 2
+                        extraMinutes = Math.floor(extraMinutes / 2);
+
+                        const extraHours = Math.floor(extraMinutes / 60);
+                        const extraMins = extraMinutes % 60;
+
+                        console.log(
+                            `Extra time between leg ${leg.SeqLegNo} → ${nextLeg.SeqLegNo}: ` +
+                            `${extraHours}h ${extraMins}m`
+                        );
+
+                        // 👉 ADD THIS
+                        const totalExtraHours = extraHours + (extraMins / 60);
+                        layOverHours += extraHours + (extraMins / 60);
+                        extraAmount += totalExtraHours * baseRate;
+
+                        console.log(
+                            `Extra time (half): ${extraHours}h ${extraMins}m | Pay: ${extraAmount.toFixed(2)}`
+                        );
+                    }
+                }
+
+                /* 👉 ADDITION ENDS */
+
                 // If this leg ends the day
                 if (leg.EOD == 1) {
                     dayWiseLegs.push({
@@ -1079,11 +1194,6 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
             }
 
             // ------------------ NEW: Earnings calculation (per your rules) ------------------
-
-            const service = crewId ? await getCrewPayDetails(crewId) : null;
-            const yearsOfService = service?.basePay?.YearsOfService ?? 1;
-            const baseRate = await getDynamicBaseRate(yearsOfService); // $ per hour
-
             // new
             const cvtSeqPC = toDecimalHours(seq.CvtSeqPC);
             const cvtSeqFlyTime = toDecimalHours(seq.CvtSeqFlyTime);
@@ -1397,7 +1507,8 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
                 creditHoursDollars +
                 tafbPay +
                 premiumWithSpeaker +
-                totalBoardingPay
+                totalBoardingPay +
+                extraAmount
             );
 
             // 9) Prepare the same output shape as before (frontend unchanged).
@@ -1415,6 +1526,7 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
                 payHours: formatMinutes(Math.round(payHours * 60)),               // "HH:mm"
                 creditHours: formatMinutes(Math.round(creditHours * 60)),      // "HH:mm"
                 tafb: formatMinutes(Math.round(tafbHours * 60)),                   // "HH:mm"
+                sitRigHours: decimalHoursToHHMM(layOverHours),
                 seqPremiumTime: toHHmm(Math.round(premiumHours * 60)),             // "HH:mm"
 
                 // Day/flight info unchanged
@@ -1425,6 +1537,7 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
                 earnings: {
                     yearsOfService,
                     baseRate,
+                    extraAmount,
                     tafbPay: tafbPay.toFixed(2),                    // $ per hour (per-diem)
                     tafbHours,
                     tafPerDiem: tafbPay.toFixed(2),

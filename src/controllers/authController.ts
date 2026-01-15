@@ -24,7 +24,7 @@ export const register = async (req: Request, res: Response): Promise<any> => {
             lastName,
             telephone,
             email,
-            sex,
+            // sex,
             purser,
             speaker,
             languages,
@@ -71,7 +71,7 @@ export const register = async (req: Request, res: Response): Promise<any> => {
             .input("Base", sql.NVarChar, existingCrew.Base)
             .input("Seniority", sql.Int, existingCrew.Seniority)
             .input("Email", sql.NVarChar, email)
-            .input("Sex", sql.Bit, existingCrew.sex ?? sex)
+            .input("Sex", sql.Bit, existingCrew.sex)
             .input("PasswordHash", sql.NVarChar, hashedPassword)
             .input("PhoneNumber", sql.NVarChar, telephone)
             .input("Airline", sql.NVarChar, airline)
