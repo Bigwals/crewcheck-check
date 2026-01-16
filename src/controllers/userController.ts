@@ -1865,6 +1865,25 @@ export const basePay = async (req: Request, res: Response): Promise<any> => {
 
         const understaffingPayRate = 10.50;
 
+        const now = new Date();
+        let effectiveYear = now.getUTCFullYear();
+        const oct1ThisYearUTC = new Date(Date.UTC(effectiveYear, 9, 1));
+        if (now < oct1ThisYearUTC) effectiveYear -= 1;
+        const perDiemEffectiveDateUTC = new Date(Date.UTC(effectiveYear, 9, 1));
+        const pool = await getPool();
+
+        const perDiemResult = await pool.request()
+            .input("perDiemDate", sql.Date, perDiemEffectiveDateUTC)
+            .query(`
+                SELECT TOP 1 effective_date, dom, int
+                FROM PerDiem
+                WHERE effective_date <= @perDiemDate
+                ORDER BY effective_date DESC
+            `);
+        const perDiemRow = perDiemResult.recordset?.[0] ?? null;
+        const perDiem_dom = perDiemRow ? parseFloat(perDiemRow.dom || 0) : 0;
+        const perDiem_int = perDiemRow ? parseFloat(perDiemRow.int || 0) : 0;
+
         const domesticPayRate = 2.5;
         const internationalPayRate = 3.75;
 
@@ -1882,7 +1901,7 @@ export const basePay = async (req: Request, res: Response): Promise<any> => {
             sickPay: 0,
             vacationPay: pay,
             holidayPay: pay,
-            jurydutyPay: 0,
+            jurydutyPay: pay,
             understaffingPay: understaffingPayRate,
             hotel1HourDelayPay: "100% of Same Day Trips",
             hotel3HoursDelayPay: "100% of Full Sequence",
@@ -1890,8 +1909,8 @@ export const basePay = async (req: Request, res: Response): Promise<any> => {
         }
 
         const perDiems = {
-            domesticRate: domesticPayRate,
-            internationalRate: internationalPayRate
+            domesticRate: perDiem_dom,
+            internationalRate: perDiem_int
         }
 
         const boardingPay = {

@@ -332,7 +332,7 @@ export const addLegDataInUserLeg = async (
       .input("UniqueSeqNo", sql.VarChar, leg.UniqueSeqNo)
       .input("EffDate", sql.Date, leg.EffDate)
       .input("ThruDate", sql.Date, leg.ThruDate)
-      .input("Frequency", sql.Float, leg.Frequency)
+      .input("Frequency", sql.VarChar, leg.Frequency)
       .input("SeqNo", sql.Int, leg.SeqNo)
       .input("SeqLegNo", sql.Int, leg.SeqLegNo)
       .input("DeptStn", sql.VarChar, leg.DeptStn)
