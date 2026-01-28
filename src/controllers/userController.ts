@@ -948,8 +948,8 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
                 creditHoursDollars +
                 tafbPay +
                 premiumWithSpeaker +
-                boardingPay +
-                extraAmount;
+                boardingPay;
+                // extraAmount;
 
             // push result
             sequences.push({
@@ -973,7 +973,7 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
                 flightDays,
                 dayWiseLegs,
                 earnings: {
-                    extraAmount,
+                    // extraAmount,
                     yearsOfService,
                     baseRate,
                     tafbHours,
@@ -1319,72 +1319,6 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
                     });
                 }
             }
-            // new
-            // else if (category == "INT") {
-
-            //     let rebuiltTAFB = 0;          // 🔑 single source of truth
-            //     tafbPay = 0;                  // 🔑 reset pay for INT sequences
-
-            //     for (const leg of seqLegs) {
-            //         // ---- Time components ----
-            //         const CvtDPOnDutyTime = toDecimalHours(leg.CvtDPOnDutyTime);
-            //         const cvtLayover = toDecimalHours(leg.CvtLayover ?? 0);
-
-            //         const legTAFB = CvtDPOnDutyTime + cvtLayover;
-            //         rebuiltTAFB += legTAFB;
-
-            //         // ---- Stations ----
-            //         const dep = (leg.DeptStn || "").toString().toUpperCase();
-            //         const arr = (leg.ArrvStn || "").toString().toUpperCase();
-
-            //         const isDepINT = airportIntl[dep] === true;
-            //         const isArrINT = airportIntl[arr] === true;
-
-            //         // ---- Flight rate ----
-            //         const flightRate = (isDepINT || isArrINT)
-            //             ? perDiem_int
-            //             : perDiem_dom;
-
-            //         // ---- Pay calculation ----
-            //         let legPay = 0;
-
-            //         if (cvtLayover > 0 && Number(leg.EOD) === 1) {
-            //             // Arrival-based layover rule
-            //             const layoverRate = isArrINT
-            //                 ? perDiem_int
-            //                 : perDiem_dom;
-
-            //             legPay =
-            //                 (CvtDPOnDutyTime * flightRate) +
-            //                 (cvtLayover * layoverRate);
-            //         } else {
-            //             // Entire leg paid at flight rate
-            //             legPay = legTAFB * flightRate;
-            //         }
-
-            //         tafbPay += legPay;
-
-            //         // ---- Equipment tracking (unchanged) ----
-            //         leg_equip_types.push({
-            //             leg_equip_type: leg.LegEqupType,
-            //             dep_stn: leg.DeptStn,
-            //             arr_stn: leg.ArrvStn,
-            //         });
-            //     }
-
-            //     // 🔑 Override sequence TAFB for INT (authoritative)
-            //     tafbHours = rebuiltTAFB;
-
-            //     // ---- Sanity check (informational only) ----
-            //     if (Math.abs(rebuiltTAFB - seq.CvtTAFB) > 0.01) {
-            //         console.warn("TAFB mismatch (INT)", {
-            //             seqNo: seq.SeqNo,
-            //             seqTAFB: seq.CvtTAFB,
-            //             rebuiltTAFB,
-            //         });
-            //     }
-            // }
-
             seq.tafbPay = tafbPay;
 
             // return res.json({ seq.tafbPay })
@@ -1507,8 +1441,8 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
                 creditHoursDollars +
                 tafbPay +
                 premiumWithSpeaker +
-                totalBoardingPay +
-                extraAmount
+                totalBoardingPay
+                // extraAmount
             );
 
             // 9) Prepare the same output shape as before (frontend unchanged).
@@ -1537,7 +1471,7 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
                 earnings: {
                     yearsOfService,
                     baseRate,
-                    extraAmount,
+                    // extraAmount,
                     tafbPay: tafbPay.toFixed(2),                    // $ per hour (per-diem)
                     tafbHours,
                     tafPerDiem: tafbPay.toFixed(2),
