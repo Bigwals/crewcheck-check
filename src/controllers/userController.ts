@@ -622,44 +622,48 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
 
                 const nextLeg = seqLegs[index + 1];
 
-                if (nextLeg && leg.CvtArvTime && nextLeg.CvtDptTime) {
+                if (
+                    nextLeg &&
+                    leg.CvtArvTime &&
+                    nextLeg.CvtDptTime &&
+                    leg.EOD == 0
+                ) {
+                    const [ah, am, as = 0] = leg.CvtArvTime.split(":").map(Number);
+                    const [dh, dm, ds = 0] = nextLeg.CvtDptTime.split(":").map(Number);
 
-                    const [ah, am] = leg.CvtArvTime.split(":").map(Number);
-                    const [dh, dm] = nextLeg.CvtDptTime.split(":").map(Number);
+                    const arrSeconds = ah * 3600 + am * 60 + as;
+                    const depSeconds = dh * 3600 + dm * 60 + ds;
 
-                    let diffMinutes =
-                        (dh * 60 + dm) - (ah * 60 + am);
+                    let diffSeconds = depSeconds - arrSeconds;
 
-                    // handle overnight case
-                    if (diffMinutes < 0) {
-                        diffMinutes += 24 * 60;
+                    // overnight handling
+                    if (diffSeconds < 0) {
+                        diffSeconds += 24 * 3600;
                     }
 
-                    if (diffMinutes > EXTRA_LIMIT_MINUTES) {
-                        // const extraMinutes = diffMinutes - EXTRA_LIMIT_MINUTES;
-                        // const extraHours = Math.floor(extraMinutes / 60);
-                        // const extraMins = extraMinutes % 60;
+                    const extraLimitSeconds = EXTRA_LIMIT_MINUTES * 60;
 
-                        let extraMinutes = diffMinutes - EXTRA_LIMIT_MINUTES;
+                    if (diffSeconds > extraLimitSeconds) {
+                        let extraSeconds = diffSeconds - extraLimitSeconds;
 
-                        // divide by 2
-                        extraMinutes = Math.floor(extraMinutes / 2);
+                        // SIT RIG rule: half pay
+                        extraSeconds = Math.floor(extraSeconds / 2);
 
-                        const extraHours = Math.floor(extraMinutes / 60);
-                        const extraMins = extraMinutes % 60;
+                        const extraHours = Math.floor(extraSeconds / 3600);
+                        const extraMins = Math.floor((extraSeconds % 3600) / 60);
+                        const extraSecs = extraSeconds % 60;
 
-                        console.log(
-                            `Extra time between leg ${leg.SeqLegNo} → ${nextLeg.SeqLegNo}: ` +
-                            `${extraHours}h ${extraMins}m`
-                        );
+                        const totalExtraHours =
+                            extraHours +
+                            extraMins / 60 +
+                            extraSecs / 3600;
 
-                        // 👉 ADD THIS
-                        const totalExtraHours = extraHours + (extraMins / 60);
-                        layOverHours += extraHours + (extraMins / 60);
+                        layOverHours += totalExtraHours;
                         extraAmount += totalExtraHours * baseRate;
 
                         console.log(
-                            `Extra time (half): ${extraHours}h ${extraMins}m | Pay: ${extraAmount.toFixed(2)}`
+                            `Extra time between leg ${leg.SeqLegNo} → ${nextLeg.SeqLegNo}: ` +
+                            `${extraHours}h ${extraMins}m ${extraSecs}s | Pay: ${extraAmount.toFixed(2)}`
                         );
                     }
                 }
@@ -823,7 +827,7 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
                     .input("category", sql.NVarChar, SeqCategory)
                     .query(`
                     SELECT *
-                    FROM position_premium_pay
+                    FROM position_premium_rate
                     WHERE leg_equip_type = @leg
                     and seq_catagory = @category
                 `);
@@ -948,8 +952,8 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
                 creditHoursDollars +
                 tafbPay +
                 premiumWithSpeaker +
-                boardingPay;
-                // extraAmount;
+                boardingPay +
+                extraAmount;
 
             // push result
             sequences.push({
@@ -966,14 +970,15 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
                 payHours: decimalHoursToHHMM(payHours),
                 creditHours: decimalHoursToHHMM(creditHours),
                 tafb: decimalHoursToHHMM(tafbHours),
-                sitRigHours: decimalHoursToHHMM(layOverHours),
+                // sitRigHours: decimalHoursToHHMM(layOverHours),
+                sitRigHours: decimalHoursToHHMMSS(layOverHours),
                 seqPremiumTime: decimalHoursToHHMM(premiumHours),
                 effDates,
                 boardingRow,
                 flightDays,
                 dayWiseLegs,
                 earnings: {
-                    // extraAmount,
+                    sitRig: extraAmount.toFixed(2),
                     yearsOfService,
                     baseRate,
                     tafbHours,
@@ -1125,49 +1130,95 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
                 /* 👉 ADDITION STARTS (NO CHANGE ABOVE) */
 
                 const nextLeg = seqLegs[index + 1];
+                // old
+                // if (nextLeg && leg.CvtArvTime && nextLeg.CvtDptTime) {
 
-                if (nextLeg && leg.CvtArvTime && nextLeg.CvtDptTime) {
+                //     const [ah, am] = leg.CvtArvTime.split(":").map(Number);
+                //     const [dh, dm] = nextLeg.CvtDptTime.split(":").map(Number);
 
-                    const [ah, am] = leg.CvtArvTime.split(":").map(Number);
-                    const [dh, dm] = nextLeg.CvtDptTime.split(":").map(Number);
+                //     let diffMinutes =
+                //         (dh * 60 + dm) - (ah * 60 + am);
 
-                    let diffMinutes =
-                        (dh * 60 + dm) - (ah * 60 + am);
+                //     // handle overnight case
+                //     if (diffMinutes < 0) {
+                //         diffMinutes += 24 * 60;
+                //     }
 
-                    // handle overnight case
-                    if (diffMinutes < 0) {
-                        diffMinutes += 24 * 60;
+                //     if (diffMinutes > EXTRA_LIMIT_MINUTES) {
+                //         // const extraMinutes = diffMinutes - EXTRA_LIMIT_MINUTES;
+                //         // const extraHours = Math.floor(extraMinutes / 60);
+                //         // const extraMins = extraMinutes % 60;
+
+                //         let extraMinutes = diffMinutes - EXTRA_LIMIT_MINUTES;
+
+                //         // divide by 2
+                //         extraMinutes = Math.floor(extraMinutes / 2);
+
+                //         const extraHours = Math.floor(extraMinutes / 60);
+                //         const extraMins = extraMinutes % 60;
+
+                //         console.log(
+                //             `Extra time between leg ${leg.SeqLegNo} → ${nextLeg.SeqLegNo}: ` +
+                //             `${extraHours}h ${extraMins}m`
+                //         );
+
+                //         // 👉 ADD THIS
+                //         const totalExtraHours = extraHours + (extraMins / 60);
+                //         layOverHours += extraHours + (extraMins / 60);
+                //         extraAmount += totalExtraHours * baseRate;
+
+                //         console.log(
+                //             `Extra time (half): ${extraHours}h ${extraMins}m | Pay: ${extraAmount.toFixed(2)}`
+                //         );
+                //     }
+                // }
+
+                // new
+                if (
+                    nextLeg &&
+                    leg.CvtArvTime &&
+                    nextLeg.CvtDptTime &&
+                    leg.EOD == 0
+                ) {
+                    const [ah, am, as = 0] = leg.CvtArvTime.split(":").map(Number);
+                    const [dh, dm, ds = 0] = nextLeg.CvtDptTime.split(":").map(Number);
+
+                    const arrSeconds = ah * 3600 + am * 60 + as;
+                    const depSeconds = dh * 3600 + dm * 60 + ds;
+
+                    let diffSeconds = depSeconds - arrSeconds;
+
+                    // overnight handling
+                    if (diffSeconds < 0) {
+                        diffSeconds += 24 * 3600;
                     }
 
-                    if (diffMinutes > EXTRA_LIMIT_MINUTES) {
-                        // const extraMinutes = diffMinutes - EXTRA_LIMIT_MINUTES;
-                        // const extraHours = Math.floor(extraMinutes / 60);
-                        // const extraMins = extraMinutes % 60;
+                    const extraLimitSeconds = EXTRA_LIMIT_MINUTES * 60;
 
-                        let extraMinutes = diffMinutes - EXTRA_LIMIT_MINUTES;
+                    if (diffSeconds > extraLimitSeconds) {
+                        let extraSeconds = diffSeconds - extraLimitSeconds;
 
-                        // divide by 2
-                        extraMinutes = Math.floor(extraMinutes / 2);
+                        // SIT RIG rule: half pay
+                        extraSeconds = Math.floor(extraSeconds / 2);
 
-                        const extraHours = Math.floor(extraMinutes / 60);
-                        const extraMins = extraMinutes % 60;
+                        const extraHours = Math.floor(extraSeconds / 3600);
+                        const extraMins = Math.floor((extraSeconds % 3600) / 60);
+                        const extraSecs = extraSeconds % 60;
 
-                        console.log(
-                            `Extra time between leg ${leg.SeqLegNo} → ${nextLeg.SeqLegNo}: ` +
-                            `${extraHours}h ${extraMins}m`
-                        );
+                        const totalExtraHours =
+                            extraHours +
+                            extraMins / 60 +
+                            extraSecs / 3600;
 
-                        // 👉 ADD THIS
-                        const totalExtraHours = extraHours + (extraMins / 60);
-                        layOverHours += extraHours + (extraMins / 60);
+                        layOverHours += totalExtraHours;
                         extraAmount += totalExtraHours * baseRate;
 
                         console.log(
-                            `Extra time (half): ${extraHours}h ${extraMins}m | Pay: ${extraAmount.toFixed(2)}`
+                            `Extra time between leg ${leg.SeqLegNo} → ${nextLeg.SeqLegNo}: ` +
+                            `${extraHours}h ${extraMins}m ${extraSecs}s | Pay: ${extraAmount.toFixed(2)}`
                         );
                     }
                 }
-
                 /* 👉 ADDITION ENDS */
 
                 // If this leg ends the day
@@ -1360,7 +1411,7 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
                     .input("category", sql.NVarChar, SeqCategory)
                     .query(`
                     SELECT *
-                    FROM position_premium_pay
+                    FROM position_premium_rate
                     WHERE leg_equip_type = @leg_equip_type
                     AND seq_catagory = @category
                 `);
@@ -1460,7 +1511,8 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
                 payHours: formatMinutes(Math.round(payHours * 60)),               // "HH:mm"
                 creditHours: formatMinutes(Math.round(creditHours * 60)),      // "HH:mm"
                 tafb: formatMinutes(Math.round(tafbHours * 60)),                   // "HH:mm"
-                sitRigHours: decimalHoursToHHMM(layOverHours),
+                // sitRigHours: decimalHoursToHHMM(layOverHours),
+                sitRigHours: decimalHoursToHHMMSS(layOverHours),
                 seqPremiumTime: toHHmm(Math.round(premiumHours * 60)),             // "HH:mm"
 
                 // Day/flight info unchanged
@@ -1472,6 +1524,7 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
                     yearsOfService,
                     baseRate,
                     // extraAmount,
+                    sitRig: extraAmount.toFixed(2),
                     tafbPay: tafbPay.toFixed(2),                    // $ per hour (per-diem)
                     tafbHours,
                     tafPerDiem: tafbPay.toFixed(2),
@@ -2053,6 +2106,16 @@ const decimalHoursToHHMM = (decimalHours: number): string => {
     const h = Math.floor(totalMinutes / 60);
     const m = totalMinutes % 60;
     return `${h}:${String(m).padStart(2, "0")}`;
+};
+
+const decimalHoursToHHMMSS = (decimalHours: number): string => {
+    const totalSeconds = Math.round(decimalHours * 3600);
+
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = totalSeconds % 60;
+
+    return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 };
 
 const toDecimalHours = (value: string | number | null | undefined): number => {
