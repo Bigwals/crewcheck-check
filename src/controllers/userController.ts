@@ -827,10 +827,11 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
                     .input("category", sql.NVarChar, SeqCategory)
                     .query(`
                     SELECT *
-                    FROM position_premium_rate
+                    FROM crew_premium_pos_count
                     WHERE leg_equip_type = @leg
                     and seq_catagory = @category
-                `);
+                    `);
+                // FROM position_premium_rate
 
                 const posRow = positionPremiumPay.recordset?.[0] ?? null;
 
@@ -1410,11 +1411,12 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
                     .input("leg_equip_type", sql.Int, leg.leg_equip_type)
                     .input("category", sql.NVarChar, SeqCategory)
                     .query(`
-                    SELECT *
-                    FROM position_premium_rate
-                    WHERE leg_equip_type = @leg_equip_type
-                    AND seq_catagory = @category
-                `);
+                        SELECT *
+                        FROM crew_premium_pos_count
+                        WHERE leg_equip_type = @leg_equip_type
+                        AND seq_catagory = @category
+                        `);
+                // FROM position_premium_rate
 
                 const posRow = positionPremiumPay.recordset?.[0] ?? null;
 
