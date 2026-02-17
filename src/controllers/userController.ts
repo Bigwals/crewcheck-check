@@ -2142,7 +2142,7 @@ const formatHHMMFromDecimal = (hoursDecimal: number): string => {
 
 const normalizeSeqCrewPos = (seqCrewPos: string): boolean[] => {
     if (!seqCrewPos) return [];
-    return seqCrewPos.split("").map(ch => ch === "1");
+    return seqCrewPos.split("").map(ch => ch !== "0");
 };
 
 // converts departure minutes to boarding minutes (subtracts 30min safely)
