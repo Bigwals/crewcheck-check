@@ -80,6 +80,21 @@ export const findBySequenceNo = async (seqNo: number, bidMonth: string) => {
   return result.recordset;
 };
 
+export const findByBidMonth = async (bidMonth: string) => {
+  const pool = await getPool();
+
+  const request = pool.request();
+  request.input("bidMonth", sql.NVarChar, bidMonth);
+
+  const result = await request.query(`
+    SELECT *
+    FROM dbo.Sequence
+    WHERE BidMonth = @bidMonth
+  `);
+
+  return result.recordset;
+};
+
 export const findUserAppliedSequenceNo = async (seqNo: number, bidMonth: string, userId: string) => {
   const pool = await getPool();
 
@@ -114,17 +129,19 @@ export const findByDateAndSeqNo = async (seqNo: number, effDate: String) => {
   return result.recordset.length > 0 ? result.recordset : null;
 };
 
-export const checkAlreadyApplied = async (seqNo: number, bidMonth: string, userId: string) => {
+export const checkAlreadyApplied = async (seqNo: number, bidMonth: string, effDate:string, userId: string) => {
   const pool = await getPool();
   const result = await pool.request()
     .input("seqNo", sql.Int, seqNo)
     .input("bidMonth", sql.VarChar, bidMonth)
+    .input("effDate", sql.VarChar, effDate)
     .input("userId", sql.UniqueIdentifier, userId)
     .query(`
             SELECT *
             FROM UserSequence
             WHERE SeqNo = @seqNo 
             AND BidMonth = @bidMonth
+            AND EffDate = @effDate
             AND UserID = @userId
         `);
 

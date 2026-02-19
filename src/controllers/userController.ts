@@ -5,7 +5,7 @@ import { resetPasswordSchema } from '../validations/authValidation';
 // import { deleteMedia, getUserProfile, uploadMedia } from '../services/authService';
 import { deleteFileFromStorage, deleteMedia, updateCrewAvatar, updateCrewReverse, uploadMedia } from '../services/authService';
 // import { findUserById, findUserByEmail, findUserAndUpdate } from '../services/userService';
-import { findCrewById, findCrewByEmail, getCrewPayDetails, UpdatePassword, findBySequenceNo, findByDateAndSeqNo, getBoardingPayByYears, updatePosition, addSequenceDataInUserSequence, findUserAppliedSequenceNo, addLegDataInUserLeg, getAllCrews, getCrewPayDetail, getUserLanguages, getDynamicBaseRate, checkAlreadyApplied } from '../services/userServiceNew';
+import { findCrewById, findCrewByEmail, getCrewPayDetails, UpdatePassword, findBySequenceNo, findByDateAndSeqNo, getBoardingPayByYears, updatePosition, addSequenceDataInUserSequence, findUserAppliedSequenceNo, addLegDataInUserLeg, getAllCrews, getCrewPayDetail, getUserLanguages, getDynamicBaseRate, checkAlreadyApplied, findByBidMonth } from '../services/userServiceNew';
 import bcrypt from 'bcrypt';
 import { Types } from 'mongoose';
 import { Sequence } from '../models/Sequence';
@@ -294,104 +294,6 @@ export const getCrewBaseRanking = async (req: Request, res: Response): Promise<a
         });
     };
 };
-
-// new 2
-// export const getCrewBaseRanking = async (req: Request, res: Response) => {
-//     try {
-//         const crewId = (req as any).user.crewId;
-//         const pool = await getPool();
-
-//         const crew = await findCrewById(crewId);
-//         if (!crew) {
-//             return res.status(404).json({ message: "Crew not found" });
-//         }
-
-//         const result = await pool
-//             .request()
-//             .input("mySeniority", sql.Int, crew.Seniority)
-//             .input("currentBase", sql.NVarChar, crew.Base)
-//             .query(`
-//                 WITH BaseSizes AS (
-//                     -- Total crew count per base
-//                     SELECT 
-//                         Base,
-//                         COUNT(*) AS BaseSize
-//                     FROM Roster
-//                     GROUP BY Base
-//                 ),
-//                 ProjectedRanks AS (
-//                     -- Where this crew would rank in each base
-//                     SELECT
-//                         b.Base,
-//                         COUNT(CASE WHEN r.Seniority < @mySeniority THEN 1 END) + 1 AS ProjectedRank
-//                     FROM (SELECT DISTINCT Base FROM Roster) b
-//                     LEFT JOIN Roster r
-//                         ON r.Base = b.Base
-//                     GROUP BY b.Base
-//                 ),
-//                 CurrentBaseStats AS (
-//                     -- Current base rank & size
-//                     SELECT
-//                         COUNT(CASE WHEN Seniority < @mySeniority THEN 1 END) + 1 AS CurrentBaseRank,
-//                         COUNT(*) AS CurrentBaseSize
-//                     FROM Roster
-//                     WHERE Base = @currentBase
-//                 )
-//                 SELECT
-//                     p.Base,
-//                     s.BaseSize,
-//                     p.ProjectedRank,
-//                     c.CurrentBaseRank,
-//                     c.CurrentBaseSize
-//                 FROM ProjectedRanks p
-//                 JOIN BaseSizes s ON s.Base = p.Base
-//                 CROSS JOIN CurrentBaseStats c
-//                 ORDER BY p.Base;
-//             `);
-
-//         const currentBaseRow = result.recordset.find(
-//             r => r.Base === crew.Base
-//         );
-
-//         if (!currentBaseRow) {
-//             return res.status(404).json({ message: "Current base stats not found" });
-//         }
-
-//         const currentBaseRank = currentBaseRow.CurrentBaseRank;
-//         const currentBaseSize = currentBaseRow.CurrentBaseSize;
-//         const currentPercentile = +(
-//             (currentBaseRank / currentBaseSize) * 100
-//         ).toFixed(2);
-
-//         const projections = result.recordset.map(row => ({
-//             baseCode: row.Base,
-//             airportName: null, // can be joined from Airports later
-//             projectedRank: row.ProjectedRank,
-//             baseSize: row.BaseSize,
-//             projectedPercentile: +(
-//                 (row.ProjectedRank / row.BaseSize) * 100
-//             ).toFixed(2),
-//             direction: row.ProjectedRank < currentBaseRank ? "up" : "down",
-//             isCurrentBase: row.Base === crew.Base
-//         }));
-
-//         return res.status(200).json({
-//             aaId: crew.CrewID,
-//             firstName: crew.FirstName,
-//             lastName: crew.LastName,
-//             yearsOfService: crew.YearsOfService,
-//             currentBase: crew.Base,
-//             currentBaseRank,
-//             currentBaseSize,
-//             currentPercentile,
-//             projections
-//         });
-
-//     } catch (err: any) {
-//         console.error("Error in getCrewBaseProjections:", err);
-//         return res.status(500).json({ message: "Internal Server Error", error: err.message });
-//     }
-// };
 
 export const changePassword = async (req: Request, res: Response): Promise<any> => {
     try {
@@ -1131,49 +1033,6 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
                 /* 👉 ADDITION STARTS (NO CHANGE ABOVE) */
 
                 const nextLeg = seqLegs[index + 1];
-                // old
-                // if (nextLeg && leg.CvtArvTime && nextLeg.CvtDptTime) {
-
-                //     const [ah, am] = leg.CvtArvTime.split(":").map(Number);
-                //     const [dh, dm] = nextLeg.CvtDptTime.split(":").map(Number);
-
-                //     let diffMinutes =
-                //         (dh * 60 + dm) - (ah * 60 + am);
-
-                //     // handle overnight case
-                //     if (diffMinutes < 0) {
-                //         diffMinutes += 24 * 60;
-                //     }
-
-                //     if (diffMinutes > EXTRA_LIMIT_MINUTES) {
-                //         // const extraMinutes = diffMinutes - EXTRA_LIMIT_MINUTES;
-                //         // const extraHours = Math.floor(extraMinutes / 60);
-                //         // const extraMins = extraMinutes % 60;
-
-                //         let extraMinutes = diffMinutes - EXTRA_LIMIT_MINUTES;
-
-                //         // divide by 2
-                //         extraMinutes = Math.floor(extraMinutes / 2);
-
-                //         const extraHours = Math.floor(extraMinutes / 60);
-                //         const extraMins = extraMinutes % 60;
-
-                //         console.log(
-                //             `Extra time between leg ${leg.SeqLegNo} → ${nextLeg.SeqLegNo}: ` +
-                //             `${extraHours}h ${extraMins}m`
-                //         );
-
-                //         // 👉 ADD THIS
-                //         const totalExtraHours = extraHours + (extraMins / 60);
-                //         layOverHours += extraHours + (extraMins / 60);
-                //         extraAmount += totalExtraHours * baseRate;
-
-                //         console.log(
-                //             `Extra time (half): ${extraHours}h ${extraMins}m | Pay: ${extraAmount.toFixed(2)}`
-                //         );
-                //     }
-                // }
-
                 // new
                 if (
                     nextLeg &&
@@ -1816,7 +1675,7 @@ export const applyPosition = async (req: Request, res: Response): Promise<any> =
             return res.status(StatusCode.BAD_REQUEST).json({ message: "seqNo and position are required" });
         }
 
-        const checkAlreadyAppliedOnSequnce = await checkAlreadyApplied(seqNo, bidMonth, userId)
+        const checkAlreadyAppliedOnSequnce = await checkAlreadyApplied(seqNo, bidMonth, effDate, userId)
         if (checkAlreadyAppliedOnSequnce) {
             return res.status(409).json({ "message": "Already Applied on this sequence" });
         }
@@ -2075,6 +1934,592 @@ export const getStubs = async (req: Request, res: Response): Promise<any> => {
             success: false,
             message: "Failed to fetch flight stubs",
             error: error.response?.data || error.message,
+        });
+    }
+};
+
+export const get12MonthSequenceData = async (req: Request, res: Response): Promise<any> => {
+    try {
+
+        const { bidYear } = req.query;
+
+        if (!bidYear) {
+            return res.status(400).json({ message: "bidYear is required" });
+        }
+
+        const pool = await getPool();
+
+        const result = await pool.request()
+            .input("bidYear", bidYear)
+            // .timeout(60000)
+            // .query(`
+            //     SELECT 
+            //         s.BidMonth,
+            //         s.BidYear,
+            //         s.EffDate,
+            //         COUNT(DISTINCT s.SeqNo) AS SequenceCount,
+            //         COUNT(l.SeqNo) AS TotalLegs,
+            //         l.DeptStn AS DeptStn
+            //     FROM Sequence s
+            //     LEFT JOIN Leg l ON s.SeqNo = l.SeqNo
+            //     WHERE s.BidYear = @bidYear
+            //     GROUP BY s.BidMonth
+            //     ORDER BY s.BidMonth
+            // `);
+            .query(`
+                SELECT 
+                    s.BidMonth,
+                    s.BidYear,
+
+                    COUNT(DISTINCT s.SeqNo) AS SequenceCount,
+                    COUNT(l.SeqNo) AS TotalLegs,
+                    
+                    MIN(l.DeptStn) AS FirstDeptStn,
+                    MIN(l.Date) AS StartDate,
+                    MAX(l.Date) AS EndDate
+
+                FROM Sequence s
+                LEFT JOIN Leg l ON s.SeqNo = l.SeqNo
+                WHERE s.BidYear = @bidYear
+                GROUP BY s.BidMonth, s.BidYear
+                ORDER BY MIN(s.EffDate)
+            `)
+
+        return res.status(200).json({
+            success: true,
+            data: result.recordset
+        });
+
+    } catch (error: any) {
+        console.error("Error:", error.message);
+        return res.status(500).json({
+            success: false,
+            message: "Failed to fetch data",
+            error: error.message,
+        });
+    }
+};
+
+export const searchByMonth = async (req: Request, res: Response): Promise<any> => {
+    try {
+        // const seqNo = Number(req.query.seqNo);
+        const bidMonth = req.query.bidMonth as string;
+
+        // if (!seqNo || isNaN(seqNo)) {
+        //     return res.status(400).json({ message: "seqNo is required and must be numeric" });
+        // }
+        if (!bidMonth) {
+            return res.status(400).json({ message: "bidMonth is required" });
+        }
+
+        console.time("SQL_TIME");
+        const sequenceData = await findByBidMonth(bidMonth);
+        if (!sequenceData.length) {
+            return res.status(404).json({ message: "No sequence found for the given SeqNo and BidMonth." });
+        }
+
+        const pool = await getPool();
+
+        // ---------- helpers ----------
+        const toDecimalHours = (value: any): number => {
+            if (value === null || value === undefined || value === "") return 0;
+            if (typeof value === "number") return value;
+            if (typeof value === "string") {
+                // "HH:MM"
+                if (value.includes(":")) {
+                    const [hhRaw, mmRaw] = value.split(":");
+                    const hh = Number(hhRaw) || 0;
+                    const mm = Number(mmRaw) || 0;
+                    return hh + mm / 60;
+                }
+                // decimal string
+                if (value.includes(".")) return parseFloat(value) || 0;
+                // integer string: treat as hours
+                const asNum = parseFloat(value);
+                if (!isNaN(asNum)) return asNum;
+            }
+            return 0;
+        };
+
+        // ---------- fetch per-diem row (effective) ----------
+        const now = new Date();
+        let effectiveYear = now.getUTCFullYear();
+        const oct1ThisYearUTC = new Date(Date.UTC(effectiveYear, 9, 1));
+        if (now < oct1ThisYearUTC) effectiveYear -= 1;
+        const perDiemEffectiveDateUTC = new Date(Date.UTC(effectiveYear, 9, 1));
+
+        const perDiemResult = await pool.request()
+            .input("perDiemDate", sql.Date, perDiemEffectiveDateUTC)
+            .query(`
+                SELECT TOP 1 effective_date, dom, int
+                FROM PerDiem
+                WHERE effective_date <= @perDiemDate
+                ORDER BY effective_date DESC
+            `);
+        const perDiemRow = perDiemResult.recordset?.[0] ?? null;
+        const perDiem_dom = perDiemRow ? parseFloat(perDiemRow.dom || 0) : 0;
+        const perDiem_int = perDiemRow ? parseFloat(perDiemRow.int || 0) : 0;
+
+        // ---------- fetch airports once ----------
+        const airportResult = await pool.request().query(`
+            SELECT IATA_Code, IsInternational
+            FROM Airports
+        `);
+        const airportRows = airportResult.recordset || [];
+
+        // return res.json({ airportRows })
+        const airportIntl: Record<string, boolean> = {};
+        airportRows.forEach(a => {
+            if (a && a.IATA_Code) airportIntl[a.IATA_Code.toUpperCase()] = a.IsInternational == 1;
+        });
+
+        // ---------- fetch all legs ----------
+        const legsResult = await pool.request()
+            // .input("seqNo", sql.Int, seqNo)
+            .input("bidMonth", sql.NVarChar, bidMonth)
+            .query(`SELECT * FROM dbo.Leg WHERE BidMonth = @bidMonth`);
+        const allLegs = legsResult.recordset || [];
+
+        // ---------- crew/service/base rate ----------
+        const crewId = (req as any).user?.crewId;
+        const service = crewId ? await getCrewPayDetails(crewId) : null;
+        const yearsOfService = service?.basePay?.YearsOfService ?? 1;
+        const baseRate = await getDynamicBaseRate(yearsOfService);
+
+        // ---------- build sequences ----------
+        const leg_equip_types: any[] = [];
+        const sequences: any[] = [];
+
+        for (const seq of sequenceData) {
+            const UniqueSeqNo = seq.UniqueSeqNo;
+
+            const frequency = await pool.request()
+                .input("UniqueSeqNo", sql.VarChar, UniqueSeqNo)
+                .query(`
+                    SELECT * FROM Frequency
+                    WHERE unique_seq_no = @UniqueSeqNo
+                `);
+            const effDates = frequency.recordset || [];
+
+            const seqLegs = allLegs.filter(
+                (l) => l.BidMonth == seq.BidMonth
+            );
+
+            // ---- calendar/flightDays and dayWiseLegs (unchanged) ----
+            const calendar = seq.Calendar_40Day || "";
+            const flightDays: number[] = [];
+            for (let i = 0; i < calendar.length; i++) {
+                if (calendar[i] == "1") flightDays.push(i + 1);
+            }
+
+            const EXTRA_LIMIT_MINUTES = 150; // 2 hours 30 minutes
+            let extraAmount = 0;
+            let layOverHours = 0;
+            const dayWiseLegs: any[] = [];
+            let currentDayLegs: any[] = [];
+            let dayCounter = 1;
+            seqLegs.forEach((leg: any, index: number) => {
+                currentDayLegs.push({
+                    seqNo: leg.SeqNo,
+                    seqLegNo: leg.SeqLegNo,
+                    departure: leg.DeptStn,
+                    arrival: leg.ArrvStn,
+                    flightNo: leg.FitNo,
+                    dptTime: leg.CvtDptTime,
+                    arvTime: leg.CvtArvTime,
+                    flyingHours: leg.CvtSeqFlyTime ?? leg.CvtLegTotalFlying,
+                    legPc: leg.LegPC,
+                    layover: leg.CvtLayover ? leg.CvtLayover : null,
+                    eod: leg.EOD,
+                });
+
+                /* 👉 ADDITION STARTS (NO CHANGE ABOVE) */
+
+                const nextLeg = seqLegs[index + 1];
+
+                if (
+                    nextLeg &&
+                    leg.CvtArvTime &&
+                    nextLeg.CvtDptTime &&
+                    leg.EOD == 0
+                ) {
+                    const [ah, am, as = 0] = leg.CvtArvTime.split(":").map(Number);
+                    const [dh, dm, ds = 0] = nextLeg.CvtDptTime.split(":").map(Number);
+
+                    const arrSeconds = ah * 3600 + am * 60 + as;
+                    const depSeconds = dh * 3600 + dm * 60 + ds;
+
+                    let diffSeconds = depSeconds - arrSeconds;
+
+                    // overnight handling
+                    if (diffSeconds < 0) {
+                        diffSeconds += 24 * 3600;
+                    }
+
+                    const extraLimitSeconds = EXTRA_LIMIT_MINUTES * 60;
+
+                    if (diffSeconds > extraLimitSeconds) {
+                        let extraSeconds = diffSeconds - extraLimitSeconds;
+
+                        // SIT RIG rule: half pay
+                        extraSeconds = Math.floor(extraSeconds / 2);
+
+                        const extraHours = Math.floor(extraSeconds / 3600);
+                        const extraMins = Math.floor((extraSeconds % 3600) / 60);
+                        const extraSecs = extraSeconds % 60;
+
+                        const totalExtraHours =
+                            extraHours +
+                            extraMins / 60 +
+                            extraSecs / 3600;
+
+                        layOverHours += totalExtraHours;
+                        extraAmount += totalExtraHours * baseRate;
+
+                        console.log(
+                            `Extra time between leg ${leg.SeqLegNo} → ${nextLeg.SeqLegNo}: ` +
+                            `${extraHours}h ${extraMins}m ${extraSecs}s | Pay: ${extraAmount.toFixed(2)}`
+                        );
+                    }
+                }
+
+                /* 👉 ADDITION ENDS */
+
+                if (leg.EOD == 1) {
+                    dayWiseLegs.push({ day: dayCounter, legs: currentDayLegs });
+                    currentDayLegs = [];
+                    dayCounter++;
+                }
+
+                leg_equip_types.push({
+                    leg_equip_type: leg.LegEqupType,
+                    dep_stn: leg.DeptStn,
+                    arr_stn: leg.ArrvStn
+                });
+
+            });
+            if (currentDayLegs.length > 0) dayWiseLegs.push({ day: dayCounter, legs: currentDayLegs });
+            console.log("Leg Equip Type:", leg_equip_types);
+
+            // ---- core hours ----
+            const cvtSeqPC = toDecimalHours(seq.CvtSeqPC);
+            const cvtSeqFlyTime = toDecimalHours(seq.CvtSeqFlyTime);
+            const cvtTAFB = toDecimalHours(seq.CvtTAFB);
+            const cvtSeqPremTime = toDecimalHours(seq.CvtSeqPremTime);
+
+            console.log("cvtSeqPC===>>>", cvtSeqPC);
+            console.log("cvtSeqPC===>>>", cvtSeqFlyTime);
+            console.log("cvtSeqPC===>>>", cvtTAFB);
+            console.log("cvtSeqPC===>>>", cvtSeqPremTime);
+
+            const deadheadResult = await pool.request()
+                .input("bidMonth", sql.Int, seq.BidMonth)
+                .query(`
+                    SELECT SUM(TRY_CAST(CvtDPDeadheadTime AS FLOAT)) AS TotalDPDeadheadHours
+                    FROM dbo.Leg
+                    WHERE BidMonth = @bidMonth
+                      AND DPDeadheadTime = 1
+                `);
+            const cvtDPDeadheadTime = toDecimalHours(deadheadResult.recordset?.[0]?.TotalDPDeadheadHours ?? 0);
+
+            // const payHours = cvtSeqPC + cvtDPDeadheadTime + cvtSeqFlyTime;
+            const payHours = 0
+            const creditHours = cvtSeqPC + cvtSeqFlyTime;
+            const tafbHours = cvtTAFB;
+            const premiumHours = cvtSeqPremTime;
+
+            const category = seq.SeqCategory?.toUpperCase() ?? "DOM";
+            const premiumTranscon = seq.PremiumTranscon;
+
+            // -------------------------
+            // PER DIEM / TAFB PAY LOGIC
+            // -------------------------
+
+            let tafbPay = 0;
+            let sanityLegTAFBTotal = 0;
+
+            // CASE 1: DOM / IPD / HAW -> simple sequence-level rate
+            if (category == "DOM") {
+                const perDiemRate = premiumTranscon !== 1 ? perDiem_dom : perDiem_int;
+                tafbPay = tafbHours * perDiemRate;
+            }
+
+            else if (category == 'IPD' || category == 'HAW') {
+                const perDiemRate = perDiem_int;
+                tafbPay = tafbHours * perDiemRate;
+            }
+
+            // CASE 2: INT -> per-leg detailed calculation
+            else if (category == "INT") {
+                for (const leg of seqLegs) {
+                    console.log("seqLegs Inside the Sequence With Leg", seqLegs)
+                    const CvtDPOnDutyTime = toDecimalHours(leg.CvtDPOnDutyTime);
+
+                    console.log("CvtDP")
+                    // prefer explicit layover column if available
+                    const cvtLayover = toDecimalHours(leg.CvtLayover ?? leg.CvtLayover ?? 0);
+
+                    sanityLegTAFBTotal += (CvtDPOnDutyTime + cvtLayover);
+
+                    const dep = (leg.DeptStn || "").toString().toUpperCase();
+                    const arr = (leg.ArrvStn || "").toString().toUpperCase();
+
+                    const isDepINT = airportIntl[dep] == true;
+                    const isArrINT = airportIntl[arr] == true;
+
+                    console.log("is Dept Int", isDepINT)
+                    console.log("is Arr Int", isArrINT)
+                    // Determine flight rate (if either station is INT -> INT rate, else DOM)
+                    const legRate = (isDepINT || isArrINT) ? perDiem_int : perDiem_dom;
+
+                    console.log("Leg Rate", legRate)
+                    // ---- IMPORTANT: EOD layover handling ----
+                    // If EOD === 1 => apply arrival-based rate to cvtLayover.
+                    // If EOD !== 1 => include layover in flightPart and pay at flightRate (no special layover pay).
+                    let legPay = 0;
+                    if (cvtLayover > 0 && Number(leg.EOD) == 1) {
+                        // arrival-based layover rate per your rule:
+                        // const layoverRate = isArrINT ? perDiem_int : perDiem_dom;
+                        const layoverRate = (isDepINT || isArrINT) ? perDiem_int : perDiem_dom;
+                        console.log("layoverRate", layoverRate)
+                        legPay = (CvtDPOnDutyTime * legRate) + (cvtLayover * layoverRate);
+                        console.log("legPay inside EOD", legPay)
+                    } else {
+                        // no special layover pay: pay entire leg total at flightRate
+                        legPay = (CvtDPOnDutyTime + cvtLayover) * legRate;
+                        console.log("legPay outside EOD", legPay)
+                    }
+
+                    tafbPay += legPay;
+                }
+
+                // sanity check vs seq.CvtTAFB
+                if (Math.abs(sanityLegTAFBTotal) > 0.01) {
+                    console.warn("TAFB sanity match for Seq:", seq.SeqNo, {
+                        seqTAFB: tafbHours,
+                        summedLegTAFB: sanityLegTAFBTotal,
+                    });
+                }
+            }
+
+            seq.tafbPay = tafbPay;
+
+            console.log("LegEquip Type Array", leg_equip_types);
+
+            // Boarding Pay
+            let hourlyBoardingRate = 0;
+            let boarding_type = 0;
+
+            // Fetch Boarding Pay ROW only once (no need to fetch again & again)
+            const boardingResult = await pool.request()
+                .input("YearsOfService", sql.Int, yearsOfService)
+                .query(`
+                SELECT *
+                FROM boarding_pay
+                WHERE YearsOfService = @YearsOfService
+            `);
+
+            const boardingRow = boardingResult.recordset?.[0] ?? null;
+
+            if (!boardingRow) {
+                console.log("⚠️ No boarding pay row found for YearsOfService:", yearsOfService);
+            }
+
+            for (const leg of leg_equip_types) {
+                const dep = (leg.dep_stn || "").toString().toUpperCase();
+                const arr = (leg.arr_stn || "").toString().toUpperCase();
+
+                const isDepINT = airportIntl[dep] == true;
+                const isArrINT = airportIntl[arr] == true;
+
+                console.log("is Dept Int", isDepINT)
+                console.log("is Arr Int", isArrINT)
+                // Determine flight rate (if either station is INT -> INT rate, else DOM)
+                let SeqCategory = (isDepINT || isArrINT) ? 'INT' : 'DOM'; // if IPD use that one as INT
+                if (category == 'IPD') { SeqCategory = 'IPD' };
+                const positionPremiumPay = await pool.request()
+                    .input("leg", sql.Int, leg.leg_equip_type)
+                    .input("category", sql.NVarChar, SeqCategory)
+                    .query(`
+                    SELECT *
+                    FROM crew_premium_pos_count
+                    WHERE leg_equip_type = @leg
+                    and seq_catagory = @category
+                    `);
+                // FROM position_premium_rate
+
+                const posRow = positionPremiumPay.recordset?.[0] ?? null;
+
+                console.log("leg:", leg.leg_equip_type);
+                console.log("position premium pay:", posRow);
+
+                if (!posRow || !boardingRow) {
+                    continue; // skip invalid rows
+                }
+
+                // const seqCat = posRow.seq_catagory;
+                const seqCat = SeqCategory;
+                const boardingType = Number(posRow.boarding_type); // ensure numeric comparison
+                console.log("SeqCat Array", seqCat);
+                console.log("boardingType", boardingType);
+
+                // ───────────────────────────────────────────────
+                // DOMESTIC (DOM)
+                // ───────────────────────────────────────────────
+                if (seqCat == "DOM") {
+                    if (boardingType == 35) {
+                        console.log("boardingType", boardingType)
+                        console.log("SeqCat", seqCat)
+                        boarding_type += parseFloat(boardingRow.boarding_35_type)
+                        console.log("boarding_type", boarding_type)
+                        // hourlyBoardingRate += parseFloat(boardingRow.hourly_boarding_rate ?? 0);
+                        hourlyBoardingRate += parseFloat(boardingRow.boarding_35_type ?? 0);
+                    }
+                    else if (boardingType == 40) {
+                        console.log("boardingType", boardingType)
+                        console.log("SeqCat", seqCat)
+                        boarding_type += parseFloat(boardingRow.boarding_40_type)
+                        console.log("boarding_type", boarding_type)
+                        // hourlyBoardingRate += parseFloat(boardingRow.hourly_boarding_rate ?? 0);
+                        hourlyBoardingRate += parseFloat(boardingRow.boarding_40_type ?? 0);
+                    }
+                }
+
+                // ───────────────────────────────────────────────
+                // INTERNATIONAL (INT)
+                // ───────────────────────────────────────────────
+                else if (seqCat == "INT") {
+                    if (boardingType == 45) {
+                        console.log("boardingType", boardingType)
+                        console.log("SeqCat", seqCat)
+                        boarding_type += parseFloat(boardingRow.boarding_45_type)
+                        console.log("boarding_type", boarding_type)
+                        // hourlyBoardingRate += parseFloat(boardingRo/w.hourly_boarding_rate ?? 0);
+                        hourlyBoardingRate += parseFloat(boardingRow.boarding_45_type ?? 0);
+                    }
+                    else if (boardingType == 50) {
+                        console.log("boardingType", boardingType)
+                        console.log("SeqCat", seqCat)
+                        boarding_type += parseFloat(boardingRow.boarding_50_type)
+                        console.log("boarding_type", boarding_type)
+                        // hourlyBoardingRate += parseFloat(boardingRow.hourly_boarding_rate ?? 0);
+                        hourlyBoardingRate += parseFloat(boardingRow.boarding_50_type ?? 0);
+                    }
+                }
+
+                // ───────────────────────────────────────────────
+                // IPD / HAW
+                // ───────────────────────────────────────────────
+                else if (["IPD", "HAW"].includes(seqCat)) {
+                    if (boardingType == 50) {
+                        console.log("boardingType", boardingType)
+                        console.log("SeqCat", seqCat)
+                        boarding_type += parseFloat(boardingRow.boarding_50_type)
+                        console.log("boarding_type", boarding_type)
+                        // hourlyBoardingRate += parseFloat(boardingRow.hourly_boarding_rate ?? 0);
+                        hourlyBoardingRate += parseFloat(boardingRow.boarding_50_type ?? 0);
+                    }
+                }
+
+                // ───────────────────────────────────────────────
+                // FALLBACK (no matching category)
+                // ───────────────────────────────────────────────
+                else {
+                    console.log("No matching seq category for leg:", seqCat);
+                }
+            }
+            const boardingPay = boarding_type;
+
+            console.log("Final Boarding Pay:", hourlyBoardingRate);
+
+            // Premium Pay
+            let premiumRate = 0;
+            if (category === "IPD") premiumRate = 3.75;
+            else if (category === "INT" || category === "HAW") premiumRate = 3.0; // HAW = INT
+            // else if (category === "SPK") premiumRate = 2.0;
+
+            const userId = (req as any).user.id;
+
+            const languages = await getUserLanguages(userId);
+
+            // calculate base premiums
+            const payHoursDollars = payHours * baseRate;
+            const creditHoursDollars = creditHours * baseRate;
+            const premiumPay = premiumHours * premiumRate;
+
+            // default speaker pay values
+            let speakerPay = 0;
+            let premiumWithSpeaker = premiumPay;
+
+            console.log("premiumWithSpeaker", premiumWithSpeaker)
+            // if user has languages → apply speaker pay
+            if (languages.length > 0) {
+                speakerPay = premiumHours * 2;
+
+                premiumWithSpeaker += speakerPay;
+                // premiumWithSpeaker += Math.round(speakerPay);
+                console.log("Languages.....", languages);
+                console.log("premiumPay.....", premiumPay);
+                console.log("speakerPay.....", speakerPay);
+            }
+
+            const totalEarnings =
+                payHoursDollars +
+                creditHoursDollars +
+                tafbPay +
+                premiumWithSpeaker +
+                boardingPay +
+                extraAmount;
+
+            // push result
+            sequences.push({
+                seqNo: seq.SeqNo,
+                crewBase: seq.CrewBase,
+                category: seq.SeqCategory,
+                effDate: seq.EffDate instanceof Date ? seq.EffDate.toISOString().split("T")[0] : seq.EffDate,
+                thruDate: seq.ThruDate instanceof Date ? seq.ThruDate.toISOString().split("T")[0] : seq.ThruDate,
+                totalLegs: seq.NBR_Legs,
+                totalDays: seq.NBR_Days,
+                totalDuty: seq.NBR_Duty,
+                seqCrewPos: seq.SeqCrewPos,
+                slots: normalizeSeqCrewPos(seq.SeqCrewPos),
+                payHours: decimalHoursToHHMM(payHours),
+                creditHours: decimalHoursToHHMM(creditHours),
+                tafb: decimalHoursToHHMM(tafbHours),
+                // sitRigHours: decimalHoursToHHMM(layOverHours),
+                sitRigHours: decimalHoursToHHMMSS(layOverHours),
+                seqPremiumTime: decimalHoursToHHMM(premiumHours),
+                effDates,
+                boardingRow,
+                flightDays,
+                dayWiseLegs,
+                earnings: {
+                    sitRig: extraAmount.toFixed(2),
+                    yearsOfService,
+                    baseRate,
+                    tafbHours,
+                    tafbPay: tafbPay.toFixed(2),
+                    payHoursDollars: payHoursDollars.toFixed(2),
+                    creditHoursDollars: creditHoursDollars.toFixed(2),
+                    premiumPay: premiumWithSpeaker.toFixed(2),
+                    boardingPay: boardingPay.toFixed(2),
+                    totalEarnings: totalEarnings.toFixed(2),
+                },
+            });
+        }
+
+        console.timeEnd("SQL_TIME");
+        return res.status(200).json({
+            message: "Sequence(s) & legs fetched successfully",
+            sequences,
+        });
+
+    } catch (error: any) {
+        console.error("Error in sequenceWithLegs:", error);
+        console.timeEnd("SQL_TIME");
+        return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({
+            message: Messages.INTERNAL_SERVER_ERROR,
+            error: error.message,
         });
     }
 };
