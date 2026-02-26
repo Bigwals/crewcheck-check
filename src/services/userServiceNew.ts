@@ -80,19 +80,121 @@ export const findBySequenceNo = async (seqNo: number, bidMonth: string) => {
   return result.recordset;
 };
 
-export const findByBidMonth = async (bidMonth: string) => {
+export const findByBidMonth = async (crewBase: string, bidMonth: string) => {
+
   const pool = await getPool();
 
+  // const request = pool.request();
+  // request.input("crewBase", sql.VarChar, crewBase.trim());
+  // request.input("bidMonth", sql.NVarChar, bidMonth.trim());
+
+  // const result = await request.query(`
+  //   SELECT s.CrewBase, s.SeqNo, s.SeqCategory, s.NBR_Legs, s.CvtSeqFlyTime, s.CvtSeqPC, s.CvtTAFB, s.CvtSeqPremTime, s.BidMonth
+  //   FROM dbo.Sequence s INNER JOIN Leg l ON s.SeqNo = l.SeqNo AND s.BidMonth = l.BidMonth 
+  //   WHERE CrewBase = @crewBase
+  //     AND BidMonth = @bidMonth
+  // `);
+
   const request = pool.request();
-  request.input("bidMonth", sql.NVarChar, bidMonth);
+  request.input("crewBase", sql.VarChar, crewBase.trim());
+  request.input("bidMonth", sql.NVarChar, bidMonth.trim());
+  // new
 
   const result = await request.query(`
-    SELECT *
-    FROM dbo.Sequence
-    WHERE BidMonth = @bidMonth
-  `);
+  SELECT 
+    s.CrewBase,
+    s.SeqNo,
+    s.SeqCategory,
+    s.NBR_Legs,
+    s.CvtSeqFlyTime,
+    s.CvtSeqPC,
+    s.CvtTAFB,
+    s.CvtSeqPremTime,
+    s.BidMonth,
 
-  return result.recordset;
+    l.SeqLegNo,
+    l.CvtDptTime,
+    l.CvtArvTime,
+    l.CvtLegPC,
+    l.EOD,
+    l.DptTime,
+    l.ArvTime,
+    l.DeptStn,
+    l.ArrvStn,
+    l.LegEqupType,
+    l.LegPC,
+    l.CvtLayover
+
+  FROM dbo.Sequence s
+  INNER JOIN Leg l
+      ON s.SeqNo = l.SeqNo
+     AND s.BidMonth = l.BidMonth
+  WHERE s.CrewBase = @crewBase
+    AND s.BidMonth = @bidMonth
+  ORDER BY s.SeqNo, l.SeqLegNo
+`);
+
+  // old
+  //   const result = await request.query(`
+  //   SELECT 
+  //     s.CrewBase, 
+  //     s.SeqNo, 
+  //     s.SeqCategory, 
+  //     s.NBR_Legs, 
+  //     s.CvtSeqFlyTime, 
+  //     s.CvtSeqPC, 
+  //     s.CvtTAFB, 
+  //     s.CvtSeqPremTime, 
+  //     s.BidMonth
+  //   FROM dbo.Sequence s 
+  //   INNER JOIN Leg l 
+  //     ON s.SeqNo = l.SeqNo 
+  //     AND s.BidMonth = l.BidMonth 
+  //   WHERE s.CrewBase = @crewBase
+  //     AND s.BidMonth = @bidMonth
+  // `);
+
+  // console.log("Rows Found:", result.recordset.length);
+
+  // return result.recordset;
+
+  const sequencesMap = new Map();
+
+  result.recordset.forEach((row) => {
+    if (!sequencesMap.has(row.SeqNo)) {
+      sequencesMap.set(row.SeqNo, {
+        CrewBase: row.CrewBase,
+        SeqNo: row.SeqNo,
+        SeqCategory: row.SeqCategory,
+        NBR_Legs: row.NBR_Legs,
+        CvtSeqFlyTime: row.CvtSeqFlyTime,
+        CvtSeqPC: row.CvtSeqPC,
+        CvtTAFB: row.CvtTAFB,
+        CvtSeqPremTime: row.CvtSeqPremTime,
+        BidMonth: row.BidMonth,
+        legs: []
+      });
+    }
+
+    sequencesMap.get(row.SeqNo).legs.push({
+      SeqLegNo: row.SeqLegNo,
+      CvtDptTime: row.CvtDptTime,
+      CvtArvTime: row.CvtArvTime,
+      CvtLegPC: row.CvtLegPC,
+      EOD: row.EOD,
+      DptTime: row.DptTime,
+      ArvTime: row.ArvTime,
+      DeptStn: row.DeptStn,
+      ArrvStn: row.ArrvStn,
+      LegEqupType: row.LegEqupType,
+      LegPC: row.LegPC,
+      CvtLayover: row.CvtLayover
+    });
+  });
+
+  const formattedData = Array.from(sequencesMap.values());
+
+  return formattedData;
 };
 
 export const findUserAppliedSequenceNo = async (seqNo: number, bidMonth: string, userId: string) => {
@@ -129,7 +231,7 @@ export const findByDateAndSeqNo = async (seqNo: number, effDate: String) => {
   return result.recordset.length > 0 ? result.recordset : null;
 };
 
-export const checkAlreadyApplied = async (seqNo: number, bidMonth: string, effDate:string, userId: string) => {
+export const checkAlreadyApplied = async (seqNo: number, bidMonth: string, effDate: string, userId: string) => {
   const pool = await getPool();
   const result = await pool.request()
     .input("seqNo", sql.Int, seqNo)

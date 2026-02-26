@@ -11,13 +11,14 @@ import { Types } from 'mongoose';
 import { Sequence } from '../models/Sequence';
 import { UserSequence } from '../models/UserSequence';
 import { getPool, sql } from "../config/db";
-import { findUserById } from '../services/userService';
+// import { findUserById } from '../services/userService';
 import { any } from 'zod';
 import axios from "axios";
 require("dotenv").config()
 import { config } from 'dotenv';
 import cron from "node-cron";
 import { totalmem } from 'os';
+// import { buildMonthSummary } from "../services/monthService";
 
 export const getProfile = async (req: Request, res: Response): Promise<any> => {
     try {
@@ -76,124 +77,9 @@ export const getProfile = async (req: Request, res: Response): Promise<any> => {
         return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({ message: Messages.INTERNAL_SERVER_ERROR, error: error.message });
     }
 };
-// old
-// export const getCrewBaseRanking = async (req: Request, res: Response): Promise<any> => {
-//     try {
-//         const crewId = (req as any).user.crewId;
-//         // const crewId = 5896;
-//         const pool = await getPool();
-
-//         // 1) Get logged-in crew
-//         const fetchBases = await pool
-//             .request()
-//             .query(`
-//                 SELECT id, iata_code, name FROM Airports
-//                 WHERE crewbase = 1
-//             `);
-//         if (!fetchBases.recordset[0]) {
-//             return res.status(404).json({ message: "Crew not found" });
-//         }
-
-//         const crew = await findCrewById(crewId)
-//         // return res.json({ data: crew });
-//         const crewBases = fetchBases.recordset;
-//         const crewBase = crew?.Base;
-
-//         console.log("crewBase:", crewBase);
-//         console.log("crewId:", crewId);
-
-//         const baseSeniority = await pool
-//             .request()
-//             .input("crewId", sql.Int, crewId)
-//             .input("crewBase", sql.NVarChar, crewBase)
-//             .query(`
-//             SELECT *
-//             FROM (
-//                 SELECT 
-//                     CrewID,
-//                     Base,
-//                     ROW_NUMBER() OVER (ORDER BY CrewID) AS PositionNumber
-//                 FROM Roster
-//                 WHERE Base = @crewBase
-//             ) AS Ranked
-//             WHERE CrewID = @crewId;
-//         `);
-
-//         // return res.json({ baseSeniority })
-//         if (baseSeniority.recordset.length == 0) {
-//             return res.status(404).json({ message: "Crew not found" });
-//         }
-
-//         // ✅ Extract the position
-//         const position = baseSeniority.recordset[0].PositionNumber;
-
-//         // return res.json({ data: crewBases });
-//         return res.status(200).json({ message: "Crew Bases Found", crewBases, seniority: crew?.Seniority, baseSeniority: position, base: crew?.Base });
-//     } catch (err: any) {
-//         console.error("Error in getCrewBaseRanking:", err);
-//         return res.status(500).json({ message: "Internal Server Error", error: err.message });
-//     }
-// };
 
 // new 1
 export const getCrewBaseRanking = async (req: Request, res: Response): Promise<any> => {
-    // try {
-    //     const crewId = (req as any).user.crewId;
-    //     const pool = await getPool();
-
-    //     const crew = await findCrewById(crewId);
-    //     if (!crew) {
-    //         return res.status(404).json({ message: "Crew not found" });
-    //     }
-
-    //     const result = await pool
-    //         .request()
-    //         .input("mySeniority", sql.Int, crew.Seniority)
-    //         .input("currentBase", sql.NVarChar, crew.Base)
-    //         .query(`
-    //             WITH BaseRanks AS (
-    //                 SELECT
-    //                     Base,
-    //                     COUNT(CASE WHEN Seniority < @mySeniority THEN 1 END) + 1 AS PositionInBase,
-    //                     CASE 
-    //                         WHEN MAX(CASE WHEN Seniority < @mySeniority THEN Seniority END) IS NULL
-    //                         THEN MIN(Seniority) - 1
-    //                         ELSE MAX(CASE WHEN Seniority < @mySeniority THEN Seniority END) + 1
-    //                     END AS NewBaseSeniority
-    //                 FROM Roster
-    //                 GROUP BY Base
-    //             ),
-    //             CurrentBase AS (
-    //                 SELECT 
-    //                     COUNT(*) + 1 AS CurrentBasePosition
-    //                 FROM Roster
-    //                 WHERE Base = @currentBase
-    //                   AND Seniority < @mySeniority
-    //             )
-    //             SELECT 
-    //                 b.Base,
-    //                 b.PositionInBase,
-    //                 b.NewBaseSeniority,
-    //                 CASE 
-    //                     WHEN b.PositionInBase < c.CurrentBasePosition THEN CAST(1 AS BIT)
-    //                     ELSE CAST(0 AS BIT)
-    //                 END AS IsUp
-    //             FROM BaseRanks b
-    //             CROSS JOIN CurrentBase c
-    //             ORDER BY b.Base;
-    //         `);
-
-    //     return res.status(200).json({
-    //         currentBase: crew.Base,
-    //         currentPosition: result.recordset.find(r => r.Base === crew.Base)?.PositionInBase,
-    //         bases: result.recordset
-    //     });
-
-    // } catch (err: any) {
-    //     console.error("Error in getCrewBaseRanking:", err);
-    //     return res.status(500).json({ message: "Internal Server Error", error: err.message });
-    // }
-
     try {
         const crewId = (req as any).user.crewId;
         const pool = await getPool();
@@ -1951,21 +1837,6 @@ export const get12MonthSequenceData = async (req: Request, res: Response): Promi
 
         const result = await pool.request()
             .input("bidYear", bidYear)
-            // .timeout(60000)
-            // .query(`
-            //     SELECT 
-            //         s.BidMonth,
-            //         s.BidYear,
-            //         s.EffDate,
-            //         COUNT(DISTINCT s.SeqNo) AS SequenceCount,
-            //         COUNT(l.SeqNo) AS TotalLegs,
-            //         l.DeptStn AS DeptStn
-            //     FROM Sequence s
-            //     LEFT JOIN Leg l ON s.SeqNo = l.SeqNo
-            //     WHERE s.BidYear = @bidYear
-            //     GROUP BY s.BidMonth
-            //     ORDER BY s.BidMonth
-            // `);
             .query(`
                 SELECT 
                     s.BidMonth,
@@ -2000,20 +1871,23 @@ export const get12MonthSequenceData = async (req: Request, res: Response): Promi
     }
 };
 
+// new 2
 export const searchByMonth = async (req: Request, res: Response): Promise<any> => {
     try {
-        // const seqNo = Number(req.query.seqNo);
-        const bidMonth = req.query.bidMonth as string;
 
-        // if (!seqNo || isNaN(seqNo)) {
-        //     return res.status(400).json({ message: "seqNo is required and must be numeric" });
-        // }
+        const { crewBase, seqNo, bidMonth } = req.query;
+
         if (!bidMonth) {
             return res.status(400).json({ message: "bidMonth is required" });
         }
 
+        if (!crewBase) {
+            return res.status(400).json({ message: "crewbase is required" });
+        }
+
         console.time("SQL_TIME");
-        const sequenceData = await findByBidMonth(bidMonth);
+        const sequenceData = await findByBidMonth(crewBase as string, bidMonth as string);
+        // return res.json({ sequenceData })
         if (!sequenceData.length) {
             return res.status(404).json({ message: "No sequence found for the given SeqNo and BidMonth." });
         }
@@ -2057,6 +1931,7 @@ export const searchByMonth = async (req: Request, res: Response): Promise<any> =
                 ORDER BY effective_date DESC
             `);
         const perDiemRow = perDiemResult.recordset?.[0] ?? null;
+        // return res.json({ perDiemResult });
         const perDiem_dom = perDiemRow ? parseFloat(perDiemRow.dom || 0) : 0;
         const perDiem_int = perDiemRow ? parseFloat(perDiemRow.int || 0) : 0;
 
@@ -2064,8 +1939,10 @@ export const searchByMonth = async (req: Request, res: Response): Promise<any> =
         const airportResult = await pool.request().query(`
             SELECT IATA_Code, IsInternational
             FROM Airports
-        `);
+            `);
+
         const airportRows = airportResult.recordset || [];
+        // return res.json({ airportRows });
 
         // return res.json({ airportRows })
         const airportIntl: Record<string, boolean> = {};
@@ -2073,12 +1950,58 @@ export const searchByMonth = async (req: Request, res: Response): Promise<any> =
             if (a && a.IATA_Code) airportIntl[a.IATA_Code.toUpperCase()] = a.IsInternational == 1;
         });
 
+        // return res.json({ allLegs })
         // ---------- fetch all legs ----------
+
+        // ---------- fetch all legs in ONE query ----------
         const legsResult = await pool.request()
             // .input("seqNo", sql.Int, seqNo)
-            .input("bidMonth", sql.NVarChar, bidMonth)
-            .query(`SELECT * FROM dbo.Leg WHERE BidMonth = @bidMonth`);
+            .input("crewBase", sql.VarChar, (crewBase as string).trim())
+            .input("bidMonth", sql.VarChar, (bidMonth as string).trim())
+            .query(`
+                SELECT l.SeqNo, l.BidMonth, l.CvtDptTime, l.CvtArvTime,
+                    l.CvtLegPC, l.EOD, l.SeqLegNo, l.DptTime,
+                    l.ArvTime, l.DeptStn, l.ArrvStn,
+                    l.LegEqupType, l.LegPC,
+                    l.CvtLayover
+                FROM dbo.Leg l
+                INNER JOIN dbo.Sequence s
+                    ON l.SeqNo = s.SeqNo
+                    AND l.BidMonth = s.BidMonth
+                WHERE s.CrewBase = @crewBase
+                AND s.BidMonth = @bidMonth
+                ORDER BY l.SeqNo, l.SeqLegNo
+            `);
+
+        // const legsResult = await pool.request()
+        //     .input("seqNo", sql.Int, seqNo)
+        //     .input("bidMonth", sql.VarChar, (bidMonth as string).trim())
+        //     .query(`
+        //         SELECT l.SeqNo, l.BidMonth, l.CvtDptTime, l.CvtArvTime,
+        //             l.CvtLegPC, l.EOD, l.SeqLegNo, l.DptTime,
+        //             l.ArvTime, l.DeptStn, l.ArrvStn,
+        //             l.LegEqupType, l.LegPC,
+        //             l.CvtLayover
+        //         FROM dbo.Leg l
+        //         WHERE l.SeqNo = @seqNo
+        //         AND l.BidMonth = @bidMonth
+        //         ORDER BY l.SeqNo, l.SeqLegNo
+        //     `);
+
         const allLegs = legsResult.recordset || [];
+
+        // return res.json({ allLegs })
+
+        const legsBySeqNo: Record<number, any[]> = {};
+
+        for (const leg of allLegs) {
+            if (!legsBySeqNo[leg.SeqNo]) {
+                legsBySeqNo[leg.SeqNo] = [];
+            }
+            legsBySeqNo[leg.SeqNo].push(leg);
+        }
+
+        // return res.json({ legsBySeqNo });
 
         // ---------- crew/service/base rate ----------
         const crewId = (req as any).user?.crewId;
@@ -2093,6 +2016,15 @@ export const searchByMonth = async (req: Request, res: Response): Promise<any> =
         for (const seq of sequenceData) {
             const UniqueSeqNo = seq.UniqueSeqNo;
 
+            const seqLegs = legsBySeqNo[seq.SeqNo] || [];
+            // const seqLegs = legsBySeqNo[SeqNo] || [];
+            // ---- calendar/flightDays and dayWiseLegs (unchanged) ----
+            const calendar = seq.Calendar_40Day || "";
+            const flightDays: number[] = [];
+            for (let i = 0; i < calendar.length; i++) {
+                if (calendar[i] == "1") flightDays.push(i + 1);
+            }
+
             const frequency = await pool.request()
                 .input("UniqueSeqNo", sql.VarChar, UniqueSeqNo)
                 .query(`
@@ -2100,17 +2032,6 @@ export const searchByMonth = async (req: Request, res: Response): Promise<any> =
                     WHERE unique_seq_no = @UniqueSeqNo
                 `);
             const effDates = frequency.recordset || [];
-
-            const seqLegs = allLegs.filter(
-                (l) => l.BidMonth == seq.BidMonth
-            );
-
-            // ---- calendar/flightDays and dayWiseLegs (unchanged) ----
-            const calendar = seq.Calendar_40Day || "";
-            const flightDays: number[] = [];
-            for (let i = 0; i < calendar.length; i++) {
-                if (calendar[i] == "1") flightDays.push(i + 1);
-            }
 
             const EXTRA_LIMIT_MINUTES = 150; // 2 hours 30 minutes
             let extraAmount = 0;
@@ -2198,14 +2119,17 @@ export const searchByMonth = async (req: Request, res: Response): Promise<any> =
                 });
 
             });
+            // };// for loop
             if (currentDayLegs.length > 0) dayWiseLegs.push({ day: dayCounter, legs: currentDayLegs });
             console.log("Leg Equip Type:", leg_equip_types);
-
+            // return res.json({ currentDayLegs })
             // ---- core hours ----
             const cvtSeqPC = toDecimalHours(seq.CvtSeqPC);
             const cvtSeqFlyTime = toDecimalHours(seq.CvtSeqFlyTime);
             const cvtTAFB = toDecimalHours(seq.CvtTAFB);
             const cvtSeqPremTime = toDecimalHours(seq.CvtSeqPremTime);
+
+            // return res.json({ seqLegs });
 
             console.log("cvtSeqPC===>>>", cvtSeqPC);
             console.log("cvtSeqPC===>>>", cvtSeqFlyTime);
@@ -2213,11 +2137,11 @@ export const searchByMonth = async (req: Request, res: Response): Promise<any> =
             console.log("cvtSeqPC===>>>", cvtSeqPremTime);
 
             const deadheadResult = await pool.request()
-                .input("bidMonth", sql.Int, seq.BidMonth)
+                .input("seqNo", sql.Int, seq.SeqNo)
                 .query(`
                     SELECT SUM(TRY_CAST(CvtDPDeadheadTime AS FLOAT)) AS TotalDPDeadheadHours
                     FROM dbo.Leg
-                    WHERE BidMonth = @bidMonth
+                    WHERE SeqNo = @seqNo
                       AND DPDeadheadTime = 1
                 `);
             const cvtDPDeadheadTime = toDecimalHours(deadheadResult.recordset?.[0]?.TotalDPDeadheadHours ?? 0);
@@ -2468,7 +2392,7 @@ export const searchByMonth = async (req: Request, res: Response): Promise<any> =
                 creditHoursDollars +
                 tafbPay +
                 premiumWithSpeaker +
-                boardingPay +
+                // boardingPay +
                 extraAmount;
 
             // push result
@@ -2490,7 +2414,7 @@ export const searchByMonth = async (req: Request, res: Response): Promise<any> =
                 sitRigHours: decimalHoursToHHMMSS(layOverHours),
                 seqPremiumTime: decimalHoursToHHMM(premiumHours),
                 effDates,
-                boardingRow,
+                // boardingRow,
                 flightDays,
                 dayWiseLegs,
                 earnings: {
@@ -2513,23 +2437,16 @@ export const searchByMonth = async (req: Request, res: Response): Promise<any> =
             message: "Sequence(s) & legs fetched successfully",
             sequences,
         });
-
-    } catch (error: any) {
-        console.error("Error in sequenceWithLegs:", error);
+    }
+    catch (error: any) {
+        console.error("Error in searchByMonth:", error);
         console.timeEnd("SQL_TIME");
-        return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({
-            message: Messages.INTERNAL_SERVER_ERROR,
-            error: error.message,
+        return res.status(500).json({
+            message: "Internal Server Error",
+            error: error.message
         });
     }
-};
-
-// helper functions
-// const formatMinutes = (mins: number) => {
-//     const h = Math.floor(mins / 60);
-//     const m = mins % 60;
-//     return `${h}:${m}`;
-// }
+}
 
 const formatMinutes = (totalMinutes: number): string => {
     const h = Math.floor(totalMinutes / 60);
