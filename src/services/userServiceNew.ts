@@ -83,18 +83,7 @@ export const findBySequenceNo = async (seqNo: number, bidMonth: string) => {
 export const findByBidMonth = async (crewBase: string, bidMonth: string) => {
 
   const pool = await getPool();
-
-  // const request = pool.request();
-  // request.input("crewBase", sql.VarChar, crewBase.trim());
-  // request.input("bidMonth", sql.NVarChar, bidMonth.trim());
-
-  // const result = await request.query(`
-  //   SELECT s.CrewBase, s.SeqNo, s.SeqCategory, s.NBR_Legs, s.CvtSeqFlyTime, s.CvtSeqPC, s.CvtTAFB, s.CvtSeqPremTime, s.BidMonth
-  //   FROM dbo.Sequence s INNER JOIN Leg l ON s.SeqNo = l.SeqNo AND s.BidMonth = l.BidMonth 
-  //   WHERE CrewBase = @crewBase
-  //     AND BidMonth = @bidMonth
-  // `);
-
+  
   const request = pool.request();
   request.input("crewBase", sql.VarChar, crewBase.trim());
   request.input("bidMonth", sql.NVarChar, bidMonth.trim());
@@ -104,8 +93,10 @@ export const findByBidMonth = async (crewBase: string, bidMonth: string) => {
   SELECT 
     s.CrewBase,
     s.SeqNo,
+    s.UniqueSeqNo,
     s.SeqCategory,
     s.NBR_Legs,
+    s.SeqCrewPos,
     s.CvtSeqFlyTime,
     s.CvtSeqPC,
     s.CvtTAFB,
@@ -134,30 +125,6 @@ export const findByBidMonth = async (crewBase: string, bidMonth: string) => {
   ORDER BY s.SeqNo, l.SeqLegNo
 `);
 
-  // old
-  //   const result = await request.query(`
-  //   SELECT 
-  //     s.CrewBase, 
-  //     s.SeqNo, 
-  //     s.SeqCategory, 
-  //     s.NBR_Legs, 
-  //     s.CvtSeqFlyTime, 
-  //     s.CvtSeqPC, 
-  //     s.CvtTAFB, 
-  //     s.CvtSeqPremTime, 
-  //     s.BidMonth
-  //   FROM dbo.Sequence s 
-  //   INNER JOIN Leg l 
-  //     ON s.SeqNo = l.SeqNo 
-  //     AND s.BidMonth = l.BidMonth 
-  //   WHERE s.CrewBase = @crewBase
-  //     AND s.BidMonth = @bidMonth
-  // `);
-
-  // console.log("Rows Found:", result.recordset.length);
-
-  // return result.recordset;
-
   const sequencesMap = new Map();
 
   result.recordset.forEach((row) => {
@@ -165,8 +132,10 @@ export const findByBidMonth = async (crewBase: string, bidMonth: string) => {
       sequencesMap.set(row.SeqNo, {
         CrewBase: row.CrewBase,
         SeqNo: row.SeqNo,
+        UniqueSeqNo: row.UniqueSeqNo,
         SeqCategory: row.SeqCategory,
         NBR_Legs: row.NBR_Legs,
+        SeqCrewPos: row.SeqCrewPos,
         CvtSeqFlyTime: row.CvtSeqFlyTime,
         CvtSeqPC: row.CvtSeqPC,
         CvtTAFB: row.CvtTAFB,
