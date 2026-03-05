@@ -83,7 +83,7 @@ export const findBySequenceNo = async (seqNo: number, bidMonth: string) => {
 export const findByBidMonth = async (crewBase: string, bidMonth: string) => {
 
   const pool = await getPool();
-  
+
   const request = pool.request();
   request.input("crewBase", sql.VarChar, crewBase.trim());
   request.input("bidMonth", sql.NVarChar, bidMonth.trim());
@@ -269,7 +269,8 @@ export const updatePosition = async (seqNo: number, position: number, bidMonth: 
     .input("seqNo", sql.Int, seqNo)
     // .input("effDate", sql.NVarChar, effDate)
     .input("bidMonth", sql.NVarChar, bidMonth)
-    .input("seqCrewPos", sql.VarChar, updatedSeqCrewPos)
+    // .input("seqCrewPos", sql.VarChar, updatedSeqCrewPos)
+    .input("seqCrewPos", sql.VarChar(20), updatedSeqCrewPos)
     .query(`
       UPDATE Sequence
       SET SeqCrewPos = @seqCrewPos

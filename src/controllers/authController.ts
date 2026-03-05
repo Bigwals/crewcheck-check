@@ -24,6 +24,7 @@ export const register = async (req: Request, res: Response): Promise<any> => {
             lastName,
             telephone,
             email,
+            defaultLanguage,
             // sex,
             purser,
             speaker,
@@ -76,6 +77,7 @@ export const register = async (req: Request, res: Response): Promise<any> => {
             .input("PhoneNumber", sql.NVarChar, telephone)
             .input("Airline", sql.NVarChar, airline)
             .input("Purser", sql.NVarChar, purser)
+            .input("defaultLanguage", sql.VarChar, defaultLanguage)
             .input("Speaker", sql.NVarChar, speaker)
             .input("RoleID", sql.Int, RoleID)
             .input("ActiveStatus", sql.Bit, ActiveStatus)
@@ -84,9 +86,9 @@ export const register = async (req: Request, res: Response): Promise<any> => {
             .input("Otp", sql.Int, otp)
             .query(`
         INSERT INTO Users 
-          (UserID, CrewId, FirstName, LastName, HireDate, OccDate, Base, Seniority, Airline, Email, Sex, PasswordHash, PhoneNumber, Purser, Speaker, RoleID, ActiveStatus, DeviceToken, Otp, CreatedAt)
+          (UserID, CrewId, FirstName, LastName, HireDate, OccDate, Base, Seniority, Airline, Email, Sex, PasswordHash, PhoneNumber, Purser, Speaker, RoleID, ActiveStatus, DeviceToken, Otp, defaultLanguage, CreatedAt)
         VALUES 
-          (@UserID, @CrewId, @FirstName, @LastName, @HireDate, @OccDate, @Base, @Seniority, @Airline, @Email, @Sex, @PasswordHash, @PhoneNumber, @Purser, @Speaker, @RoleID, @ActiveStatus, @DeviceToken, @Otp, @CreatedAt)
+          (@UserID, @CrewId, @FirstName, @LastName, @HireDate, @OccDate, @Base, @Seniority, @Airline, @Email, @Sex, @PasswordHash, @PhoneNumber, @Purser, @Speaker, @RoleID, @ActiveStatus, @DeviceToken, @Otp, @defaultLanguage, @CreatedAt)
       `);
         console.log("Languages from request:", languages);
 

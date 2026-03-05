@@ -756,6 +756,7 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
                 totalDuty: seq.NBR_Duty,
                 seqCrewPos: seq.SeqCrewPos,
                 slots: normalizeSeqCrewPos(seq.SeqCrewPos),
+                bidMonth: seq.BidMonth,
                 payHours: decimalHoursToHHMM(payHours),
                 creditHours: decimalHoursToHHMM(creditHours),
                 tafb: decimalHoursToHHMM(tafbHours),
@@ -1673,13 +1674,20 @@ export const basePay = async (req: Request, res: Response): Promise<any> => {
 
 export const deleteSequence = async (req: Request, res: Response): Promise<any> => {
     try {
-        const { userId, seqNo, bidMonth } = req.body;
+        const { userId, seqNo, effDate } = req.body;
 
-        if (!userId || !seqNo || !bidMonth) {
+        if (!userId || !seqNo || !effDate) {
             return res
                 .status(StatusCode.BAD_REQUEST)
-                .json({ message: "userId, seqNo, and bidMonth are required." });
+                .json({ message: "userId, seqNo, and effDate are required." });
         }
+        // const { userId, seqNo, bidMonth } = req.body;
+
+        // if (!userId || !seqNo || !bidMonth) {
+        //     return res
+        //         .status(StatusCode.BAD_REQUEST)
+        //         .json({ message: "userId, seqNo, and bidMonth are required." });
+        // }
 
         const pool = await getPool();
 
@@ -1688,12 +1696,14 @@ export const deleteSequence = async (req: Request, res: Response): Promise<any> 
             .request()
             .input("UserID", userId)
             .input("SeqNo", seqNo)
-            .input("BidMonth", bidMonth)
+            // .input("BidMonth", bidMonth)
+            .input("effDate", effDate)
             .query(`
-        SELECT TOP 1 UserSequenceID, PositionAppliedOn
+        SELECT TOP 1 UserSequenceID, PositionAppliedOn, PositionAppliedOnLetter
         FROM UserSequence 
-        WHERE UserID = @UserID AND SeqNo = @SeqNo AND BidMonth = @BidMonth
-      `);
+        WHERE UserID = @UserID AND SeqNo = @SeqNo AND EffDate = @effDate
+        `);
+        // WHERE UserID = @UserID AND SeqNo = @SeqNo AND BidMonth = @BidMonth
 
         if (sequenceResult.length === 0) {
             return res
@@ -1703,6 +1713,9 @@ export const deleteSequence = async (req: Request, res: Response): Promise<any> 
 
         const userSequenceId = sequenceResult[0].UserSequenceID;
         const positionAppliedOn = sequenceResult[0].PositionAppliedOn;
+        const positionAppliedOnLetter = sequenceResult[0].PositionAppliedOnLetter;
+
+        // return res.json({ sequenceResult });
 
         // Step 2: Begin transaction
         const transaction = pool.transaction();
@@ -1713,35 +1726,45 @@ export const deleteSequence = async (req: Request, res: Response): Promise<any> 
             const { recordset: seqData } = await transaction
                 .request()
                 .input("SeqNo", seqNo)
-                .input("BidMonth", bidMonth)
+                // .input("BidMonth", bidMonth)
+                .input("effDate", effDate)
                 .query(`
           SELECT SeqCrewPos 
           FROM Sequence 
-          WHERE SeqNo = @SeqNo AND BidMonth = @BidMonth
-        `);
-
+          WHERE SeqNo = @SeqNo AND EffDate = @effDate
+          `);
+            //   WHERE SeqNo = @SeqNo AND BidMonth = @BidMonth
+            console.log("++++>>>>", positionAppliedOnLetter)
+            // return res.json({ seqData });
             if (seqData.length > 0) {
+                // let seqCrewPos = seqData[0].SeqCrewPos;
                 let seqCrewPos = seqData[0].SeqCrewPos;
                 let seqCrewPosArr = seqCrewPos.split("");
 
                 // Step 4: Revert that position back to "1" (make it available again)
                 if (positionAppliedOn > 0 && positionAppliedOn <= seqCrewPosArr.length) {
-                    seqCrewPosArr[positionAppliedOn - 1] = "1";
+                    seqCrewPosArr[positionAppliedOn - 1] = positionAppliedOnLetter.trim();
                 }
-
+            
+                // return res.json({ seqCrewPosArr });
                 const updatedSeqCrewPos = seqCrewPosArr.join("");
+                // return res.json({ updatedSeqCrewPos });
+
+                console.log("Length:", updatedSeqCrewPos.length);
+                console.log("Value:", JSON.stringify(updatedSeqCrewPos));
 
                 // Step 5: Update Sequence table
                 await transaction
                     .request()
                     .input("SeqNo", seqNo)
-                    .input("BidMonth", bidMonth)
-                    .input("SeqCrewPos", sql.NVarChar, updatedSeqCrewPos)
+                    // .input("BidMonth", bidMonth)
+                    .input("effDate", effDate)
+                    .input("SeqCrewPos", sql.VarChar(20), updatedSeqCrewPos)
                     .query(`
-            UPDATE Sequence
-            SET SeqCrewPos = @SeqCrewPos
-            WHERE SeqNo = @SeqNo AND BidMonth = @BidMonth
-          `);
+                UPDATE Sequence
+                SET SeqCrewPos = @SeqCrewPos
+                WHERE SeqNo = @SeqNo AND EffDate = @effDate
+            `);
             }
 
             // Step 6: Delete associated UserLegs
