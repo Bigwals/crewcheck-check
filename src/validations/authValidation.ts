@@ -6,6 +6,7 @@ export const registerSchema = z.object({
   firstName: z.string().min(1, "firstName is Required"),
   lastName: z.string().min(1, "lastName is Required"),
   telephone: z.string().min(1, "telephone is Required"),
+  defaultLanguage: z.string().optional(),
   purser: z.string().min(1, "purser is Required").optional(),
   speaker: z.string().min(1, "speaker is Required").optional(),
   languages: z.array(z.number()).min(
