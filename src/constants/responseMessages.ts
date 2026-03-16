@@ -15,7 +15,7 @@ export const Messages = {
     PASSWORD_CHANGED: "Password reset successfully.",
     PASSWORD_SENT: "Password sent successfully.",
     NOT_FOUND_OR_PASSWORD_NOT_AVAILABLE: "Crew not found or password does not exist.",
-    INVALID_CREW_ID: "Invalid Crew Id",
+    INVALID_CREW_ID: "Invalid Crew Id or User does not exist",
     AVATAR_UPLOADED: "Avatar Uploaded Successfully",
     OTP_VERIFIED: "Otp Verified Successfully",
     

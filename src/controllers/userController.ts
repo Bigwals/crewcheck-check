@@ -1575,7 +1575,7 @@ export const applyPosition = async (req: Request, res: Response): Promise<any> =
         }
 
         const newUserSequenceId = await addSequenceDataInUserSequence(userId, updatedSeqCrewPos, position, effDate, updatedSeqCrewPos.originalDigit);
-        const newUserLegId = await addLegDataInUserLeg(seqNo, bidMonth, newUserSequenceId);
+        const newUserLegId = await addLegDataInUserLeg(userId, seqNo, bidMonth, newUserSequenceId);
 
         return res.status(StatusCode.OK).json({
             message: "Position Applied Successfully",

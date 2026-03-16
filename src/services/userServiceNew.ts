@@ -386,9 +386,9 @@ export const addSequenceDataInUserSequence = async (
 };
 
 export const addLegDataInUserLeg = async (
+  userId: string,
   seqNo: number,
   bidMonth: string,
-  // effDate: Date,
   newUserSequenceId: string,
 ) => {
   const pool = await getPool();
@@ -418,6 +418,7 @@ export const addLegDataInUserLeg = async (
 
     await pool.request()
       .input("UserLegID", sql.NVarChar, userLegId)
+      .input("UserID", sql.UniqueIdentifier, userId)
       .input("UniqueSeqNo", sql.VarChar, leg.UniqueSeqNo)
       .input("EffDate", sql.Date, leg.EffDate)
       .input("ThruDate", sql.Date, leg.ThruDate)
@@ -475,7 +476,7 @@ export const addLegDataInUserLeg = async (
       .input("BidMonth", sql.VarChar, leg.BidMonth)
       .query(`
         INSERT INTO UserLeg (
-          UserLegID, UniqueSeqNo, EffDate, ThruDate, Frequency, SeqNo, SeqLegNo, DeptStn, ArrvStn, DptTime, DptZone, ArvTime, ArvZone,
+          UserLegID, UserID, UniqueSeqNo, EffDate, ThruDate, Frequency, SeqNo, SeqLegNo, DeptStn, ArrvStn, DptTime, DptZone, ArvTime, ArvZone,
           FitNo, FitLegNo, EOD, LegTotalFlying, LegEqupType, LegDeadheadCode, LegMidnightCode, LegPC, PCCode,
           SchedOverFlow, DVSD, DVLA, LayoverTime, DPOnDutyTime, DPDeadheadTime, DVLA2, LegNiteFly, Unused,
           Calendar_40Day, Terminal, GateNumber, FlightStatus, BookingCode, SeatNumber, TailNumber, UserSequenceId,
@@ -484,7 +485,7 @@ export const addLegDataInUserLeg = async (
           CvtLegNiteFly, CvtLegPC, CvtLegTotalFlying, CvtLayover, BidMonth
         )
         VALUES (
-          @UserLegID, @UniqueSeqNo, @EffDate, @ThruDate, @Frequency, @SeqNo, @SeqLegNo, @DeptStn, @ArrvStn, @DptTime, @DptZone, @ArvTime, @ArvZone,
+          @UserLegID, @UserID, @UniqueSeqNo, @EffDate, @ThruDate, @Frequency, @SeqNo, @SeqLegNo, @DeptStn, @ArrvStn, @DptTime, @DptZone, @ArvTime, @ArvZone,
           @FitNo, @FitLegNo, @EOD, @LegTotalFlying, @LegEqupType, @LegDeadheadCode, @LegMidnightCode, @LegPC, @PCCode,
           @SchedOverFlow, @DVSD, @DVLA, @LayoverTime, @DPOnDutyTime, @DPDeadheadTime, @DVLA2, @LegNiteFly, @Unused,
           @Calendar_40Day, @Terminal, @GateNumber, @FlightStatus, @BookingCode, @SeatNumber, @TailNumber, @UserSequenceId,
