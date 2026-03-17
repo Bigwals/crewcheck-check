@@ -362,6 +362,7 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
         // ---------- build sequences ----------
         const leg_equip_types: any[] = [];
         const sequences: any[] = [];
+        // const effdates: any[] = [];
 
         for (const seq of sequenceData) {
             const UniqueSeqNo = seq.UniqueSeqNo;
@@ -370,9 +371,11 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
                 .input("UniqueSeqNo", sql.VarChar, UniqueSeqNo)
                 .query(`
                     SELECT * FROM Frequency
-                    WHERE unique_seq_no = @UniqueSeqNo
+                    WHERE UniqueSeqNo = @UniqueSeqNo
                 `);
             const effDates = frequency.recordset || [];
+
+            // effdates.push()
 
             const seqLegs = allLegs.filter(
                 (l) => l.SeqNo == seq.SeqNo && l.BidMonth === seq.BidMonth
@@ -2033,12 +2036,12 @@ export const searchByMonth = async (req: Request, res: Response): Promise<any> =
             const freqResult = await freqRequest.query(`
                 SELECT *
                 FROM Frequency
-                WHERE unique_seq_no IN (${inClause})
+                WHERE UniqueSeqNo IN (${inClause})
             `);
 
             // Map by UniqueSeqNo
             freqResult.recordset.forEach(row => {
-                const key = row.unique_seq_no?.toString();
+                const key = row.UniqueSeqNo?.toString();
                 if (!key) return; // skip null/undefined
                 if (!frequencyMap[key]) {
                     frequencyMap[key] = [];
