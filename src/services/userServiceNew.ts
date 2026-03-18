@@ -185,32 +185,51 @@ export const findUserAppliedSequenceNo = async (seqNo: number, bidMonth: string,
   return result.recordset;
 };
 
-export const findByDateAndSeqNo = async (seqNo: number, effDate: String) => {
+// export const findByDateAndUniqueSeqNo = async (uniqueSeqNo: number, frequency_date: String) => {
+export const findByDateAndSeqNo = async (uniqueSeqNo: string, frequency_date: String) => {
   const pool = await getPool();
   const result = await pool.request()
-    .input("seqNo", sql.Int, seqNo)
-    .input("effDate", sql.Date, effDate)
+    .input("uniqueSeqNo", sql.VarChar, uniqueSeqNo)
+    .input("frequency_date", sql.Date, frequency_date)
     .query(`
             SELECT *
-            FROM Leg
-            WHERE SeqNo = @seqNo 
-            AND EffDate = @effDate
+            FROM Frequency
+            WHERE UniqueSeqNo = @uniqueSeqNo 
+            AND frequency_date = @frequency_date
         `);
 
   return result.recordset.length > 0 ? result.recordset : null;
 };
 
-export const checkAlreadyApplied = async (seqNo: number, bidMonth: string, effDate: string, userId: string) => {
+// old
+// export const findByDateAndSeqNo = async (seqNo: number, effDate: String) => {
+//   const pool = await getPool();
+//   const result = await pool.request()
+//     .input("seqNo", sql.Int, seqNo)
+//     .input("effDate", sql.Date, effDate)
+//     .query(`
+//             SELECT *
+//             FROM Fre
+//             WHERE SeqNo = @seqNo 
+//             AND EffDate = @effDate
+//         `);
+
+//   return result.recordset.length > 0 ? result.recordset : null;
+// };
+
+// export const checkAlreadyApplied = async (seqNo: number, bidMonth: string, effDate: string, userId: string) => {
+export const checkAlreadyApplied = async (uniqueSeqNo: string, bidMonth: string, effDate: string, userId: string) => {
   const pool = await getPool();
   const result = await pool.request()
-    .input("seqNo", sql.Int, seqNo)
+    // .input("seqNo", sql.Int, seqNo)
+    .input("uniqueSeqNo", sql.VarChar, uniqueSeqNo)
     .input("bidMonth", sql.VarChar, bidMonth)
     .input("effDate", sql.VarChar, effDate)
     .input("userId", sql.UniqueIdentifier, userId)
     .query(`
             SELECT *
             FROM UserSequence
-            WHERE SeqNo = @seqNo 
+            WHERE UniqueSeqNo = @uniqueSeqNo 
             AND BidMonth = @bidMonth
             AND EffDate = @effDate
             AND UserID = @userId
@@ -233,54 +252,211 @@ export const getBoardingPayByYears = async (YearsOfService: number) => {
 }
 
 // export const updatePosition = async (seqNo: number, position: number, effDate: Date) => {
-export const updatePosition = async (seqNo: number, position: number, bidMonth: string) => {
+// old
+// export const updatePosition = async (seqNo: number, position: number, effDate: string, bidMonth: string) => {
+//   const pool = await getPool();
+
+//   // 1) Fetch the row
+//   const result = await pool.request()
+//     .input("seqNo", sql.Int, seqNo)
+//     .input("effDate", sql.NVarChar, effDate)
+//     .input("bidMonth", sql.NVarChar, bidMonth)
+//     .query(`
+//       SELECT *
+//       FROM Sequence
+//       WHERE SeqNo = @seqNo AND BidMonth = @bidMonth
+//     `);
+
+//   if (result.recordset.length === 0) return null;
+
+//   // Get the row object
+//   let row = result.recordset[0];
+
+
+
+//   let seqCrewPos: string = row.SeqCrewPos;
+
+//   // 2) Update the SeqCrewPos string
+//   let seqCrewPosArr = seqCrewPos.split("");
+
+//   let originalDigit = seqCrewPosArr[position - 1];
+
+//   if (position > 0 && position <= seqCrewPosArr.length) {
+//     seqCrewPosArr[position - 1] = "0"; // mark position as taken
+//   }
+
+//   const updatedSeqCrewPos = seqCrewPosArr.join("");
+
+//   // 3) Update DB
+//   await pool.request()
+//     .input("seqNo", sql.Int, seqNo)
+//     // .input("effDate", sql.NVarChar, effDate)
+//     .input("bidMonth", sql.NVarChar, bidMonth)
+//     // .input("seqCrewPos", sql.VarChar, updatedSeqCrewPos)
+//     .input("seqCrewPos", sql.VarChar(20), updatedSeqCrewPos)
+//     .query(`
+//       UPDATE Sequence
+//       SET SeqCrewPos = @seqCrewPos
+//       WHERE SeqNo = @seqNo AND BidMonth = @bidMonth
+//     `);
+
+//   // 4) Return the updated row (with new SeqCrewPos)
+//   return {
+//     ...row,
+//     SeqCrewPos: updatedSeqCrewPos,
+//     originalDigit
+//   };
+// };
+
+// new
+export const updatePosition = async (
+  uniqueSeqNo: string,
+  position: number,
+  effDate: string,
+  bidMonth: string
+) => {
   const pool = await getPool();
 
-  // 1) Fetch the row
-  const result = await pool.request()
-    .input("seqNo", sql.Int, seqNo)
-    // .input("effDate", sql.NVarChar, effDate)
+  // 1️⃣ ALWAYS get base Sequence row (MASTER DATA)
+  const seqBaseResult = await pool.request()
+    .input("uniqueSeqNo", sql.VarChar, uniqueSeqNo)
     .input("bidMonth", sql.NVarChar, bidMonth)
+    .query(`
+      SELECT * 
+      FROM Sequence
+      WHERE UniqueSeqNo = @uniqueSeqNo 
+        AND BidMonth = @bidMonth
+    `);
+
+  if (seqBaseResult.recordset.length === 0) return null;
+
+  const baseRow = seqBaseResult.recordset[0];
+
+  // 2️⃣ Check if effDate exists in Sequence
+  const seqEffDateResult = await pool.request()
+    .input("uniqueSeqNo", sql.VarChar, uniqueSeqNo)
+    .input("effDate", sql.NVarChar, effDate)
+    .query(`
+      SELECT 1
+      FROM Sequence
+      WHERE UniqueSeqNo = @uniqueSeqNo 
+        AND EffDate = @effDate
+    `);
+
+  const seqEffExists = seqEffDateResult.recordset.length > 0;
+
+  // 3️⃣ Check Frequency table
+  const freqResult = await pool.request()
+    .input("uniqueSeqNo", sql.VarChar, uniqueSeqNo)
+    .input("effDate", sql.NVarChar, effDate)
     .query(`
       SELECT *
-      FROM Sequence
-      WHERE SeqNo = @seqNo AND BidMonth = @bidMonth
+      FROM Frequency
+      WHERE UniqueSeqNo = @uniqueSeqNo 
+        AND frequency_date = @effDate
     `);
 
-  if (result.recordset.length === 0) return null;
+  const freqExists = freqResult.recordset.length > 0;
 
-  // Get the row object
-  let row = result.recordset[0];
-  let seqCrewPos: string = row.SeqCrewPos;
+  // 4️⃣ Update SeqCrewPos string
+  const updateSeqCrewPosString = (seqCrewPos: string) => {
+    let arr = seqCrewPos.split("");
 
-  // 2) Update the SeqCrewPos string
-  let seqCrewPosArr = seqCrewPos.split("");
+    let originalDigit = arr[position - 1];
 
-  let originalDigit = seqCrewPosArr[position - 1];
+    if (position > 0 && position <= arr.length) {
+      arr[position - 1] = "0";
+    }
 
-  if (position > 0 && position <= seqCrewPosArr.length) {
-    seqCrewPosArr[position - 1] = "0"; // mark position as taken
+    return {
+      updated: arr.join(""),
+      originalDigit
+    };
+  };
+
+  // const { updated, originalDigit } = updateSeqCrewPosString(baseRow.SeqCrewPos);
+
+  // 🔥 Decide correct source
+  let sourceSeqCrewPos: string;
+
+  if (seqEffExists) {
+    // ✅ exact date exists in Sequence
+    const seqRow = await pool.request()
+      .input("uniqueSeqNo", sql.VarChar, uniqueSeqNo)
+      .input("effDate", sql.NVarChar, effDate)
+      .query(`
+      SELECT SeqCrewPos
+      FROM Sequence
+      WHERE UniqueSeqNo = @uniqueSeqNo 
+        AND EffDate = @effDate
+    `);
+
+    sourceSeqCrewPos = seqRow.recordset[0].SeqCrewPos;
+
+  } else if (freqExists) {
+    // ✅ only exists in Frequency
+    sourceSeqCrewPos = freqResult.recordset[0].SeqCrewPos;
+
+  } else {
+    // ⚠️ fallback (rare case)
+    sourceSeqCrewPos = baseRow.SeqCrewPos;
   }
 
-  const updatedSeqCrewPos = seqCrewPosArr.join("");
+  // ✅ NOW apply logic on correct source
+  const { updated, originalDigit } = updateSeqCrewPosString(sourceSeqCrewPos);
 
-  // 3) Update DB
-  await pool.request()
-    .input("seqNo", sql.Int, seqNo)
-    // .input("effDate", sql.NVarChar, effDate)
-    .input("bidMonth", sql.NVarChar, bidMonth)
-    // .input("seqCrewPos", sql.VarChar, updatedSeqCrewPos)
-    .input("seqCrewPos", sql.VarChar(20), updatedSeqCrewPos)
-    .query(`
-      UPDATE Sequence
-      SET SeqCrewPos = @seqCrewPos
-      WHERE SeqNo = @seqNo AND BidMonth = @bidMonth
-    `);
+  // 5️⃣ APPLY UPDATE LOGIC
 
-  // 4) Return the updated row (with new SeqCrewPos)
+  // ✅ Case 1: effDate exists in Sequence → update BOTH
+  if (seqEffExists) {
+    await pool.request()
+      .input("uniqueSeqNo", sql.VarChar, uniqueSeqNo)
+      .input("effDate", sql.NVarChar, effDate)
+      .input("seqCrewPos", sql.VarChar(20), updated)
+      .query(`
+        UPDATE Sequence
+        SET SeqCrewPos = @seqCrewPos
+        WHERE UniqueSeqNo = @uniqueSeqNo 
+          AND EffDate = @effDate
+      `);
+
+    if (freqExists) {
+      await pool.request()
+        .input("uniqueSeqNo", sql.VarChar, uniqueSeqNo)
+        .input("effDate", sql.NVarChar, effDate)
+        .input("seqCrewPos", sql.VarChar(20), updated)
+        .query(`
+          UPDATE Frequency
+          SET SeqCrewPos = @seqCrewPos
+          WHERE UniqueSeqNo = @uniqueSeqNo 
+            AND frequency_date = @effDate
+        `);
+    }
+  }
+
+  // ✅ Case 2: only Frequency exists
+  else if (freqExists) {
+    await pool.request()
+      .input("uniqueSeqNo", sql.VarChar, uniqueSeqNo)
+      .input("effDate", sql.NVarChar, effDate)
+      .input("seqCrewPos", sql.VarChar(20), updated)
+      .query(`
+        UPDATE Frequency
+        SET SeqCrewPos = @seqCrewPos
+        WHERE UniqueSeqNo = @uniqueSeqNo 
+          AND frequency_date = @effDate
+      `);
+  }
+
+  // ❗ Optional: if neither exists, you may want to throw error
+  else {
+    return null;
+  }
+
+  // 6️⃣ FINAL RETURN → ALWAYS Sequence data (as you wanted)
   return {
-    ...row,
-    SeqCrewPos: updatedSeqCrewPos,
+    ...baseRow,
+    SeqCrewPos: updated,
     originalDigit
   };
 };
@@ -387,21 +563,23 @@ export const addSequenceDataInUserSequence = async (
 
 export const addLegDataInUserLeg = async (
   userId: string,
-  seqNo: number,
+  uniqueSeqNo: string,
   bidMonth: string,
+  effDate: Date,
   newUserSequenceId: string,
 ) => {
   const pool = await getPool();
 
   // 1) Get all legs for this SeqNo + BidMonth
   const legs = await pool.request()
-    .input("seqNo", sql.Int, seqNo)
+    // .input("seqNo", sql.Int, seqNo)
+    .input("uniqueSeqNo", sql.VarChar, uniqueSeqNo)
     // .input("effDate", sql.NVarChar(50), effDate)
     .input("bidMonth", sql.NVarChar, bidMonth)
     .query(`
       SELECT *
       FROM Leg
-      WHERE SeqNo = @seqNo AND BidMonth = @bidMonth
+      WHERE UniqueSeqNo = @uniqueSeqNo AND BidMonth = @bidMonth
       `);
   // WHERE SeqNo = @seqNo AND EffDate = @effDate
 
@@ -420,7 +598,7 @@ export const addLegDataInUserLeg = async (
       .input("UserLegID", sql.NVarChar, userLegId)
       .input("UserID", sql.UniqueIdentifier, userId)
       .input("UniqueSeqNo", sql.VarChar, leg.UniqueSeqNo)
-      .input("EffDate", sql.Date, leg.EffDate)
+      .input("EffDate", sql.Date, effDate)
       .input("ThruDate", sql.Date, leg.ThruDate)
       .input("Frequency", sql.VarChar, leg.Frequency)
       .input("SeqNo", sql.Int, leg.SeqNo)
@@ -529,8 +707,6 @@ const getYearsOfService = (hireDate: Date, today = new Date()): number => {
 
   return years + 1;
 };
-
-
 
 // new
 export const getCrewPayDetails = async (crewId: number) => {

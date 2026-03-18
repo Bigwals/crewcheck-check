@@ -24,6 +24,7 @@ router.post('/upload-avatar', authenticate, uploadAvatar);
 // router.get('/sequence-with-legs', authenticate, sequenceWithLegs)
 router.get('/calender-sequence', authenticate, sequence)
 router.get('/sequence-search', authenticate, sequenceWithLegs)
+// router.get('/fetch-seqcrewpos-by-effdate', authenticate, fetchSeqCrewPosByEffDate)
 router.get('/filter-by-date', authenticate, filterByDate)
 router.patch('/apply-position', authenticate, applyPosition)
 router.delete('/delete-sequence', authenticate, deleteSequence)

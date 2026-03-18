@@ -5,7 +5,12 @@ import { resetPasswordSchema } from '../validations/authValidation';
 // import { deleteMedia, getUserProfile, uploadMedia } from '../services/authService';
 import { deleteFileFromStorage, deleteMedia, updateCrewAvatar, updateCrewReverse, uploadMedia } from '../services/authService';
 // import { findUserById, findUserByEmail, findUserAndUpdate } from '../services/userService';
-import { findCrewById, findCrewByEmail, getCrewPayDetails, UpdatePassword, findBySequenceNo, findByDateAndSeqNo, getBoardingPayByYears, updatePosition, addSequenceDataInUserSequence, findUserAppliedSequenceNo, addLegDataInUserLeg, getAllCrews, getCrewPayDetail, getUserLanguages, getDynamicBaseRate, checkAlreadyApplied, findByBidMonth } from '../services/userServiceNew';
+import {
+    findCrewById, findCrewByEmail, getCrewPayDetails, UpdatePassword, findBySequenceNo, getBoardingPayByYears, updatePosition,
+    addSequenceDataInUserSequence, findUserAppliedSequenceNo, addLegDataInUserLeg, getAllCrews, getCrewPayDetail,
+    getUserLanguages, getDynamicBaseRate, checkAlreadyApplied, findByBidMonth, findByDateAndSeqNo
+}
+    from '../services/userServiceNew';
 import bcrypt from 'bcrypt';
 import { Types } from 'mongoose';
 import { Sequence } from '../models/Sequence';
@@ -750,6 +755,7 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
             // push result
             sequences.push({
                 seqNo: seq.SeqNo,
+                UniqueSeqNo: seq.UniqueSeqNo,
                 crewBase: seq.CrewBase,
                 category: seq.SeqCategory,
                 effDate: seq.EffDate instanceof Date ? seq.EffDate.toISOString().split("T")[0] : seq.EffDate,
@@ -1505,49 +1511,29 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
 
 export const filterByDate = async (req: Request, res: Response): Promise<any> => {
     try {
-        const seqNo = Number(req.query.seqNo);
-        const effDates = new Date(req.query.effDate as string);
+        const uniqueSeqNo = (req.query.uniqueSeqNo as string);
+        // const effDate = new Date(req.query.effDate as string);
         // const effDate = req.query.effDate as string; // "2025-11-17"
-        const effDate = (req.query.effDate as string).split("T")[0];
+        const effDate = (req.query.effDate as string);
 
-        if (!seqNo || isNaN(seqNo)) {
-            return res.status(400).json({ message: "seqNo is required and must be numeric" });
+        if (!uniqueSeqNo) {
+            return res.status(400).json({ message: "uniqueSeqNo is required and must be numeric" });
         }
         if (!req.query.effDate) {
             return res.status(400).json({ message: "effDate is required" });
         }
 
-        const data = await findByDateAndSeqNo(seqNo, effDate);
-        console.log("Eff Date", effDate)
-        console.log("Eff Dates", effDates)
+        const data = await findByDateAndSeqNo(uniqueSeqNo, effDate);
+        console.log("Frequency Date", effDate)
+        console.log("Frequency Date", effDate)
 
         if (!data) {
-            return res.status(404).json({ message: "No legs found for given seqNo and effDate" });
+            return res.status(404).json({ message: "No sequence found for given seqNo and frequency_date" });
         }
 
-        // let noOfBoardings = 0;
-        // Prepare UI-ready leg summary
-        const formatted = data.map(leg => ({
-            seqNo: leg.SeqNo,
-            seqLegNo: leg.SeqLegNo,
-            departure: leg.DeptStn,
-            arrival: leg.ArrvStn,
-            flightNo: leg.FitNo,
-            // dptTime: toHHmm(leg.DptTime),
-            // arvTime: toHHmm(leg.ArvTime),
-            dptTime: leg.CvtDptTime,
-            arvTime: leg.CvtArvTime,
-            flyingHours: formatMinutes(leg.LegTotalFlying),
-            pc: leg.LegPC,
-            // boardingTime: calculateBoardingTime(leg.DptTime ),
-            // boardingTime: toHHmm(leg.DptTime - 30),
-            layover: leg.Layover ? formatMinutes(leg.Layover) : null,
-            eod: leg.EOD
-        }));
-
         return res.status(200).json({
-            message: "Legs Fetched Successfully",
-            sequence: formatted,
+            message: "Data Fetched Successfully",
+            data: data,
         });
     } catch (error: any) {
         return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({
@@ -1556,29 +1542,85 @@ export const filterByDate = async (req: Request, res: Response): Promise<any> =>
         });
     }
 };
+// old
+// export const filterByDate = async (req: Request, res: Response): Promise<any> => {
+//     try {
+//         const seqNo = Number(req.query.seqNo);
+//         const effDates = new Date(req.query.effDate as string);
+//         // const effDate = req.query.effDate as string; // "2025-11-17"
+//         const effDate = (req.query.effDate as string).split("T")[0];
+
+//         if (!seqNo || isNaN(seqNo)) {
+//             return res.status(400).json({ message: "seqNo is required and must be numeric" });
+//         }
+//         if (!req.query.effDate) {
+//             return res.status(400).json({ message: "effDate is required" });
+//         }
+
+//         const data = await findByDateAndSeqNo(seqNo, effDate);
+//         console.log("Eff Date", effDate)
+//         console.log("Eff Dates", effDates)
+
+//         if (!data) {
+//             return res.status(404).json({ message: "No legs found for given seqNo and effDate" });
+//         }
+
+//         // let noOfBoardings = 0;
+//         // Prepare UI-ready leg summary
+//         const formatted = data.map(leg => ({
+//             seqNo: leg.SeqNo,
+//             seqLegNo: leg.SeqLegNo,
+//             departure: leg.DeptStn,
+//             arrival: leg.ArrvStn,
+//             flightNo: leg.FitNo,
+//             // dptTime: toHHmm(leg.DptTime),
+//             // arvTime: toHHmm(leg.ArvTime),
+//             dptTime: leg.CvtDptTime,
+//             arvTime: leg.CvtArvTime,
+//             flyingHours: formatMinutes(leg.LegTotalFlying),
+//             pc: leg.LegPC,
+//             // boardingTime: calculateBoardingTime(leg.DptTime ),
+//             // boardingTime: toHHmm(leg.DptTime - 30),
+//             layover: leg.Layover ? formatMinutes(leg.Layover) : null,
+//             eod: leg.EOD
+//         }));
+
+//         return res.status(200).json({
+//             message: "Legs Fetched Successfully",
+//             sequence: formatted,
+//         });
+//     } catch (error: any) {
+//         return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({
+//             message: Messages.INTERNAL_SERVER_ERROR,
+//             error: error.message
+//         });
+//     }
+// };
 
 export const applyPosition = async (req: Request, res: Response): Promise<any> => {
     try {
-        const { seqNo, position, effDate, bidMonth } = req.body;
+        // const { seqNo, position, effDate, bidMonth } = req.body;
+        const { uniqueSeqNo, position, effDate, bidMonth } = req.body;
         const userId = (req as any).user.id
-        if (!seqNo || !position) {
+        if (!uniqueSeqNo || !position) {
             return res.status(StatusCode.BAD_REQUEST).json({ message: "seqNo and position are required" });
         }
 
-        const checkAlreadyAppliedOnSequnce = await checkAlreadyApplied(seqNo, bidMonth, effDate, userId)
+        const checkAlreadyAppliedOnSequnce = await checkAlreadyApplied(uniqueSeqNo, bidMonth, effDate, userId)
         if (checkAlreadyAppliedOnSequnce) {
             return res.status(409).json({ "message": "Already Applied on this sequence" });
         }
 
         // const updatedSeqCrewPos = await updatePosition(Number(seqNo), Number(position), effDate);
-        const updatedSeqCrewPos = await updatePosition(Number(seqNo), Number(position), bidMonth);
-
+        // const updatedSeqCrewPos = await updatePosition(Number(seqNo), Number(position), effDate, bidMonth);
+        const updatedSeqCrewPos = await updatePosition(uniqueSeqNo, Number(position), effDate, bidMonth);
+        // return res.json({ updatedSeqCrewPos });
         if (!updatedSeqCrewPos) {
             return res.status(StatusCode.NOT_FOUND).json({ message: Messages.NOT_FOUND });
         }
 
         const newUserSequenceId = await addSequenceDataInUserSequence(userId, updatedSeqCrewPos, position, effDate, updatedSeqCrewPos.originalDigit);
-        const newUserLegId = await addLegDataInUserLeg(userId, seqNo, bidMonth, newUserSequenceId);
+        const newUserLegId = await addLegDataInUserLeg(userId, uniqueSeqNo, bidMonth, effDate, newUserSequenceId);
 
         return res.status(StatusCode.OK).json({
             message: "Position Applied Successfully",
@@ -1674,134 +1716,325 @@ export const basePay = async (req: Request, res: Response): Promise<any> => {
         return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({ message: Messages.INTERNAL_SERVER_ERROR, error: error.message });
     }
 }
+// old
+// export const deleteSequence = async (req: Request, res: Response): Promise<any> => {
+//     try {
+//         const { userId, uniqueSeqNo, effDate } = req.body;
 
+//         if (!userId || !uniqueSeqNo || !effDate) {
+//             return res
+//                 .status(StatusCode.BAD_REQUEST)
+//                 .json({ message: "userId, uniqueSeqNo, and effDate are required." });
+//         }
+//         // const { userId, seqNo, bidMonth } = req.body;
+
+//         // if (!userId || !seqNo || !bidMonth) {
+//         //     return res
+//         //         .status(StatusCode.BAD_REQUEST)
+//         //         .json({ message: "userId, seqNo, and bidMonth are required." });
+//         // }
+
+//         const pool = await getPool();
+
+//         // Step 1: Fetch the UserSequence record (we need the PositionAppliedOn)
+//         const { recordset: sequenceResult } = await pool
+//             .request()
+//             .input("UserID", userId)
+//             .input("UniqueSeqNo", uniqueSeqNo)
+//             // .input("BidMonth", bidMonth)
+//             .input("effDate", effDate)
+//             .query(`
+//                 SELECT TOP 1 UserSequenceID, PositionAppliedOn, PositionAppliedOnLetter
+//                 FROM UserSequence 
+//                 WHERE UserID = @UserID AND UniqueSeqNo = @UniqueSeqNo AND EffDate = @effDate
+//             `);
+//         // WHERE UserID = @UserID AND SeqNo = @SeqNo AND BidMonth = @BidMonth
+
+//         if (sequenceResult.length === 0) {
+//             return res
+//                 .status(StatusCode.NOT_FOUND)
+//                 .json({ message: "No sequence found for this user." });
+//         }
+
+//         const userSequenceId = sequenceResult[0].UserSequenceID;
+//         const positionAppliedOn = sequenceResult[0].PositionAppliedOn;
+//         const positionAppliedOnLetter = sequenceResult[0].PositionAppliedOnLetter;
+
+//         // return res.json({ sequenceResult });
+
+//         // Step 2: Begin transaction
+//         const transaction = pool.transaction();
+//         await transaction.begin();
+
+//         try {
+//             // Step 3: Fetch the current SeqCrewPos for this sequence
+//             const { recordset: seqData } = await transaction
+//                 .request()
+//                 // .input("SeqNo", seqNo)
+//                 // .input("BidMonth", bidMonth)
+//                 .input("UniqueSeqNo", uniqueSeqNo)
+//                 .input("effDate", effDate)
+//                 .query(`
+//                     SELECT SeqCrewPos 
+//                     FROM Sequence 
+//                     WHERE UniqueSeqNo = @UniqueSeqNo AND EffDate = @effDate
+//                 `);
+//             //   WHERE SeqNo = @SeqNo AND BidMonth = @BidMonth
+//             console.log("++++>>>>", positionAppliedOnLetter)
+//             // return res.json({ seqData });
+//             if (seqData.length > 0) {
+//                 // let seqCrewPos = seqData[0].SeqCrewPos;
+//                 let seqCrewPos = seqData[0].SeqCrewPos;
+//                 let seqCrewPosArr = seqCrewPos.split("");
+
+//                 // Step 4: Revert that position back to "1" (make it available again)
+//                 if (positionAppliedOn > 0 && positionAppliedOn <= seqCrewPosArr.length) {
+//                     seqCrewPosArr[positionAppliedOn - 1] = positionAppliedOnLetter.trim();
+//                 }
+
+//                 // return res.json({ seqCrewPosArr });
+//                 const updatedSeqCrewPos = seqCrewPosArr.join("");
+//                 // return res.json({ updatedSeqCrewPos });
+
+//                 console.log("Length:", updatedSeqCrewPos.length);
+//                 console.log("Value:", JSON.stringify(updatedSeqCrewPos));
+
+//                 // Step 5: Update Sequence table
+//                 await transaction
+//                     .request()
+//                     // .input("SeqNo", seqNo)
+//                     // .input("BidMonth", bidMonth)
+//                     .input("UniqueSeqNo", uniqueSeqNo)
+//                     .input("effDate", effDate)
+//                     .input("SeqCrewPos", sql.VarChar(20), updatedSeqCrewPos)
+//                     .query(`
+//                         UPDATE Sequence
+//                         SET SeqCrewPos = @SeqCrewPos
+//                         WHERE UniqueSeqNo = @uniqueSeqNo AND EffDate = @effDate
+//                     `);
+//                 await transaction
+//                     .request()
+//                     // .input("SeqNo", seqNo)
+//                     // .input("BidMonth", bidMonth)
+//                     .input("UniqueSeqNo", uniqueSeqNo)
+//                     .input("effDate", effDate)
+//                     .input("SeqCrewPos", sql.VarChar(20), updatedSeqCrewPos)
+//                     .query(`
+//                         UPDATE Frequency
+//                         SET SeqCrewPos = @SeqCrewPos
+//                         WHERE UniqueSeqNo = @uniqueSeqNo AND frequency_date = @effDate
+//                     `);
+//             }
+//             else {
+//                 await transaction
+//                     .request()
+//                     // .input("SeqNo", seqNo)
+//                     // .input("BidMonth", bidMonth)
+//                     .input("UniqueSeqNo", uniqueSeqNo)
+//                     .input("effDate", effDate)
+//                     .input("SeqCrewPos", sql.VarChar(20), updatedSeqCrewPos)
+//                     .query(`
+//                         UPDATE Frequency
+//                         SET SeqCrewPos = @SeqCrewPos
+//                         WHERE UniqueSeqNo = @uniqueSeqNo AND frequency_date = @effDate
+//                     `);
+//             }
+
+//             // Step 6: Delete associated UserLegs
+//             await transaction
+//                 .request()
+//                 .input("UserSequenceID", userSequenceId)
+//                 .query(`DELETE FROM UserLeg WHERE UserSequenceID = @UserSequenceID`);
+
+//             // Step 7: Delete the UserSequence
+//             await transaction
+//                 .request()
+//                 .input("UserSequenceID", userSequenceId)
+//                 .query(`DELETE FROM UserSequence WHERE UserSequenceID = @UserSequenceID`);
+
+//             // Step 8: Commit transaction
+//             await transaction.commit();
+
+//             console.log(`✅ Sequence ${userSequenceId} deleted and position reverted successfully.`);
+
+//             return res.status(StatusCode.OK).json({
+//                 message: "Sequence deleted and position made available again."
+//             });
+
+//         } catch (innerError: any) {
+//             await transaction.rollback();
+//             console.error("❌ Transaction rolled back:", innerError);
+//             return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({
+//                 message: "Internal Server Error",
+//                 error: innerError.message
+//             });
+//         }
+
+//     } catch (error: any) {
+//         console.error("Error in deleteSequence:", error);
+//         return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({
+//             message: "Internal Server Error",
+//             error: error.message
+//         });
+//     }
+// };
+
+// === API endpoint to test manually in Postman ===
+
+// new
+
+// new
 export const deleteSequence = async (req: Request, res: Response): Promise<any> => {
     try {
-        const { userId, seqNo, effDate } = req.body;
+        const { userId, uniqueSeqNo, effDate } = req.body;
 
-        if (!userId || !seqNo || !effDate) {
-            return res
-                .status(StatusCode.BAD_REQUEST)
-                .json({ message: "userId, seqNo, and effDate are required." });
+        if (!userId || !uniqueSeqNo || !effDate) {
+            return res.status(StatusCode.BAD_REQUEST).json({
+                message: "userId, uniqueSeqNo, and effDate are required."
+            });
         }
-        // const { userId, seqNo, bidMonth } = req.body;
-
-        // if (!userId || !seqNo || !bidMonth) {
-        //     return res
-        //         .status(StatusCode.BAD_REQUEST)
-        //         .json({ message: "userId, seqNo, and bidMonth are required." });
-        // }
 
         const pool = await getPool();
 
-        // Step 1: Fetch the UserSequence record (we need the PositionAppliedOn)
-        const { recordset: sequenceResult } = await pool
-            .request()
+        // 1️⃣ Get UserSequence (outside transaction is OK for read)
+        const { recordset: sequenceResult } = await pool.request()
             .input("UserID", userId)
-            .input("SeqNo", seqNo)
-            // .input("BidMonth", bidMonth)
+            .input("UniqueSeqNo", uniqueSeqNo)
             .input("effDate", effDate)
             .query(`
-        SELECT TOP 1 UserSequenceID, PositionAppliedOn, PositionAppliedOnLetter
-        FROM UserSequence 
-        WHERE UserID = @UserID AND SeqNo = @SeqNo AND EffDate = @effDate
+            SELECT TOP 1 UserSequenceID, PositionAppliedOn, PositionAppliedOnLetter
+            FROM UserSequence 
+            WHERE UserID = @UserID 
+            AND UniqueSeqNo = @UniqueSeqNo 
+            AND EffDate = @effDate
         `);
-        // WHERE UserID = @UserID AND SeqNo = @SeqNo AND BidMonth = @BidMonth
 
         if (sequenceResult.length === 0) {
-            return res
-                .status(StatusCode.NOT_FOUND)
-                .json({ message: "No sequence found for this user." });
+            return res.status(StatusCode.NOT_FOUND).json({
+                message: "No sequence found for this user."
+            });
         }
 
         const userSequenceId = sequenceResult[0].UserSequenceID;
         const positionAppliedOn = sequenceResult[0].PositionAppliedOn;
         const positionAppliedOnLetter = sequenceResult[0].PositionAppliedOnLetter;
 
-        // return res.json({ sequenceResult });
-
-        // Step 2: Begin transaction
-        const transaction = pool.transaction();
+        // 2️⃣ START TRANSACTION
+        const transaction = new sql.Transaction(pool);
         await transaction.begin();
 
         try {
-            // Step 3: Fetch the current SeqCrewPos for this sequence
-            const { recordset: seqData } = await transaction
-                .request()
-                .input("SeqNo", seqNo)
-                // .input("BidMonth", bidMonth)
-                .input("effDate", effDate)
+            // 3️⃣ Lock Sequence row
+            let request = new sql.Request(transaction);
+
+            const seqResult = await request
+                .input("uniqueSeqNo", sql.VarChar, uniqueSeqNo)
+                .input("effDate", sql.NVarChar, effDate)
                 .query(`
-          SELECT SeqCrewPos 
-          FROM Sequence 
-          WHERE SeqNo = @SeqNo AND EffDate = @effDate
-          `);
-            //   WHERE SeqNo = @SeqNo AND BidMonth = @BidMonth
-            console.log("++++>>>>", positionAppliedOnLetter)
-            // return res.json({ seqData });
-            if (seqData.length > 0) {
-                // let seqCrewPos = seqData[0].SeqCrewPos;
-                let seqCrewPos = seqData[0].SeqCrewPos;
-                let seqCrewPosArr = seqCrewPos.split("");
-
-                // Step 4: Revert that position back to "1" (make it available again)
-                if (positionAppliedOn > 0 && positionAppliedOn <= seqCrewPosArr.length) {
-                    seqCrewPosArr[positionAppliedOn - 1] = positionAppliedOnLetter.trim();
-                }
-
-                // return res.json({ seqCrewPosArr });
-                const updatedSeqCrewPos = seqCrewPosArr.join("");
-                // return res.json({ updatedSeqCrewPos });
-
-                console.log("Length:", updatedSeqCrewPos.length);
-                console.log("Value:", JSON.stringify(updatedSeqCrewPos));
-
-                // Step 5: Update Sequence table
-                await transaction
-                    .request()
-                    .input("SeqNo", seqNo)
-                    // .input("BidMonth", bidMonth)
-                    .input("effDate", effDate)
-                    .input("SeqCrewPos", sql.VarChar(20), updatedSeqCrewPos)
-                    .query(`
-                UPDATE Sequence
-                SET SeqCrewPos = @SeqCrewPos
-                WHERE SeqNo = @SeqNo AND EffDate = @effDate
+                SELECT SeqCrewPos
+                FROM Sequence WITH (UPDLOCK, HOLDLOCK)
+                WHERE UniqueSeqNo = @uniqueSeqNo 
+                AND EffDate = @effDate
             `);
+
+            const seqExists = seqResult.recordset.length > 0;
+
+            // 4️⃣ Lock Frequency row
+            request = new sql.Request(transaction);
+
+            const freqResult = await request
+                .input("uniqueSeqNo", sql.VarChar, uniqueSeqNo)
+                .input("effDate", sql.NVarChar, effDate)
+                .query(`
+                SELECT SeqCrewPos
+                FROM Frequency WITH (UPDLOCK, HOLDLOCK)
+                WHERE UniqueSeqNo = @uniqueSeqNo 
+                AND frequency_date = @effDate
+            `);
+
+            const freqExists = freqResult.recordset.length > 0;
+
+            // ❗ Decide source
+            const sourceRow = seqExists
+                ? seqResult.recordset[0]
+                : freqExists
+                    ? freqResult.recordset[0]
+                    : null;
+
+            if (!sourceRow) {
+                await transaction.rollback();
+                return res.status(404).json({ message: "No data found to update." });
             }
 
-            // Step 6: Delete associated UserLegs
-            await transaction
-                .request()
+            let seqCrewPosArr = sourceRow.SeqCrewPos.split("");
+
+            // 5️⃣ Revert position
+            if (positionAppliedOn > 0 && positionAppliedOn <= seqCrewPosArr.length) {
+                seqCrewPosArr[positionAppliedOn - 1] = positionAppliedOnLetter.trim();
+            }
+
+            const updatedSeqCrewPos = seqCrewPosArr.join("");
+            console.log("updated Seq Crew Pos", updatedSeqCrewPos);
+            // 6️⃣ Update Sequence ONLY if exists
+            if (seqExists) {
+                request = new sql.Request(transaction);
+
+                await request
+                    .input("uniqueSeqNo", sql.VarChar, uniqueSeqNo)
+                    .input("effDate", sql.NVarChar, effDate)
+                    .input("SeqCrewPos", sql.VarChar(20), updatedSeqCrewPos)
+                    .query(`
+                    UPDATE Sequence
+                    SET SeqCrewPos = @SeqCrewPos
+                    WHERE UniqueSeqNo = @uniqueSeqNo 
+                    AND EffDate = @effDate
+                `);
+            }
+
+            // 7️⃣ Update Frequency ONLY if exists
+            if (freqExists) {
+                request = new sql.Request(transaction);
+
+                await request
+                    .input("uniqueSeqNo", sql.VarChar, uniqueSeqNo)
+                    .input("effDate", sql.NVarChar, effDate)
+                    .input("SeqCrewPos", sql.VarChar(20), updatedSeqCrewPos)
+                    .query(`
+                    UPDATE Frequency
+                    SET SeqCrewPos = @SeqCrewPos
+                    WHERE UniqueSeqNo = @uniqueSeqNo 
+                    AND frequency_date = @effDate
+                `);
+            }
+
+            // 8️⃣ Delete UserLegs
+            request = new sql.Request(transaction);
+            await request
                 .input("UserSequenceID", userSequenceId)
                 .query(`DELETE FROM UserLeg WHERE UserSequenceID = @UserSequenceID`);
 
-            // Step 7: Delete the UserSequence
-            await transaction
-                .request()
+            // 9️⃣ Delete UserSequence
+            request = new sql.Request(transaction);
+            await request
                 .input("UserSequenceID", userSequenceId)
                 .query(`DELETE FROM UserSequence WHERE UserSequenceID = @UserSequenceID`);
 
-            // Step 8: Commit transaction
+            // 🔟 Commit
             await transaction.commit();
 
-            console.log(`✅ Sequence ${userSequenceId} deleted and position reverted successfully.`);
-
             return res.status(StatusCode.OK).json({
-                message: "Sequence deleted and position made available again."
+                message: "Sequence deleted and position restored successfully."
             });
 
         } catch (innerError: any) {
             await transaction.rollback();
-            console.error("❌ Transaction rolled back:", innerError);
             return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({
-                message: "Internal Server Error",
+                message: "Transaction failed",
                 error: innerError.message
             });
         }
 
     } catch (error: any) {
-        console.error("Error in deleteSequence:", error);
         return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({
             message: "Internal Server Error",
             error: error.message
@@ -1809,9 +2042,6 @@ export const deleteSequence = async (req: Request, res: Response): Promise<any> 
     }
 };
 
-// === API endpoint to test manually in Postman ===
-
-// new
 export const getStubs = async (req: Request, res: Response): Promise<any> => {
     try {
         const { flightNumber, date } = req.params; // e.g., "UAL4", "2025-10-05"
