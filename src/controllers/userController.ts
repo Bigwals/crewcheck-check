@@ -1516,6 +1516,8 @@ export const filterByDate = async (req: Request, res: Response): Promise<any> =>
         // const effDate = req.query.effDate as string; // "2025-11-17"
         const effDate = (req.query.effDate as string);
 
+        const sequences: any[] = [];
+
         if (!uniqueSeqNo) {
             return res.status(400).json({ message: "uniqueSeqNo is required and must be numeric" });
         }
@@ -1530,10 +1532,15 @@ export const filterByDate = async (req: Request, res: Response): Promise<any> =>
         if (!data) {
             return res.status(404).json({ message: "No sequence found for given seqNo and frequency_date" });
         }
-
+        for (const dt of data) {
+            sequences.push({
+                ...dt,
+                slots: normalizeSeqCrewPos(dt.SeqCrewPos),
+            });
+        }
         return res.status(200).json({
             message: "Data Fetched Successfully",
-            data: data,
+            data: sequences,
         });
     } catch (error: any) {
         return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({
