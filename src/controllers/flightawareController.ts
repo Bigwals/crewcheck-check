@@ -116,8 +116,10 @@ export const getStubs = async (req: Request, res: Response): Promise<any> => {
         // const start = `${date}T00:00:00Z`;
         // const end = `${date}T23:59:59Z`;
 
-        const FLIGHTAWARE_BASE_URL = process.env.FLIGHTAWARE_BASE_URL;
-        const API_KEY = process.env.FLIGHTAWARE_API_KEY;
+        const FLIGHTAWARE_BASE_URL = "https://aeroapi.flightaware.com/aeroapi";
+        const API_KEY = "NcYAnOY3xQVRp25AcvLGj4t1Ar6CE6fy";
+        // const FLIGHTAWARE_BASE_URL = process.env.FLIGHTAWARE_BASE_URL;
+        // const API_KEY = process.env.FLIGHTAWARE_API_KEY;
 
         // 🔹 Fetch flight data from FlightAware
         const response = await axios.get(`${FLIGHTAWARE_BASE_URL}/flights/${flightNumber}`, {
