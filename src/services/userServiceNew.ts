@@ -467,7 +467,7 @@ export const addSequenceDataInUserSequence = async (
   position: number,
   effDate: Date,
   digit: string,
-  // effDate: string
+  l_r_type: boolean
 ) => {
   const userSequenceId = uuidv4();
   const pool = await getPool();
@@ -536,15 +536,16 @@ export const addSequenceDataInUserSequence = async (
   request.input("BidMonth", sql.NVarChar, crewSeqPos.BidMonth);
   request.input("PositionAppliedOn", sql.Int, position);
   request.input("PositionAppliedOnLetter", sql.Char, digit);
+  request.input("l_r_type", sql.Bit, l_r_type);
 
   const query = `
-    INSERT INTO UserSequence (
-      UserSequenceID, UserID, UniqueSeqNo, RecordType, CrewCat, CrewBase, SeqCategory, DataVersion, EffDate,
-      ThruDate, Frequency, SeqNo, SeqType, NBR_Legs, NBR_Days, NBR_Duty, SeqCrewPos, SeqFlyTime, SeqPC, TAFB,
-      AutoExp, Pay, PriorSeq, DateRmvd, SeqPremTime, Language1, Language2, Reserved, B777300, B77W300, B772_200,
-      B787_900, B787_800, B787P_900, A321_AK, A321_XLR, A321_NEO, A321, A320, A319, B737_MAX, B737, E190, CovidStationRestriction,
-      Redeye, ODAN, IPDPremium, Charter,Satellite, CoTerminal, PremiumTranscon, Rocket, IPD, NIPD, Notes, CvtSeqFlyTime, CvtSeqPC,
-      CvtTAFB, CvtSeqPremTime, BidMonth, PositionAppliedOn, PositionAppliedOnLetter
+  INSERT INTO UserSequence (
+    UserSequenceID, UserID, UniqueSeqNo, RecordType, CrewCat, CrewBase, SeqCategory, DataVersion, EffDate,
+    ThruDate, Frequency, SeqNo, SeqType, NBR_Legs, NBR_Days, NBR_Duty, SeqCrewPos, SeqFlyTime, SeqPC, TAFB,
+    AutoExp, Pay, PriorSeq, DateRmvd, SeqPremTime, Language1, Language2, Reserved, B777300, B77W300, B772_200,
+    B787_900, B787_800, B787P_900, A321_AK, A321_XLR, A321_NEO, A321, A320, A319, B737_MAX, B737, E190, CovidStationRestriction,
+    Redeye, ODAN, IPDPremium, Charter,Satellite, CoTerminal, PremiumTranscon, Rocket, IPD, NIPD, Notes, CvtSeqFlyTime, CvtSeqPC,
+    CvtTAFB, CvtSeqPremTime, BidMonth, PositionAppliedOn, PositionAppliedOnLetter, L_R_Type
     )
     VALUES (
       @UserSequenceID, @UserID, @UniqueSeqNo, @RecordType, @CrewCat, @CrewBase, @SeqCategory, @DataVersion, @EffDate,
@@ -553,7 +554,7 @@ export const addSequenceDataInUserSequence = async (
       @Pay, @PriorSeq, @DateRmvd, @SeqPremTime, @Language1, @Language2, @Reserved, @B777300, @B77W300, @B772_200, @B787_900,
       @B787_800, @B787P_900, @A321_AK, @A321_XLR, @A321_NEO, @A321, @A320, @A319, @B737_MAX, @B737, @E190, @CovidStationRestriction,
       @Redeye, @ODAN, @IPDPremium, @Charter, @Satellite, @CoTerminal, @PremiumTranscon, @Rocket, @IPD, @NIPD, @Notes, @CvtSeqFlyTime, @CvtSeqPC,
-      @CvtTAFB, @CvtSeqPremTime, @BidMonth, @PositionAppliedOn, @PositionAppliedOnLetter
+      @CvtTAFB, @CvtSeqPremTime, @BidMonth, @PositionAppliedOn, @PositionAppliedOnLetter, @L_R_Type
     )`;
 
   await request.query(query);
