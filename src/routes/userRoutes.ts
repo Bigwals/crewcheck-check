@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import {
-    getProfile, getCrewBaseRanking, uploadAvatar, changePassword, sequenceWithLegs, sequence,
+    getProfile, getCrewBaseRanking, uploadAvatar, updateProfile, changePassword, sequenceWithLegs, sequence,
     filterByDate, applyPosition, basePay, updateReserve, deleteSequence,
     getStubs, get12MonthSequenceData, searchByMonth
 } from '../controllers/userController';
@@ -18,6 +18,7 @@ router.get('/get-crew-bases', authenticate, getCrewBaseRanking);
 // router.get('/get-crew-bases', getCrewBaseRanking);
 // router.post('/upload-avatar', authenticate, upload.single('file'), uploadAvatar);
 router.post('/upload-avatar', authenticate, uploadAvatar);
+router.patch('/update-profile', authenticate, updateProfile)
 
 // sequence or userSequence
 // router.get('/sequence-calender', authenticate, sequence)

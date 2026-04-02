@@ -461,6 +461,43 @@ export const updatePosition = async (
   };
 };
 
+// export const updateCrewProfile = async (crewId: number, base: string, occ_date: string, aa_seniority: string, speaker: string,) => {
+export const updateCrewProfile = async (
+  crewId: number,
+  base: string,
+  occ_date: string,
+  aa_seniority: string
+) => {
+  const pool = await getPool();
+
+  await pool.request()
+    .input("crewId", sql.Int, crewId)
+    .input("base", sql.VarChar, base)
+    .input("occ_date", sql.VarChar, occ_date)
+    .input("aa_seniority", sql.VarChar, aa_seniority)
+    .query(`
+      UPDATE Users 
+      SET 
+        Base = @base, 
+        OccDate = @occ_date, 
+        Seniority = @aa_seniority 
+      WHERE crewId = @crewId
+    `);
+
+  // Return updated record
+  const result = await pool.request()
+    .input("crewId", sql.Int, crewId)
+    .query(`
+      SELECT 
+        crewId, FirstName, LastName, Email, ImageUrl, 
+        Base, OccDate, Seniority 
+      FROM Users 
+      WHERE crewId = @crewId
+    `);
+
+  return result.recordset[0];
+};
+
 export const addSequenceDataInUserSequence = async (
   userId: string,
   crewSeqPos: any,

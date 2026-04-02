@@ -8,7 +8,8 @@ import { deleteFileFromStorage, deleteMedia, updateCrewAvatar, updateCrewReverse
 import {
     findCrewById, findCrewByEmail, getCrewPayDetails, UpdatePassword, findBySequenceNo, getBoardingPayByYears, updatePosition,
     addSequenceDataInUserSequence, findUserAppliedSequenceNo, addLegDataInUserLeg, getAllCrews, getCrewPayDetail,
-    getUserLanguages, getDynamicBaseRate, checkAlreadyApplied, findByBidMonth, findByDateAndSeqNo
+    getUserLanguages, getDynamicBaseRate, checkAlreadyApplied, findByBidMonth, findByDateAndSeqNo,
+    updateCrewProfile
 }
     from '../services/userServiceNew';
 import bcrypt from 'bcrypt';
@@ -254,6 +255,31 @@ export const uploadAvatar = async (req: Request, res: Response): Promise<any> =>
     }
 };
 
+export const updateProfile = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const crewId = (req as any).user.crewId;
+        // ✅ Get crew from SQL Server
+        // const { base, occ_date, aa_seniority, speaker,
+        //     languages, } = req.body;
+        const { base, occ_date, aa_seniority } = req.body;
+
+        const crew = await findCrewById(crewId);
+        if (!crew) {
+            return res.status(StatusCode.NOT_FOUND).json({ message: Messages.NOT_FOUND });
+        }
+
+        // ✅ Update SQL Server with new avatar filename
+        const updatedCrew = await updateCrewProfile(crewId, base, occ_date, aa_seniority);
+
+        return res.status(StatusCode.OK).json({
+            message: Messages.PROFILE_UPDATED,
+            user: updatedCrew
+        });
+    } catch (error: any) {
+        console.error("Upload Avatar Error:", error);
+        return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({ message: error.message });
+    }
+};
 export const updateReserve = async (req: Request, res: Response): Promise<any> => {
     try {
         const crewId = (req as any).user.crewId;
