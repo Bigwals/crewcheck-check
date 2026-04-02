@@ -473,6 +473,8 @@ export const addSequenceDataInUserSequence = async (
   const pool = await getPool();
   const request = pool.request();
 
+  // return l_r_type;
+
   request.input("UserSequenceID", sql.NVarChar, userSequenceId);
   request.input("UserID", sql.UniqueIdentifier, userId);
   request.input("UniqueSeqNo", sql.NVarChar, crewSeqPos.UniqueSeqNo);
@@ -536,7 +538,8 @@ export const addSequenceDataInUserSequence = async (
   request.input("BidMonth", sql.NVarChar, crewSeqPos.BidMonth);
   request.input("PositionAppliedOn", sql.Int, position);
   request.input("PositionAppliedOnLetter", sql.Char, digit);
-  request.input("l_r_type", sql.Bit, l_r_type);
+  request.input("L_R_Type", sql.Bit, l_r_type);
+  // request.input("L_R_Type", sql.Bit, !!l_r_type);
 
   const query = `
   INSERT INTO UserSequence (

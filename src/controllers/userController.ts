@@ -1613,20 +1613,20 @@ export const applyPosition = async (req: Request, res: Response): Promise<any> =
             return res.status(StatusCode.BAD_REQUEST).json({ message: "seqNo and position are required" });
         }
 
+        // return res.json({ l_r_type });
+
         const checkAlreadyAppliedOnSequnce = await checkAlreadyApplied(uniqueSeqNo, bidMonth, effDate, userId)
         if (checkAlreadyAppliedOnSequnce) {
             return res.status(409).json({ "message": "Already Applied on this sequence" });
         }
 
-        // const updatedSeqCrewPos = await updatePosition(Number(seqNo), Number(position), effDate);
-        // const updatedSeqCrewPos = await updatePosition(Number(seqNo), Number(position), effDate, bidMonth);
         const updatedSeqCrewPos = await updatePosition(uniqueSeqNo, Number(position), effDate, bidMonth);
         // return res.json({ updatedSeqCrewPos });
         if (!updatedSeqCrewPos) {
             return res.status(StatusCode.NOT_FOUND).json({ message: Messages.NOT_FOUND });
         }
 
-        const newUserSequenceId = await addSequenceDataInUserSequence(userId, updatedSeqCrewPos, position, effDate, l_r_type, updatedSeqCrewPos.originalDigit);
+        const newUserSequenceId = await addSequenceDataInUserSequence(userId, updatedSeqCrewPos, position, effDate, updatedSeqCrewPos.originalDigit, l_r_type);
         const newUserLegId = await addLegDataInUserLeg(userId, uniqueSeqNo, bidMonth, effDate, newUserSequenceId);
 
         return res.status(StatusCode.OK).json({
