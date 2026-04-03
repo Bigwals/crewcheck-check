@@ -3,13 +3,13 @@ import { Messages } from "../constants/responseMessages";
 import { StatusCode } from "../constants/statusCodes";
 import { resetPasswordSchema } from '../validations/authValidation';
 // import { deleteMedia, getUserProfile, uploadMedia } from '../services/authService';
-import { deleteFileFromStorage, deleteMedia, updateCrewAvatar, updateCrewReverse, uploadMedia } from '../services/authService';
+import { addLanguages, deleteFileFromStorage, deleteMedia, updateCrewAvatar, updateCrewReverse, uploadMedia } from '../services/authService';
 // import { findUserById, findUserByEmail, findUserAndUpdate } from '../services/userService';
 import {
     findCrewById, findCrewByEmail, getCrewPayDetails, UpdatePassword, findBySequenceNo, getBoardingPayByYears, updatePosition,
     addSequenceDataInUserSequence, findUserAppliedSequenceNo, addLegDataInUserLeg, getAllCrews, getCrewPayDetail,
     getUserLanguages, getDynamicBaseRate, checkAlreadyApplied, findByBidMonth, findByDateAndSeqNo,
-    updateCrewProfile
+    updateCrewProfile, deleteLanguages
 }
     from '../services/userServiceNew';
 import bcrypt from 'bcrypt';
@@ -256,29 +256,49 @@ export const uploadAvatar = async (req: Request, res: Response): Promise<any> =>
 };
 
 export const updateProfile = async (req: Request, res: Response): Promise<any> => {
-    try {
-        const crewId = (req as any).user.crewId;
-        // ✅ Get crew from SQL Server
-        // const { base, occ_date, aa_seniority, speaker,
-        //     languages, } = req.body;
-        const { base, occ_date, aa_seniority } = req.body;
+  try {
+    const crewId = (req as any).user.crewId;
+    const UserID = (req as any).user.id;
 
-        const crew = await findCrewById(crewId);
-        if (!crew) {
-            return res.status(StatusCode.NOT_FOUND).json({ message: Messages.NOT_FOUND });
-        }
+    const { base, occ_date, aa_seniority, purser, speaker, languages } = req.body;
 
-        // ✅ Update SQL Server with new avatar filename
-        const updatedCrew = await updateCrewProfile(crewId, base, occ_date, aa_seniority);
-
-        return res.status(StatusCode.OK).json({
-            message: Messages.PROFILE_UPDATED,
-            user: updatedCrew
-        });
-    } catch (error: any) {
-        console.error("Upload Avatar Error:", error);
-        return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({ message: error.message });
+    const crew = await findCrewById(crewId);
+    if (!crew) {
+      return res.status(StatusCode.NOT_FOUND).json({ message: Messages.NOT_FOUND });
     }
+
+    // ✅ Update profile first
+    const updatedCrew = await updateCrewProfile(
+      crewId,
+      base,
+      occ_date,
+      aa_seniority,
+      purser,
+      speaker
+    );
+
+    console.log("Languages from request:", languages);
+
+    // ✅ Proper language handling
+    if (Array.isArray(languages)) {
+      // Step 1: Delete old
+      await deleteLanguages(UserID);
+
+      // Step 2: Insert new (only if any)
+      if (languages.length > 0) {
+        await addLanguages(UserID, languages);
+      }
+    }
+
+    return res.status(StatusCode.OK).json({
+      message: Messages.PROFILE_UPDATED,
+      user: updatedCrew
+    });
+
+  } catch (error: any) {
+    console.error("Update Profile Error:", error);
+    return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({ message: error.message });
+  }
 };
 export const updateReserve = async (req: Request, res: Response): Promise<any> => {
     try {

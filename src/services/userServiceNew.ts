@@ -28,7 +28,7 @@ export const findCrewById = async (crewId: number) => {
   const result = await pool.request()
     .input("crewId", sql.Int, crewId)
     .query(`
-    SELECT * FROM Users WHERE crewId = @crewId
+    SELECT * FROM Users WHERE CrewID = @crewId
     `);
   return result.recordset.length > 0 ? result.recordset[0] : null;
 }
@@ -466,32 +466,39 @@ export const updateCrewProfile = async (
   crewId: number,
   base: string,
   occ_date: string,
-  aa_seniority: string
+  aa_seniority: string,
+  purser: string,
+  speaker: string
 ) => {
   const pool = await getPool();
 
+  // Update query
   await pool.request()
     .input("crewId", sql.Int, crewId)
     .input("base", sql.VarChar, base)
     .input("occ_date", sql.VarChar, occ_date)
     .input("aa_seniority", sql.VarChar, aa_seniority)
+    .input("purser", sql.NVarChar, purser)
+    .input("speaker", sql.NVarChar, speaker)
     .query(`
       UPDATE Users 
       SET 
         Base = @base, 
         OccDate = @occ_date, 
-        Seniority = @aa_seniority 
+        Seniority = @aa_seniority, 
+        Purser = @purser,
+        Speaker = @speaker
       WHERE crewId = @crewId
     `);
 
-  // Return updated record
+  // Fetch updated user (WITHOUT join to avoid duplicates)
   const result = await pool.request()
     .input("crewId", sql.Int, crewId)
     .query(`
       SELECT 
         crewId, FirstName, LastName, Email, ImageUrl, 
-        Base, OccDate, Seniority 
-      FROM Users 
+        Base, OccDate, Seniority, Purser, Speaker
+      FROM Users
       WHERE crewId = @crewId
     `);
 
@@ -840,11 +847,11 @@ export const getCrewPayDetails = async (crewId: number) => {
   return {
     basePay,
     yearsOfService,
-    aaSeniority: {
-      rank: companyIndex + 1,
-      totalInCompany: totalCompany,
-      percentage: companySeniorityPct
-    },
+    // aaSeniority: {
+    //   rank: companyIndex + 1,
+    //   totalInCompany: totalCompany,
+    //   percentage: companySeniorityPct
+    // },
     baseSeniority: {
       base: crew.Base,
       rank: aaIndex + 1,
@@ -993,3 +1000,24 @@ export async function getDynamicBaseRate(yearsOfService: number): Promise<number
     return 0;
   }
 }
+
+export const deleteLanguages = async (userId: string) => {
+  const pool = await getPool();
+  console.log("Deleting languages for user:", userId);
+
+  const request = pool.request();
+  request.input('userId', sql.UniqueIdentifier, userId);
+
+  const sqlQuery = `
+    DELETE FROM dbo.UserLanguage 
+    WHERE userId = @userId;
+  `;
+
+  try {
+    const result = await request.query(sqlQuery);
+    console.log(`Deleted ${result.rowsAffected[0]} record(s) for user ${userId}`);
+  } catch (error) {
+    console.error(`Error deleting for user '${userId}':`, error);
+    throw error; // optional: rethrow if caller needs to handle
+  }
+};
