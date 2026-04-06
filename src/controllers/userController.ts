@@ -256,50 +256,51 @@ export const uploadAvatar = async (req: Request, res: Response): Promise<any> =>
 };
 
 export const updateProfile = async (req: Request, res: Response): Promise<any> => {
-  try {
-    const crewId = (req as any).user.crewId;
-    const UserID = (req as any).user.id;
+    try {
+        const crewId = (req as any).user.crewId;
+        const UserID = (req as any).user.id;
 
-    const { base, occ_date, aa_seniority, purser, speaker, languages } = req.body;
+        const { base, occ_date, aa_seniority, purser, speaker, languages } = req.body;
 
-    const crew = await findCrewById(crewId);
-    if (!crew) {
-      return res.status(StatusCode.NOT_FOUND).json({ message: Messages.NOT_FOUND });
+        const crew = await findCrewById(crewId);
+        if (!crew) {
+            return res.status(StatusCode.NOT_FOUND).json({ message: Messages.NOT_FOUND });
+        }
+
+        // ✅ Update profile first
+        const updatedCrew = await updateCrewProfile(
+            crewId,
+            base,
+            occ_date,
+            aa_seniority,
+            purser,
+            speaker
+        );
+
+        console.log("Languages from request:", languages);
+
+        // ✅ Proper language handling
+        if (Array.isArray(languages)) {
+            // Step 1: Delete old
+            await deleteLanguages(UserID);
+
+            // Step 2: Insert new (only if any)
+            if (languages.length > 0) {
+                await addLanguages(UserID, languages);
+            }
+        }
+
+        return res.status(StatusCode.OK).json({
+            message: Messages.PROFILE_UPDATED,
+            user: updatedCrew
+        });
+
+    } catch (error: any) {
+        console.error("Update Profile Error:", error);
+        return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({ message: error.message });
     }
-
-    // ✅ Update profile first
-    const updatedCrew = await updateCrewProfile(
-      crewId,
-      base,
-      occ_date,
-      aa_seniority,
-      purser,
-      speaker
-    );
-
-    console.log("Languages from request:", languages);
-
-    // ✅ Proper language handling
-    if (Array.isArray(languages)) {
-      // Step 1: Delete old
-      await deleteLanguages(UserID);
-
-      // Step 2: Insert new (only if any)
-      if (languages.length > 0) {
-        await addLanguages(UserID, languages);
-      }
-    }
-
-    return res.status(StatusCode.OK).json({
-      message: Messages.PROFILE_UPDATED,
-      user: updatedCrew
-    });
-
-  } catch (error: any) {
-    console.error("Update Profile Error:", error);
-    return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({ message: error.message });
-  }
 };
+
 export const updateReserve = async (req: Request, res: Response): Promise<any> => {
     try {
         const crewId = (req as any).user.crewId;
@@ -761,8 +762,8 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
 
             // Premium Pay
             let premiumRate = 0;
-            if (category === "IPD") premiumRate = 3.75;
-            else if (category === "INT" || category === "HAW") premiumRate = 3.0; // HAW = INT
+            if (category == "IPD") premiumRate = 3.75;
+            else if (category == "INT" || category == "HAW") premiumRate = 3.0; // HAW = INT
             // else if (category === "SPK") premiumRate = 2.0;
 
             const userId = (req as any).user.id;
@@ -1595,6 +1596,7 @@ export const filterByDate = async (req: Request, res: Response): Promise<any> =>
         });
     }
 };
+
 // old
 // export const filterByDate = async (req: Request, res: Response): Promise<any> => {
 //     try {
@@ -1769,6 +1771,7 @@ export const basePay = async (req: Request, res: Response): Promise<any> => {
         return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({ message: Messages.INTERNAL_SERVER_ERROR, error: error.message });
     }
 }
+
 // old
 // export const deleteSequence = async (req: Request, res: Response): Promise<any> => {
 //     try {
@@ -1937,6 +1940,7 @@ export const basePay = async (req: Request, res: Response): Promise<any> => {
 // new
 
 // new
+
 export const deleteSequence = async (req: Request, res: Response): Promise<any> => {
     try {
         const { userId, uniqueSeqNo, effDate } = req.body;
@@ -2279,18 +2283,6 @@ export const searchByMonth = async (req: Request, res: Response): Promise<any> =
             premiumMap.set(key, row);
         }
 
-        const boardingResult = await pool.request()
-            .input("YearsOfService", sql.Int, yearsOfService)
-            .query(`
-            SELECT *
-            FROM boarding_pay
-            WHERE YearsOfService = @YearsOfService
-        `);
-
-        // const boardingRow = boardingResult.recordset?.[0] ?? null;
-
-        const boardingRow = boardingResult.recordset?.[0] ?? null;
-
         const uniqueSeqNos = sequenceData.map(s => s.UniqueSeqNo);
 
         // ---------- frequency bulk ----------
@@ -2512,7 +2504,7 @@ export const searchByMonth = async (req: Request, res: Response): Promise<any> =
 
             // CASE 1: DOM / IPD / HAW -> simple sequence-level rate
             if (category == "DOM") {
-                const perDiemRate = premiumTranscon !== 1 ? perDiem_dom : perDiem_int;
+                const perDiemRate = premiumTranscon != 1 ? perDiem_dom : perDiem_int;
                 tafbPay = tafbHours * perDiemRate;
             }
 
@@ -2581,6 +2573,18 @@ export const searchByMonth = async (req: Request, res: Response): Promise<any> =
             let hourlyBoardingRate = 0;
             let boarding_type = 0;
 
+            const boardingResult = await pool.request()
+                .input("YearsOfService", sql.Int, yearsOfService)
+                .query(`
+            SELECT *
+            FROM boarding_pay
+            WHERE YearsOfService = @YearsOfService
+            `);
+
+            // const boardingRow = boardingResult.recordset?.[0] ?? null;
+
+            const boardingRow = boardingResult.recordset?.[0] ?? null;
+
             for (const leg of leg_equip_types) {
                 const dep = (leg.dep_stn || "").toString().toUpperCase();
                 const arr = (leg.arr_stn || "").toString().toUpperCase();
@@ -2596,9 +2600,23 @@ export const searchByMonth = async (req: Request, res: Response): Promise<any> =
                 //     r.leg_equip_type == leg.leg_equip_type &&
                 //     r.seq_catagory == SeqCategory
                 // );
-                const key = `${leg.leg_equip_type}_${SeqCategory}`;
-                const posRow = premiumMap.get(key);
+                // old
+                // const key = `${leg.leg_equip_type}_${SeqCategory}`;
+                // const posRow = premiumMap.get(key);
 
+                // new
+                const positionPremiumPay = await pool.request()
+                    .input("leg", sql.Int, leg.leg_equip_type)
+                    .input("category", sql.NVarChar, SeqCategory)
+                    .query(`
+                    SELECT *
+                    FROM crew_premium_pos_count
+                    WHERE leg_equip_type = @leg
+                    and seq_catagory = @category
+                    `);
+                // FROM position_premium_rate
+
+                const posRow = positionPremiumPay.recordset?.[0] ?? null;
                 if (!posRow || !boardingRow) {
                     continue; // skip invalid rows
                 }
@@ -2669,8 +2687,8 @@ export const searchByMonth = async (req: Request, res: Response): Promise<any> =
 
             // Premium Pay
             let premiumRate = 0;
-            if (category === "IPD") premiumRate = 3.75;
-            else if (category === "INT" || category === "HAW") premiumRate = 3.0; // HAW = INT
+            if (category == "IPD") premiumRate = 3.75;
+            else if (category == "INT" || category == "HAW") premiumRate = 3.0; // HAW = INT
             // else if (category === "SPK") premiumRate = 2.0;
 
             // calculate base premiums
