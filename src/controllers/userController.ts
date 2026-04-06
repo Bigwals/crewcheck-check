@@ -2596,6 +2596,14 @@ export const searchByMonth = async (req: Request, res: Response): Promise<any> =
                 let SeqCategory = (isDepINT || isArrINT) ? 'INT' : 'DOM'; // if IPD use that one as INT
                 if (category == 'IPD') { SeqCategory = 'IPD' };
 
+                // let SeqCategory = (isDepINT || isArrINT) ? 'INT' : 'DOM'; // if IPD use that one as INT
+                // if (category == 'IPD') { SeqCategory = 'IPD' };
+
+                // let SeqCategory =
+                //     category === 'IPD' ? 'IPD' :
+                //         category === 'HAW' ? 'HAW' :
+                //             (isDepINT || isArrINT) ? 'INT' : 'DOM';
+
                 // const posRow = premiumRows.find(r =>
                 //     r.leg_equip_type == leg.leg_equip_type &&
                 //     r.seq_catagory == SeqCategory
@@ -2665,7 +2673,18 @@ export const searchByMonth = async (req: Request, res: Response): Promise<any> =
                 // ───────────────────────────────────────────────
                 // IPD / HAW
                 // ───────────────────────────────────────────────
-                else if (["IPD", "HAW"].includes(seqCat)) {
+                else if (seqCat == "IPD") {
+                    if (boardingType == 50) {
+                        console.log("boardingType", boardingType)
+                        console.log("SeqCat", seqCat)
+                        boarding_type += parseFloat(boardingRow.boarding_50_type)
+                        console.log("boarding_type", boarding_type)
+                        // hourlyBoardingRate += parseFloat(boardingRow.hourly_boarding_rate ?? 0);
+                        hourlyBoardingRate += parseFloat(boardingRow.boarding_50_type ?? 0);
+                    }
+                }
+
+                else if (seqCat == "HAW") {
                     if (boardingType == 50) {
                         console.log("boardingType", boardingType)
                         console.log("SeqCat", seqCat)
