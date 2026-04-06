@@ -663,8 +663,14 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
                 console.log("is Dept Int", isDepINT)
                 console.log("is Arr Int", isArrINT)
                 // Determine flight rate (if either station is INT -> INT rate, else DOM)
-                let SeqCategory = (isDepINT || isArrINT) ? 'INT' : 'DOM'; // if IPD use that one as INT
-                if (category == 'IPD') { SeqCategory = 'IPD' };
+                // let SeqCategory = (isDepINT || isArrINT) ? 'INT' : 'DOM'; // if IPD use that one as INT
+                // if (category == 'IPD') { SeqCategory = 'IPD' };
+
+                let SeqCategory =
+                    category == 'IPD' ? 'IPD' :
+                        category == 'HAW' ? 'HAW' :
+                            (isDepINT || isArrINT) ? 'INT' : 'DOM';
+
                 const positionPremiumPay = await pool.request()
                     .input("leg", sql.Int, leg.leg_equip_type)
                     .input("category", sql.NVarChar, SeqCategory)
