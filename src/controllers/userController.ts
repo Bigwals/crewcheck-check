@@ -2527,8 +2527,8 @@ export const searchByMonth = async (req: Request, res: Response): Promise<any> =
 
                     console.log("CvtDP")
                     // prefer explicit layover column if available
-                    // const cvtLayover = toDecimalHours(leg.CvtLayover ?? leg.CvtLayover ?? 0);
-                    const cvtLayover = toDecimalHours(leg.CvtLayover ?? 0);
+                    const cvtLayover = toDecimalHours(leg.CvtLayover ?? leg.CvtLayover ?? 0);
+                    // const cvtLayover = toDecimalHours(leg.CvtLayover ?? 0);
 
                     sanityLegTAFBTotal += (CvtDPOnDutyTime + cvtLayover);
 
