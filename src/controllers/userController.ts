@@ -668,7 +668,7 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
 
                 let SeqCategory =
                     category == 'IPD' ? 'IPD' :
-                        category == 'HAW' ? 'HAW' :
+                        category == 'HAW' ? 'IPD' :
                             (isDepINT || isArrINT) ? 'INT' : 'DOM';
 
                 const positionPremiumPay = await pool.request()
@@ -2599,11 +2599,13 @@ export const searchByMonth = async (req: Request, res: Response): Promise<any> =
                 const isArrINT = airportIntl[arr] == true;
 
                 // Determine flight rate (if either station is INT -> INT rate, else DOM)
-                let SeqCategory = (isDepINT || isArrINT) ? 'INT' : 'DOM'; // if IPD use that one as INT
-                if (category == 'IPD') { SeqCategory = 'IPD' };
-
                 // let SeqCategory = (isDepINT || isArrINT) ? 'INT' : 'DOM'; // if IPD use that one as INT
                 // if (category == 'IPD') { SeqCategory = 'IPD' };
+
+                let SeqCategory =
+                    category == 'IPD' ? 'IPD' :
+                        category == 'HAW' ? 'IPD' :
+                            (isDepINT || isArrINT) ? 'INT' : 'DOM';
 
                 // let SeqCategory =
                 //     category === 'IPD' ? 'IPD' :
