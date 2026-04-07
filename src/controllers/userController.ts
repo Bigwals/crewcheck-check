@@ -2652,6 +2652,7 @@ export const searchByMonth = async (req: Request, res: Response): Promise<any> =
                     }
                     else if (boardingType == 40) {
                         // hourlyBoardingRate += parseFloat(boardingRow.hourly_boarding_rate ?? 0);
+                        boarding_type += parseFloat(boardingRow.boarding_35_type)
                         hourlyBoardingRate += parseFloat(boardingRow.boarding_40_type ?? 0);
                     }
                 }
