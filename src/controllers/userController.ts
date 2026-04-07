@@ -2510,7 +2510,7 @@ export const searchByMonth = async (req: Request, res: Response): Promise<any> =
 
             // CASE 1: DOM / IPD / HAW -> simple sequence-level rate
             if (category == "DOM") {
-                const perDiemRate = premiumTranscon != 1 ? perDiem_dom : perDiem_int;
+                const perDiemRate = premiumTranscon !== 1 ? perDiem_dom : perDiem_int;
                 tafbPay = tafbHours * perDiemRate;
             }
 
@@ -2652,7 +2652,10 @@ export const searchByMonth = async (req: Request, res: Response): Promise<any> =
                     }
                     else if (boardingType == 40) {
                         // hourlyBoardingRate += parseFloat(boardingRow.hourly_boarding_rate ?? 0);
-                        boarding_type += parseFloat(boardingRow.boarding_35_type)
+                        console.log("boardingType", boardingType)
+                        console.log("SeqCat", seqCat)
+                        boarding_type += parseFloat(boardingRow.boarding_40_type)
+                        console.log("boarding_type", boarding_type)
                         hourlyBoardingRate += parseFloat(boardingRow.boarding_40_type ?? 0);
                     }
                 }
