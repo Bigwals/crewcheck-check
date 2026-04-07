@@ -125,11 +125,50 @@ export const findByBidMonth = async (crewBase: string, bidMonth: string) => {
   ORDER BY s.SeqNo, l.SeqLegNo
 `);
 
+  // const sequencesMap = new Map();
+// old
+  // result.recordset.forEach((row) => {
+  //   if (!sequencesMap.has(row.SeqNo)) {
+  //     sequencesMap.set(row.SeqNo, {
+  //       CrewBase: row.CrewBase,
+  //       SeqNo: row.SeqNo,
+  //       UniqueSeqNo: row.UniqueSeqNo,
+  //       SeqCategory: row.SeqCategory,
+  //       NBR_Legs: row.NBR_Legs,
+  //       SeqCrewPos: row.SeqCrewPos,
+  //       CvtSeqFlyTime: row.CvtSeqFlyTime,
+  //       CvtSeqPC: row.CvtSeqPC,
+  //       CvtTAFB: row.CvtTAFB,
+  //       CvtSeqPremTime: row.CvtSeqPremTime,
+  //       BidMonth: row.BidMonth,
+  //       legs: []
+  //     });
+  //   }
+
+  //   sequencesMap.get(row.SeqNo).legs.push({
+  //     SeqLegNo: row.SeqLegNo,
+  //     CvtDptTime: row.CvtDptTime,
+  //     CvtArvTime: row.CvtArvTime,
+  //     CvtLegPC: row.CvtLegPC,
+  //     EOD: row.EOD,
+  //     DptTime: row.DptTime,
+  //     ArvTime: row.ArvTime,
+  //     DeptStn: row.DeptStn,
+  //     ArrvStn: row.ArrvStn,
+  //     LegEqupType: row.LegEqupType,
+  //     LegPC: row.LegPC,
+  //     CvtLayover: row.CvtLayover
+  //   });
+  // });
+
+  // new
   const sequencesMap = new Map();
 
   result.recordset.forEach((row) => {
-    if (!sequencesMap.has(row.SeqNo)) {
-      sequencesMap.set(row.SeqNo, {
+    const key = `${row.SeqNo}_${row.BidMonth}`;
+
+    if (!sequencesMap.has(key)) {
+      sequencesMap.set(key, {
         CrewBase: row.CrewBase,
         SeqNo: row.SeqNo,
         UniqueSeqNo: row.UniqueSeqNo,
@@ -145,7 +184,7 @@ export const findByBidMonth = async (crewBase: string, bidMonth: string) => {
       });
     }
 
-    sequencesMap.get(row.SeqNo).legs.push({
+    sequencesMap.get(key).legs.push({
       SeqLegNo: row.SeqLegNo,
       CvtDptTime: row.CvtDptTime,
       CvtArvTime: row.CvtArvTime,
@@ -160,7 +199,6 @@ export const findByBidMonth = async (crewBase: string, bidMonth: string) => {
       CvtLayover: row.CvtLayover
     });
   });
-
   const formattedData = Array.from(sequencesMap.values());
 
   return formattedData;
