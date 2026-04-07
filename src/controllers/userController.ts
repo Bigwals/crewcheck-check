@@ -2520,15 +2520,70 @@ export const searchByMonth = async (req: Request, res: Response): Promise<any> =
             }
 
             // CASE 2: INT -> per-leg detailed calculation
+            // old
+            // else if (category == "INT") {
+            //     for (const leg of seqLegs) {
+            //         // console.log("seqLegs Inside the Sequence With Leg", seqLegs)
+            //         const CvtDPOnDutyTime = toDecimalHours(leg.CvtDPOnDutyTime);
+
+            //         console.log("CvtDP")
+            //         // prefer explicit layover column if available
+            //         const cvtLayover = toDecimalHours(leg.CvtLayover ?? leg.CvtLayover ?? 0);
+            //         // const cvtLayover = toDecimalHours(leg.CvtLayover ?? 0);
+
+            //         sanityLegTAFBTotal += (CvtDPOnDutyTime + cvtLayover);
+
+            //         const dep = (leg.DeptStn || "").toString().toUpperCase();
+            //         const arr = (leg.ArrvStn || "").toString().toUpperCase();
+
+            //         const isDepINT = airportIntl[dep] == true;
+            //         const isArrINT = airportIntl[arr] == true;
+
+            //         // console.log("is Dept Int", isDepINT)
+            //         // console.log("is Arr Int", isArrINT)
+            //         // Determine flight rate (if either station is INT -> INT rate, else DOM)
+            //         const legRate = (isDepINT || isArrINT) ? perDiem_int : perDiem_dom;
+
+            //         // console.log("Leg Rate", legRate)
+            //         // ---- IMPORTANT: EOD layover handling ----
+            //         // If EOD === 1 => apply arrival-based rate to cvtLayover.
+            //         // If EOD !== 1 => include layover in flightPart and pay at flightRate (no special layover pay).
+            //         let legPay = 0;
+            //         if (cvtLayover > 0 && Number(leg.EOD) == 1) {
+            //             // arrival-based layover rate per your rule:
+            //             // const layoverRate = isArrINT ? perDiem_int : perDiem_dom;
+            //             const layoverRate = (isDepINT || isArrINT) ? perDiem_int : perDiem_dom;
+            //             console.log("layoverRate", layoverRate)
+            //             legPay = (CvtDPOnDutyTime * legRate) + (cvtLayover * layoverRate);
+            //             // console.log("legPay inside EOD", legPay)
+            //         } else {
+            //             // no special layover pay: pay entire leg total at flightRate
+            //             legPay = (CvtDPOnDutyTime + cvtLayover) * legRate;
+            //             // console.log("legPay outside EOD", legPay)
+            //         }
+
+            //         tafbPay += legPay;
+            //     }
+
+            //     // sanity check vs seq.CvtTAFB
+            //     if (Math.abs(sanityLegTAFBTotal) > 0.01) {
+            //         console.warn("TAFB sanity match for Seq:", seq.SeqNo, {
+            //             seqTAFB: tafbHours,
+            //             summedLegTAFB: sanityLegTAFBTotal,
+            //         });
+            //     }
+            // }
+
+            // new copied from sequenceWithLegs
+
             else if (category == "INT") {
                 for (const leg of seqLegs) {
-                    // console.log("seqLegs Inside the Sequence With Leg", seqLegs)
+                    console.log("seqLegs Inside the Sequence With Leg", seqLegs)
                     const CvtDPOnDutyTime = toDecimalHours(leg.CvtDPOnDutyTime);
 
                     console.log("CvtDP")
                     // prefer explicit layover column if available
                     const cvtLayover = toDecimalHours(leg.CvtLayover ?? leg.CvtLayover ?? 0);
-                    // const cvtLayover = toDecimalHours(leg.CvtLayover ?? 0);
 
                     sanityLegTAFBTotal += (CvtDPOnDutyTime + cvtLayover);
 
@@ -2538,12 +2593,12 @@ export const searchByMonth = async (req: Request, res: Response): Promise<any> =
                     const isDepINT = airportIntl[dep] == true;
                     const isArrINT = airportIntl[arr] == true;
 
-                    // console.log("is Dept Int", isDepINT)
-                    // console.log("is Arr Int", isArrINT)
+                    console.log("is Dept Int", isDepINT)
+                    console.log("is Arr Int", isArrINT)
                     // Determine flight rate (if either station is INT -> INT rate, else DOM)
                     const legRate = (isDepINT || isArrINT) ? perDiem_int : perDiem_dom;
 
-                    // console.log("Leg Rate", legRate)
+                    console.log("Leg Rate", legRate)
                     // ---- IMPORTANT: EOD layover handling ----
                     // If EOD === 1 => apply arrival-based rate to cvtLayover.
                     // If EOD !== 1 => include layover in flightPart and pay at flightRate (no special layover pay).
@@ -2554,11 +2609,11 @@ export const searchByMonth = async (req: Request, res: Response): Promise<any> =
                         const layoverRate = (isDepINT || isArrINT) ? perDiem_int : perDiem_dom;
                         console.log("layoverRate", layoverRate)
                         legPay = (CvtDPOnDutyTime * legRate) + (cvtLayover * layoverRate);
-                        // console.log("legPay inside EOD", legPay)
+                        console.log("legPay inside EOD", legPay)
                     } else {
                         // no special layover pay: pay entire leg total at flightRate
                         legPay = (CvtDPOnDutyTime + cvtLayover) * legRate;
-                        // console.log("legPay outside EOD", legPay)
+                        console.log("legPay outside EOD", legPay)
                     }
 
                     tafbPay += legPay;
@@ -2685,24 +2740,31 @@ export const searchByMonth = async (req: Request, res: Response): Promise<any> =
                 // ───────────────────────────────────────────────
                 // IPD / HAW
                 // ───────────────────────────────────────────────
-                else if (seqCat == "IPD") {
-                    if (boardingType == 50) {
-                        console.log("boardingType", boardingType)
-                        console.log("SeqCat", seqCat)
-                        boarding_type += parseFloat(boardingRow.boarding_50_type)
-                        console.log("boarding_type", boarding_type)
-                        // hourlyBoardingRate += parseFloat(boardingRow.hourly_boarding_rate ?? 0);
-                        hourlyBoardingRate += parseFloat(boardingRow.boarding_50_type ?? 0);
-                    }
-                }
+                // else if (seqCat == "IPD") {
+                //     if (boardingType == 50) {
+                //         console.log("boardingType", boardingType)
+                //         console.log("SeqCat", seqCat)
+                //         boarding_type += parseFloat(boardingRow.boarding_50_type)
+                //         console.log("boarding_type", boarding_type)
+                //         // hourlyBoardingRate += parseFloat(boardingRow.hourly_boarding_rate ?? 0);
+                //         hourlyBoardingRate += parseFloat(boardingRow.boarding_50_type ?? 0);
+                //     }
+                // }
 
-                else if (seqCat == "HAW") {
+                // else if (seqCat == "HAW") {
+                //     if (boardingType == 50) {
+                //         console.log("boardingType", boardingType)
+                //         console.log("SeqCat", seqCat)
+                //         boarding_type += parseFloat(boardingRow.boarding_50_type)
+                //         console.log("boarding_type", boarding_type)
+                //         // hourlyBoardingRate += parseFloat(boardingRow.hourly_boarding_rate ?? 0);
+                //         hourlyBoardingRate += parseFloat(boardingRow.boarding_50_type ?? 0);
+                //     }
+                // }
+
+                else if (["IPD", "HAW"].includes(seqCat)) {
                     if (boardingType == 50) {
-                        console.log("boardingType", boardingType)
-                        console.log("SeqCat", seqCat)
-                        boarding_type += parseFloat(boardingRow.boarding_50_type)
-                        console.log("boarding_type", boarding_type)
-                        // hourlyBoardingRate += parseFloat(boardingRow.hourly_boarding_rate ?? 0);
+                        boarding_type += parseFloat(boardingRow.boarding_50_type);
                         hourlyBoardingRate += parseFloat(boardingRow.boarding_50_type ?? 0);
                     }
                 }
