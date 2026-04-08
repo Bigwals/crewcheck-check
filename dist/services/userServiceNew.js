@@ -36,7 +36,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getUserLanguages = exports.getCrewPayDetail = exports.getCrewPayDetails = exports.getAllCrews = exports.addLegDataInUserLeg = exports.addSequenceDataInUserSequence = exports.updatePosition = exports.getBoardingPayByYears = exports.findByDateAndSeqNo = exports.findUserAppliedSequenceNo = exports.findBySequenceNo = exports.findByCrewId = exports.UpdatePassword = exports.findCrewById = exports.findCrewByEmail = void 0;
+exports.deleteLanguages = exports.getUserLanguages = exports.getCrewPayDetail = exports.getCrewPayDetails = exports.getAllCrews = exports.addLegDataInUserLeg = exports.addSequenceDataInUserSequence = exports.updateCrewProfile = exports.updatePosition = exports.getBoardingPayByYears = exports.checkAlreadyApplied = exports.findByDateAndSeqNo = exports.findUserAppliedSequenceNo = exports.findByBidMonth = exports.findBySequenceNo = exports.findByCrewId = exports.UpdatePassword = exports.findCrewById = exports.findCrewByEmail = void 0;
+exports.getDynamicBaseRate = getDynamicBaseRate;
 const db_1 = require("../config/db");
 const uuid_1 = require("uuid");
 const dotenv_1 = __importDefault(require("dotenv"));
@@ -58,7 +59,7 @@ const findCrewById = async (crewId) => {
     const result = await pool.request()
         .input("crewId", db_1.sql.Int, crewId)
         .query(`
-    SELECT * FROM Users WHERE crewId = @crewId
+    SELECT * FROM Users WHERE CrewID = @crewId
     `);
     return result.recordset.length > 0 ? result.recordset[0] : null;
 };
@@ -104,6 +105,122 @@ const findBySequenceNo = async (seqNo, bidMonth) => {
     return result.recordset;
 };
 exports.findBySequenceNo = findBySequenceNo;
+const findByBidMonth = async (crewBase, bidMonth) => {
+    const pool = await (0, db_1.getPool)();
+    const request = pool.request();
+    request.input("crewBase", db_1.sql.VarChar, crewBase.trim());
+    request.input("bidMonth", db_1.sql.NVarChar, bidMonth.trim());
+    // new
+    const result = await request.query(`
+  SELECT 
+    s.CrewBase,
+    s.SeqNo,
+    s.UniqueSeqNo,
+    s.SeqCategory,
+    s.NBR_Legs,
+    s.SeqCrewPos,
+    s.CvtSeqFlyTime,
+    s.CvtSeqPC,
+    s.CvtTAFB,
+    s.CvtSeqPremTime,
+    s.BidMonth,
+
+    l.SeqLegNo,
+    l.CvtDptTime,
+    l.CvtArvTime,
+    l.CvtLegPC,
+    l.CvtDPOnDutyTime,
+    l.EOD,
+    l.DptTime,
+    l.ArvTime,
+    l.DeptStn,
+    l.ArrvStn,
+    l.LegEqupType,
+    l.LegPC,
+    l.CvtLayover
+
+  FROM dbo.Sequence s
+  INNER JOIN Leg l
+      ON s.SeqNo = l.SeqNo
+     AND s.BidMonth = l.BidMonth
+  WHERE s.CrewBase = @crewBase
+    AND s.BidMonth = @bidMonth
+  ORDER BY s.SeqNo, l.SeqLegNo
+`);
+    // const sequencesMap = new Map();
+    // old
+    // result.recordset.forEach((row) => {
+    //   if (!sequencesMap.has(row.SeqNo)) {
+    //     sequencesMap.set(row.SeqNo, {
+    //       CrewBase: row.CrewBase,
+    //       SeqNo: row.SeqNo,
+    //       UniqueSeqNo: row.UniqueSeqNo,
+    //       SeqCategory: row.SeqCategory,
+    //       NBR_Legs: row.NBR_Legs,
+    //       SeqCrewPos: row.SeqCrewPos,
+    //       CvtSeqFlyTime: row.CvtSeqFlyTime,
+    //       CvtSeqPC: row.CvtSeqPC,
+    //       CvtTAFB: row.CvtTAFB,
+    //       CvtSeqPremTime: row.CvtSeqPremTime,
+    //       BidMonth: row.BidMonth,
+    //       legs: []
+    //     });
+    //   }
+    //   sequencesMap.get(row.SeqNo).legs.push({
+    //     SeqLegNo: row.SeqLegNo,
+    //     CvtDptTime: row.CvtDptTime,
+    //     CvtArvTime: row.CvtArvTime,
+    //     CvtLegPC: row.CvtLegPC,
+    //     EOD: row.EOD,
+    //     DptTime: row.DptTime,
+    //     ArvTime: row.ArvTime,
+    //     DeptStn: row.DeptStn,
+    //     ArrvStn: row.ArrvStn,
+    //     LegEqupType: row.LegEqupType,
+    //     LegPC: row.LegPC,
+    //     CvtLayover: row.CvtLayover
+    //   });
+    // });
+    // new
+    const sequencesMap = new Map();
+    result.recordset.forEach((row) => {
+        const key = `${row.SeqNo}_${row.BidMonth}`;
+        if (!sequencesMap.has(key)) {
+            sequencesMap.set(key, {
+                CrewBase: row.CrewBase,
+                SeqNo: row.SeqNo,
+                UniqueSeqNo: row.UniqueSeqNo,
+                SeqCategory: row.SeqCategory,
+                NBR_Legs: row.NBR_Legs,
+                SeqCrewPos: row.SeqCrewPos,
+                CvtSeqFlyTime: row.CvtSeqFlyTime,
+                CvtSeqPC: row.CvtSeqPC,
+                CvtTAFB: row.CvtTAFB,
+                CvtSeqPremTime: row.CvtSeqPremTime,
+                BidMonth: row.BidMonth,
+                legs: []
+            });
+        }
+        sequencesMap.get(key).legs.push({
+            SeqLegNo: row.SeqLegNo,
+            CvtDptTime: row.CvtDptTime,
+            CvtArvTime: row.CvtArvTime,
+            CvtLegPC: row.CvtLegPC,
+            CvtDPOnDutyTime: row.CvtDPOnDutyTime,
+            EOD: row.EOD,
+            DptTime: row.DptTime,
+            ArvTime: row.ArvTime,
+            DeptStn: row.DeptStn,
+            ArrvStn: row.ArrvStn,
+            LegEqupType: row.LegEqupType,
+            LegPC: row.LegPC,
+            CvtLayover: row.CvtLayover
+        });
+    });
+    const formattedData = Array.from(sequencesMap.values());
+    return formattedData;
+};
+exports.findByBidMonth = findByBidMonth;
 const findUserAppliedSequenceNo = async (seqNo, bidMonth, userId) => {
     const pool = await (0, db_1.getPool)();
     const request = pool.request();
@@ -120,75 +237,277 @@ const findUserAppliedSequenceNo = async (seqNo, bidMonth, userId) => {
     return result.recordset;
 };
 exports.findUserAppliedSequenceNo = findUserAppliedSequenceNo;
-const findByDateAndSeqNo = async (seqNo, effDate) => {
+// export const findByDateAndUniqueSeqNo = async (uniqueSeqNo: number, frequency_date: String) => {
+const findByDateAndSeqNo = async (uniqueSeqNo, frequency_date) => {
     const pool = await (0, db_1.getPool)();
     const result = await pool.request()
-        .input("seqNo", db_1.sql.Int, seqNo)
-        .input("effDate", db_1.sql.Date, effDate)
+        .input("uniqueSeqNo", db_1.sql.VarChar, uniqueSeqNo)
+        .input("frequency_date", db_1.sql.Date, frequency_date)
         .query(`
             SELECT *
-            FROM Leg
-            WHERE SeqNo = @seqNo 
-            AND EffDate = @effDate
+            FROM Frequency
+            WHERE UniqueSeqNo = @uniqueSeqNo 
+            AND frequency_date = @frequency_date
         `);
     return result.recordset.length > 0 ? result.recordset : null;
 };
 exports.findByDateAndSeqNo = findByDateAndSeqNo;
+// old
+// export const findByDateAndSeqNo = async (seqNo: number, effDate: String) => {
+//   const pool = await getPool();
+//   const result = await pool.request()
+//     .input("seqNo", sql.Int, seqNo)
+//     .input("effDate", sql.Date, effDate)
+//     .query(`
+//             SELECT *
+//             FROM Fre
+//             WHERE SeqNo = @seqNo 
+//             AND EffDate = @effDate
+//         `);
+//   return result.recordset.length > 0 ? result.recordset : null;
+// };
+// export const checkAlreadyApplied = async (seqNo: number, bidMonth: string, effDate: string, userId: string) => {
+const checkAlreadyApplied = async (uniqueSeqNo, bidMonth, effDate, userId) => {
+    const pool = await (0, db_1.getPool)();
+    const result = await pool.request()
+        // .input("seqNo", sql.Int, seqNo)
+        .input("uniqueSeqNo", db_1.sql.VarChar, uniqueSeqNo)
+        .input("bidMonth", db_1.sql.VarChar, bidMonth)
+        .input("effDate", db_1.sql.VarChar, effDate)
+        .input("userId", db_1.sql.UniqueIdentifier, userId)
+        .query(`
+            SELECT *
+            FROM UserSequence
+            WHERE UniqueSeqNo = @uniqueSeqNo 
+            AND BidMonth = @bidMonth
+            AND EffDate = @effDate
+            AND UserID = @userId
+        `);
+    return result.recordset.length > 0 ? result.recordset : null;
+};
+exports.checkAlreadyApplied = checkAlreadyApplied;
 const getBoardingPayByYears = async (YearsOfService) => {
     const pool = await (0, db_1.getPool)();
     const result = await pool.request()
         .input("YearsOfService", db_1.sql.Int, YearsOfService)
         .query(`
             SELECT *
-            FROM BoardingPay
+            FROM boarding_pay
             WHERE YearsOfService = @YearsOfService 
         `);
     return result.recordset.length > 0 ? result.recordset[0] : null;
 };
 exports.getBoardingPayByYears = getBoardingPayByYears;
-const updatePosition = async (seqNo, position, effDate) => {
+// export const updatePosition = async (seqNo: number, position: number, effDate: Date) => {
+// old
+// export const updatePosition = async (seqNo: number, position: number, effDate: string, bidMonth: string) => {
+//   const pool = await getPool();
+//   // 1) Fetch the row
+//   const result = await pool.request()
+//     .input("seqNo", sql.Int, seqNo)
+//     .input("effDate", sql.NVarChar, effDate)
+//     .input("bidMonth", sql.NVarChar, bidMonth)
+//     .query(`
+//       SELECT *
+//       FROM Sequence
+//       WHERE SeqNo = @seqNo AND BidMonth = @bidMonth
+//     `);
+//   if (result.recordset.length === 0) return null;
+//   // Get the row object
+//   let row = result.recordset[0];
+//   let seqCrewPos: string = row.SeqCrewPos;
+//   // 2) Update the SeqCrewPos string
+//   let seqCrewPosArr = seqCrewPos.split("");
+//   let originalDigit = seqCrewPosArr[position - 1];
+//   if (position > 0 && position <= seqCrewPosArr.length) {
+//     seqCrewPosArr[position - 1] = "0"; // mark position as taken
+//   }
+//   const updatedSeqCrewPos = seqCrewPosArr.join("");
+//   // 3) Update DB
+//   await pool.request()
+//     .input("seqNo", sql.Int, seqNo)
+//     // .input("effDate", sql.NVarChar, effDate)
+//     .input("bidMonth", sql.NVarChar, bidMonth)
+//     // .input("seqCrewPos", sql.VarChar, updatedSeqCrewPos)
+//     .input("seqCrewPos", sql.VarChar(20), updatedSeqCrewPos)
+//     .query(`
+//       UPDATE Sequence
+//       SET SeqCrewPos = @seqCrewPos
+//       WHERE SeqNo = @seqNo AND BidMonth = @bidMonth
+//     `);
+//   // 4) Return the updated row (with new SeqCrewPos)
+//   return {
+//     ...row,
+//     SeqCrewPos: updatedSeqCrewPos,
+//     originalDigit
+//   };
+// };
+// new
+const updatePosition = async (uniqueSeqNo, position, effDate, bidMonth) => {
     const pool = await (0, db_1.getPool)();
-    // 1) Fetch the row
-    const result = await pool.request()
-        .input("seqNo", db_1.sql.Int, seqNo)
+    // 1️⃣ ALWAYS get base Sequence row (MASTER DATA)
+    const seqBaseResult = await pool.request()
+        .input("uniqueSeqNo", db_1.sql.VarChar, uniqueSeqNo)
+        .input("bidMonth", db_1.sql.NVarChar, bidMonth)
+        .query(`
+      SELECT * 
+      FROM Sequence
+      WHERE UniqueSeqNo = @uniqueSeqNo 
+        AND BidMonth = @bidMonth
+    `);
+    if (seqBaseResult.recordset.length === 0)
+        return null;
+    const baseRow = seqBaseResult.recordset[0];
+    // 2️⃣ Check if effDate exists in Sequence
+    const seqEffDateResult = await pool.request()
+        .input("uniqueSeqNo", db_1.sql.VarChar, uniqueSeqNo)
+        .input("effDate", db_1.sql.NVarChar, effDate)
+        .query(`
+      SELECT 1
+      FROM Sequence
+      WHERE UniqueSeqNo = @uniqueSeqNo 
+        AND EffDate = @effDate
+    `);
+    const seqEffExists = seqEffDateResult.recordset.length > 0;
+    // 3️⃣ Check Frequency table
+    const freqResult = await pool.request()
+        .input("uniqueSeqNo", db_1.sql.VarChar, uniqueSeqNo)
         .input("effDate", db_1.sql.NVarChar, effDate)
         .query(`
       SELECT *
+      FROM Frequency
+      WHERE UniqueSeqNo = @uniqueSeqNo 
+        AND frequency_date = @effDate
+    `);
+    const freqExists = freqResult.recordset.length > 0;
+    // 4️⃣ Update SeqCrewPos string
+    const updateSeqCrewPosString = (seqCrewPos) => {
+        let arr = seqCrewPos.split("");
+        let originalDigit = arr[position - 1];
+        if (position > 0 && position <= arr.length) {
+            arr[position - 1] = "0";
+        }
+        return {
+            updated: arr.join(""),
+            originalDigit
+        };
+    };
+    // const { updated, originalDigit } = updateSeqCrewPosString(baseRow.SeqCrewPos);
+    // 🔥 Decide correct source
+    let sourceSeqCrewPos;
+    if (seqEffExists) {
+        // ✅ exact date exists in Sequence
+        const seqRow = await pool.request()
+            .input("uniqueSeqNo", db_1.sql.VarChar, uniqueSeqNo)
+            .input("effDate", db_1.sql.NVarChar, effDate)
+            .query(`
+      SELECT SeqCrewPos
       FROM Sequence
-      WHERE SeqNo = @seqNo AND EffDate = @effDate
+      WHERE UniqueSeqNo = @uniqueSeqNo 
+        AND EffDate = @effDate
     `);
-    if (result.recordset.length === 0)
-        return null;
-    // Get the row object
-    let row = result.recordset[0];
-    let seqCrewPos = row.SeqCrewPos;
-    // 2) Update the SeqCrewPos string
-    let seqCrewPosArr = seqCrewPos.split("");
-    if (position > 0 && position <= seqCrewPosArr.length) {
-        seqCrewPosArr[position - 1] = "0"; // mark position as taken
+        sourceSeqCrewPos = seqRow.recordset[0].SeqCrewPos;
     }
-    const updatedSeqCrewPos = seqCrewPosArr.join("");
-    // 3) Update DB
-    await pool.request()
-        .input("seqNo", db_1.sql.Int, seqNo)
-        .input("effDate", db_1.sql.NVarChar, effDate)
-        .input("seqCrewPos", db_1.sql.VarChar, updatedSeqCrewPos)
-        .query(`
-      UPDATE Sequence
-      SET SeqCrewPos = @seqCrewPos
-      WHERE SeqNo = @seqNo AND EffDate = @effDate
-    `);
-    // 4) Return the updated row (with new SeqCrewPos)
+    else if (freqExists) {
+        // ✅ only exists in Frequency
+        sourceSeqCrewPos = freqResult.recordset[0].SeqCrewPos;
+    }
+    else {
+        // ⚠️ fallback (rare case)
+        sourceSeqCrewPos = baseRow.SeqCrewPos;
+    }
+    // ✅ NOW apply logic on correct source
+    const { updated, originalDigit } = updateSeqCrewPosString(sourceSeqCrewPos);
+    // 5️⃣ APPLY UPDATE LOGIC
+    // ✅ Case 1: effDate exists in Sequence → update BOTH
+    if (seqEffExists) {
+        await pool.request()
+            .input("uniqueSeqNo", db_1.sql.VarChar, uniqueSeqNo)
+            .input("effDate", db_1.sql.NVarChar, effDate)
+            .input("seqCrewPos", db_1.sql.VarChar(20), updated)
+            .query(`
+        UPDATE Sequence
+        SET SeqCrewPos = @seqCrewPos
+        WHERE UniqueSeqNo = @uniqueSeqNo 
+          AND EffDate = @effDate
+      `);
+        if (freqExists) {
+            await pool.request()
+                .input("uniqueSeqNo", db_1.sql.VarChar, uniqueSeqNo)
+                .input("effDate", db_1.sql.NVarChar, effDate)
+                .input("seqCrewPos", db_1.sql.VarChar(20), updated)
+                .query(`
+          UPDATE Frequency
+          SET SeqCrewPos = @seqCrewPos
+          WHERE UniqueSeqNo = @uniqueSeqNo 
+            AND frequency_date = @effDate
+        `);
+        }
+    }
+    // ✅ Case 2: only Frequency exists
+    else if (freqExists) {
+        await pool.request()
+            .input("uniqueSeqNo", db_1.sql.VarChar, uniqueSeqNo)
+            .input("effDate", db_1.sql.NVarChar, effDate)
+            .input("seqCrewPos", db_1.sql.VarChar(20), updated)
+            .query(`
+        UPDATE Frequency
+        SET SeqCrewPos = @seqCrewPos
+        WHERE UniqueSeqNo = @uniqueSeqNo 
+          AND frequency_date = @effDate
+      `);
+    }
+    // ❗ Optional: if neither exists, you may want to throw error
+    else {
+        return null;
+    }
+    // 6️⃣ FINAL RETURN → ALWAYS Sequence data (as you wanted)
     return {
-        ...row,
-        SeqCrewPos: updatedSeqCrewPos
+        ...baseRow,
+        SeqCrewPos: updated,
+        originalDigit
     };
 };
 exports.updatePosition = updatePosition;
-const addSequenceDataInUserSequence = async (userId, crewSeqPos) => {
+// export const updateCrewProfile = async (crewId: number, base: string, occ_date: string, aa_seniority: string, speaker: string,) => {
+const updateCrewProfile = async (crewId, base, occ_date, aa_seniority, purser, speaker) => {
+    const pool = await (0, db_1.getPool)();
+    // Update query
+    await pool.request()
+        .input("crewId", db_1.sql.Int, crewId)
+        .input("base", db_1.sql.VarChar, base)
+        .input("occ_date", db_1.sql.VarChar, occ_date)
+        .input("aa_seniority", db_1.sql.VarChar, aa_seniority)
+        .input("purser", db_1.sql.NVarChar, purser)
+        .input("speaker", db_1.sql.NVarChar, speaker)
+        .query(`
+      UPDATE Users 
+      SET 
+        Base = @base, 
+        OccDate = @occ_date, 
+        Seniority = @aa_seniority, 
+        Purser = @purser,
+        Speaker = @speaker
+      WHERE crewId = @crewId
+    `);
+    // Fetch updated user (WITHOUT join to avoid duplicates)
+    const result = await pool.request()
+        .input("crewId", db_1.sql.Int, crewId)
+        .query(`
+      SELECT 
+        crewId, FirstName, LastName, Email, ImageUrl, 
+        Base, OccDate, Seniority, Purser, Speaker
+      FROM Users
+      WHERE crewId = @crewId
+    `);
+    return result.recordset[0];
+};
+exports.updateCrewProfile = updateCrewProfile;
+const addSequenceDataInUserSequence = async (userId, crewSeqPos, position, effDate, digit, l_r_type) => {
     const userSequenceId = (0, uuid_1.v4)();
     const pool = await (0, db_1.getPool)();
     const request = pool.request();
+    // return l_r_type;
     request.input("UserSequenceID", db_1.sql.NVarChar, userSequenceId);
     request.input("UserID", db_1.sql.UniqueIdentifier, userId);
     request.input("UniqueSeqNo", db_1.sql.NVarChar, crewSeqPos.UniqueSeqNo);
@@ -197,7 +516,8 @@ const addSequenceDataInUserSequence = async (userId, crewSeqPos) => {
     request.input("CrewBase", db_1.sql.NVarChar, crewSeqPos.CrewBase);
     request.input("SeqCategory", db_1.sql.NVarChar, crewSeqPos.SeqCategory);
     request.input("DataVersion", db_1.sql.NVarChar, crewSeqPos.DataVersion);
-    request.input("EffDate", db_1.sql.Date, crewSeqPos.EffDate);
+    // request.input("EffDate", sql.Date, crewSeqPos.EffDate);
+    request.input("EffDate", db_1.sql.Date, effDate);
     request.input("ThruDate", db_1.sql.Date, crewSeqPos.ThruDate);
     request.input("Frequency", db_1.sql.NVarChar, crewSeqPos.Frequency);
     request.input("SeqNo", db_1.sql.Int, crewSeqPos.SeqNo);
@@ -244,14 +564,23 @@ const addSequenceDataInUserSequence = async (userId, crewSeqPos) => {
     request.input("IPD", db_1.sql.Bit, crewSeqPos.IPD);
     request.input("NIPD", db_1.sql.Bit, crewSeqPos.NIPD);
     request.input("Notes", db_1.sql.NVarChar, crewSeqPos.Notes);
+    request.input("CvtSeqFlyTime", db_1.sql.NVarChar, crewSeqPos.CvtSeqFlyTime);
+    request.input("CvtSeqPC", db_1.sql.NVarChar, crewSeqPos.CvtSeqPC);
+    request.input("CvtTAFB", db_1.sql.NVarChar, crewSeqPos.CvtTAFB);
+    request.input("CvtSeqPremTime", db_1.sql.NVarChar, crewSeqPos.CvtSeqPremTime);
     request.input("BidMonth", db_1.sql.NVarChar, crewSeqPos.BidMonth);
+    request.input("PositionAppliedOn", db_1.sql.Int, position);
+    request.input("PositionAppliedOnLetter", db_1.sql.Char, digit);
+    request.input("L_R_Type", db_1.sql.Bit, l_r_type);
+    // request.input("L_R_Type", sql.Bit, !!l_r_type);
     const query = `
-    INSERT INTO UserSequence (
-      UserSequenceID, UserID, UniqueSeqNo, RecordType, CrewCat, CrewBase, SeqCategory, DataVersion, EffDate,
-      ThruDate, Frequency, SeqNo, SeqType, NBR_Legs, NBR_Days, NBR_Duty, SeqCrewPos, SeqFlyTime, SeqPC, TAFB,
-      AutoExp, Pay, PriorSeq, DateRmvd, SeqPremTime, Language1, Language2, Reserved, B777300, B77W300, B772_200,
-      B787_900, B787_800, B787P_900, A321_AK, A321_XLR, A321_NEO, A321, A320, A319, B737_MAX, B737, E190, CovidStationRestriction,
-      Redeye, ODAN, IPDPremium, Charter,Satellite, CoTerminal, PremiumTranscon, Rocket, IPD, NIPD, Notes, BidMonth
+  INSERT INTO UserSequence (
+    UserSequenceID, UserID, UniqueSeqNo, RecordType, CrewCat, CrewBase, SeqCategory, DataVersion, EffDate,
+    ThruDate, Frequency, SeqNo, SeqType, NBR_Legs, NBR_Days, NBR_Duty, SeqCrewPos, SeqFlyTime, SeqPC, TAFB,
+    AutoExp, Pay, PriorSeq, DateRmvd, SeqPremTime, Language1, Language2, Reserved, B777300, B77W300, B772_200,
+    B787_900, B787_800, B787P_900, A321_AK, A321_XLR, A321_NEO, A321, A320, A319, B737_MAX, B737, E190, CovidStationRestriction,
+    Redeye, ODAN, IPDPremium, Charter,Satellite, CoTerminal, PremiumTranscon, Rocket, IPD, NIPD, Notes, CvtSeqFlyTime, CvtSeqPC,
+    CvtTAFB, CvtSeqPremTime, BidMonth, PositionAppliedOn, PositionAppliedOnLetter, L_R_Type
     )
     VALUES (
       @UserSequenceID, @UserID, @UniqueSeqNo, @RecordType, @CrewCat, @CrewBase, @SeqCategory, @DataVersion, @EffDate,
@@ -259,25 +588,30 @@ const addSequenceDataInUserSequence = async (userId, crewSeqPos) => {
       @AutoExp,
       @Pay, @PriorSeq, @DateRmvd, @SeqPremTime, @Language1, @Language2, @Reserved, @B777300, @B77W300, @B772_200, @B787_900,
       @B787_800, @B787P_900, @A321_AK, @A321_XLR, @A321_NEO, @A321, @A320, @A319, @B737_MAX, @B737, @E190, @CovidStationRestriction,
-      @Redeye, @ODAN, @IPDPremium, @Charter, @Satellite, @CoTerminal, @PremiumTranscon, @Rocket, @IPD, @NIPD, @Notes, @BidMonth
+      @Redeye, @ODAN, @IPDPremium, @Charter, @Satellite, @CoTerminal, @PremiumTranscon, @Rocket, @IPD, @NIPD, @Notes, @CvtSeqFlyTime, @CvtSeqPC,
+      @CvtTAFB, @CvtSeqPremTime, @BidMonth, @PositionAppliedOn, @PositionAppliedOnLetter, @L_R_Type
     )`;
     await request.query(query);
     return userSequenceId;
 };
 exports.addSequenceDataInUserSequence = addSequenceDataInUserSequence;
-const addLegDataInUserLeg = async (seqNo, effDate, newUserSequenceId) => {
+const addLegDataInUserLeg = async (userId, uniqueSeqNo, bidMonth, effDate, newUserSequenceId) => {
     const pool = await (0, db_1.getPool)();
     // 1) Get all legs for this SeqNo + BidMonth
     const legs = await pool.request()
-        .input("seqNo", db_1.sql.Int, seqNo)
-        .input("effDate", db_1.sql.NVarChar(50), effDate)
+        // .input("seqNo", sql.Int, seqNo)
+        .input("uniqueSeqNo", db_1.sql.VarChar, uniqueSeqNo)
+        // .input("effDate", sql.NVarChar(50), effDate)
+        .input("bidMonth", db_1.sql.NVarChar, bidMonth)
         .query(`
       SELECT *
       FROM Leg
-      WHERE SeqNo = @seqNo AND EffDate = @effDate
-    `);
+      WHERE UniqueSeqNo = @uniqueSeqNo AND BidMonth = @bidMonth
+      `);
+    // WHERE SeqNo = @seqNo AND EffDate = @effDate
     if (legs.recordset.length === 0)
         return [];
+    console.log("-->>", legs);
     // 2) Insert each leg into UserLeg
     for (const leg of legs.recordset) {
         // ✅ Generate unique ID for each insert
@@ -286,12 +620,16 @@ const addLegDataInUserLeg = async (seqNo, effDate, newUserSequenceId) => {
             .digest("hex")
             .substring(0, 25);
         await pool.request()
-            .input("UserLegID", db_1.sql.NVarChar(25), userLegId)
-            .input("UniqueSeqNo", db_1.sql.VarChar(25), leg.UniqueSeqNo)
+            .input("UserLegID", db_1.sql.NVarChar, userLegId)
+            .input("UserID", db_1.sql.UniqueIdentifier, userId)
+            .input("UniqueSeqNo", db_1.sql.VarChar, leg.UniqueSeqNo)
+            .input("EffDate", db_1.sql.Date, effDate)
+            .input("ThruDate", db_1.sql.Date, leg.ThruDate)
+            .input("Frequency", db_1.sql.VarChar, leg.Frequency)
             .input("SeqNo", db_1.sql.Int, leg.SeqNo)
             .input("SeqLegNo", db_1.sql.Int, leg.SeqLegNo)
-            .input("DeptStn", db_1.sql.VarChar(3), leg.DeptStn)
-            .input("ArrvStn", db_1.sql.VarChar(3), leg.ArrvStn)
+            .input("DeptStn", db_1.sql.VarChar, leg.DeptStn)
+            .input("ArrvStn", db_1.sql.VarChar, leg.ArrvStn)
             .input("DptTime", db_1.sql.Int, leg.DptTime)
             .input("DptZone", db_1.sql.Int, leg.DptZone)
             .input("ArvTime", db_1.sql.Int, leg.ArvTime)
@@ -308,55 +646,55 @@ const addLegDataInUserLeg = async (seqNo, effDate, newUserSequenceId) => {
             .input("SchedOverFlow", db_1.sql.Int, leg.SchedOverFlow)
             .input("DVSD", db_1.sql.Int, leg.DVSD)
             .input("DVLA", db_1.sql.Int, leg.DVLA)
-            .input("LayoverTime", db_1.sql.Int, leg.LayoverTime)
+            .input("LayoverTime", db_1.sql.Int, leg.Layover)
             .input("DPOnDutyTime", db_1.sql.Int, leg.DPOnDutyTime)
             .input("DPDeadheadTime", db_1.sql.Int, leg.DPDeadheadTime)
             .input("DVLA2", db_1.sql.Int, leg.DVLA2)
             .input("LegNiteFly", db_1.sql.Int, leg.LegNiteFly)
             .input("Unused", db_1.sql.Int, leg.Unused)
-            .input("Calendar_40Day", db_1.sql.VarChar(50), leg.Calendar_40Day)
-            .input("Terminal", db_1.sql.VarChar(25), leg.Terminal)
-            .input("GateNumber", db_1.sql.VarChar(10), leg.GateNumber)
-            .input("FlightStatus", db_1.sql.VarChar(50), leg.FlightStatus)
-            .input("BookingCode", db_1.sql.VarChar(25), leg.BookingCode)
-            .input("SeatNumber", db_1.sql.VarChar(3), leg.SeatNumber)
-            .input("TailNumber", db_1.sql.VarChar(25), leg.TailNumber)
+            .input("Calendar_40Day", db_1.sql.VarChar, leg.Calendar_40Day)
+            .input("Terminal", db_1.sql.VarChar, leg.Terminal)
+            .input("GateNumber", db_1.sql.VarChar, leg.GateNumber)
+            .input("FlightStatus", db_1.sql.VarChar, leg.FlightStatus)
+            .input("BookingCode", db_1.sql.VarChar, leg.BookingCode)
+            .input("SeatNumber", db_1.sql.VarChar, leg.SeatNumber)
+            .input("TailNumber", db_1.sql.VarChar, leg.TailNumber)
             .input("UserSequenceId", db_1.sql.UniqueIdentifier, newUserSequenceId)
             .input("LegEndDateLocal", db_1.sql.Date, leg.LegEndDateLocal)
             .input("LegEndDateUtc", db_1.sql.Date, leg.LegEndDateUtc)
             .input("LegStartDateLocal", db_1.sql.Date, leg.LegStartDateLocal)
             .input("LegStartDateUtc", db_1.sql.Date, leg.LegStartDateUtc)
-            .input("LegEndTimeLocal", db_1.sql.NVarChar(1000), leg.LegEndTimeLocal)
-            .input("LegEndTimeUtc", db_1.sql.NVarChar(1000), leg.LegEndTimeUtc)
-            .input("LegStartTimeLocal", db_1.sql.NVarChar(1000), leg.LegStartTimeLocal)
-            .input("LegStartTimeUtc", db_1.sql.NVarChar(1000), leg.LegStartTimeUtc)
-            .input("CvtArvTime", db_1.sql.VarChar(5), leg.CvtArvTime)
-            .input("CvtDPDeadheadTime", db_1.sql.VarChar(5), leg.CvtDPDeadheadTime)
-            .input("CvtDPOnDutyTime", db_1.sql.VarChar(5), leg.CvtDPOnDutyTime)
-            .input("CvtDptTime", db_1.sql.VarChar(5), leg.CvtDptTime)
-            .input("CvtLegNiteFly", db_1.sql.VarChar(5), leg.CvtLegNiteFly)
-            .input("CvtLegPC", db_1.sql.VarChar(5), leg.CvtLegPC)
-            .input("CvtLegTotalFlying", db_1.sql.VarChar(5), leg.CvtLegTotalFlying)
-            .input("CvtLayoverTime", db_1.sql.VarChar(7), leg.CvtLayoverTime)
-            .input("BidMonth", db_1.sql.VarChar(7), leg.BidMonth)
+            .input("LegEndTimeLocal", db_1.sql.NVarChar, leg.LegEndTimeLocal)
+            .input("LegEndTimeUtc", db_1.sql.NVarChar, leg.LegEndTimeUtc)
+            .input("LegStartTimeLocal", db_1.sql.NVarChar, leg.LegStartTimeLocal)
+            .input("LegStartTimeUtc", db_1.sql.NVarChar, leg.LegStartTimeUtc)
+            .input("CvtArvTime", db_1.sql.VarChar, leg.CvtArvTime)
+            .input("CvtDPDeadheadTime", db_1.sql.VarChar, leg.CvtDPDeadheadTime)
+            .input("CvtDPOnDutyTime", db_1.sql.VarChar, leg.CvtDPOnDutyTime)
+            .input("CvtDptTime", db_1.sql.VarChar, leg.CvtDptTime)
+            .input("CvtLegNiteFly", db_1.sql.VarChar, leg.CvtLegNiteFly)
+            .input("CvtLegPC", db_1.sql.VarChar, leg.CvtLegPC)
+            .input("CvtLegTotalFlying", db_1.sql.VarChar, leg.CvtLegTotalFlying)
+            .input("CvtLayover", db_1.sql.VarChar, leg.CvtLayover)
+            .input("BidMonth", db_1.sql.VarChar, leg.BidMonth)
             .query(`
         INSERT INTO UserLeg (
-          UserLegID, UniqueSeqNo, SeqNo, SeqLegNo, DeptStn, ArrvStn, DptTime, DptZone, ArvTime, ArvZone,
+          UserLegID, UserID, UniqueSeqNo, EffDate, ThruDate, Frequency, SeqNo, SeqLegNo, DeptStn, ArrvStn, DptTime, DptZone, ArvTime, ArvZone,
           FitNo, FitLegNo, EOD, LegTotalFlying, LegEqupType, LegDeadheadCode, LegMidnightCode, LegPC, PCCode,
           SchedOverFlow, DVSD, DVLA, LayoverTime, DPOnDutyTime, DPDeadheadTime, DVLA2, LegNiteFly, Unused,
           Calendar_40Day, Terminal, GateNumber, FlightStatus, BookingCode, SeatNumber, TailNumber, UserSequenceId,
           LegEndDateLocal, LegEndDateUtc, LegStartDateLocal, LegStartDateUtc, LegEndTimeLocal, LegEndTimeUtc,
           LegStartTimeLocal, LegStartTimeUtc, CvtArvTime, CvtDPDeadheadTime, CvtDPOnDutyTime, CvtDptTime,
-          CvtLegNiteFly, CvtLegPC, CvtLegTotalFlying, CvtLayoverTime, BidMonth
+          CvtLegNiteFly, CvtLegPC, CvtLegTotalFlying, CvtLayover, BidMonth
         )
         VALUES (
-          @UserLegID, @UniqueSeqNo, @SeqNo, @SeqLegNo, @DeptStn, @ArrvStn, @DptTime, @DptZone, @ArvTime, @ArvZone,
+          @UserLegID, @UserID, @UniqueSeqNo, @EffDate, @ThruDate, @Frequency, @SeqNo, @SeqLegNo, @DeptStn, @ArrvStn, @DptTime, @DptZone, @ArvTime, @ArvZone,
           @FitNo, @FitLegNo, @EOD, @LegTotalFlying, @LegEqupType, @LegDeadheadCode, @LegMidnightCode, @LegPC, @PCCode,
           @SchedOverFlow, @DVSD, @DVLA, @LayoverTime, @DPOnDutyTime, @DPDeadheadTime, @DVLA2, @LegNiteFly, @Unused,
           @Calendar_40Day, @Terminal, @GateNumber, @FlightStatus, @BookingCode, @SeatNumber, @TailNumber, @UserSequenceId,
           @LegEndDateLocal, @LegEndDateUtc, @LegStartDateLocal, @LegStartDateUtc, @LegEndTimeLocal, @LegEndTimeUtc,
           @LegStartTimeLocal, @LegStartTimeUtc, @CvtArvTime, @CvtDPDeadheadTime, @CvtDPOnDutyTime, @CvtDptTime,
-          @CvtLegNiteFly, @CvtLegPC, @CvtLegTotalFlying, @CvtLayoverTime, @BidMonth
+          @CvtLegNiteFly, @CvtLegPC, @CvtLegTotalFlying, @CvtLayover, @BidMonth
         )
       `);
     }
@@ -389,120 +727,6 @@ const getYearsOfService = (hireDate, today = new Date()) => {
     }
     return years + 1;
 };
-// export const getCrewPayDetails = async (crewId: number) => {
-//   const pool = await getPool();
-//   // 1. Get crew hireDate
-//   const crewResult = await pool.request()
-//     .input("crewId", sql.Int, crewId)
-//     .query(`
-//       SELECT OccDate
-//       FROM Roster
-//       WHERE CrewId = @crewId
-//     `);
-//   const crew = crewResult.recordset[0];
-//   if (!crew) {
-//     return { basePay: null, yearsOfService: null, moreThan13Years: false, note: "Crew not found" };
-//   }
-//   if (!crew.OccDate) {
-//     return { basePay: null, yearsOfService: null, moreThan13Years: false, note: "Hire date not provided" };
-//   }
-//   // 2. Calculate years of service
-//   const yearsOfService = getYearsOfService(new Date(crew.OccDate));
-//   const cappedYears = Math.min(yearsOfService, 13);
-//   // 3. Get base pay for cappedYears
-//   const basePayResult = await pool.request()
-//     .input("YearsOfService", sql.Int, cappedYears)
-//     .query(`
-//       SELECT TOP 1 *
-//       FROM BasePay
-//       WHERE YearsOfService = @YearsOfService
-//     `);
-//   const basePay = basePayResult.recordset[0] || null;
-//   return {
-//     basePay,
-//     yearsOfService,
-//     moreThan13Years: yearsOfService > 13,
-//     note: basePay ? null : "Base pay not found for this level of service"
-//   };
-// };
-// old
-// export const getCrewPayDetails = async (crewId: number) => {
-//   const pool = await getPool();
-//   // 1️⃣ Get current crew details
-//   const crewResult = await pool.request()
-//     .input("crewId", sql.Int, crewId)
-//     .query(`
-//       SELECT CrewId, OccDate, Base
-//       FROM Roster
-//       WHERE CrewId = @crewId
-//     `);
-//   const crew = crewResult.recordset[0];
-//   if (!crew || !crew.OccDate) {
-//     return {
-//       basePay: null,
-//       yearsOfService: null,
-//       companySeniority: null,
-//       aaSeniority: null,
-//       note: "Crew not found or OccDate missing"
-//     };
-//   }
-//   // 2️⃣ Compute this crew's years of service
-//   const yearsOfService = getYearsOfService(new Date(crew.OccDate));
-//   // 3️⃣ Compute Company Seniority (simple capped %)
-//   const companySeniorityPct = Math.min((yearsOfService / 13) * 100, 100).toFixed(2);
-//   // 4️⃣ Get all crews in the same base
-//   const baseCrewResult = await pool.request()
-//     .input("Base", sql.VarChar, crew.Base)
-//     .query(`
-//       SELECT CrewId, OccDate
-//       FROM Roster
-//       WHERE Base = @Base AND OccDate IS NOT NULL
-//     `);
-//   const baseCrews = baseCrewResult.recordset;
-//   // 5️⃣ Compute each crew’s years of service
-//   const allBaseYears = baseCrews.map(c => ({
-//     crewId: c.CrewId,
-//     years: getYearsOfService(new Date(c.OccDate))
-//   }));
-//   // Sort descending (most experienced first)
-//   allBaseYears.sort((a, b) => b.years - a.years);
-//   // Find position of current crew
-//   const index = allBaseYears.findIndex(c => c.crewId === crew.CrewId);
-//   // 6️⃣ Calculate AA seniority percentage
-//   const total = allBaseYears.length;
-//   let aaSeniorityPct = 0;
-//   if (index !== -1 && total > 1) {
-//     // How many people have less experience than this crew
-//     const below = total - index - 1;
-//     aaSeniorityPct = Number(((below / (total - 1)) * 100).toFixed(2));
-//   }
-//   // 7️⃣ Get base pay based on capped years
-//   const cappedYears = Math.min(yearsOfService, 13);
-//   const basePayResult = await pool.request()
-//     .input("YearsOfService", sql.Int, cappedYears)
-//     .query(`
-//       SELECT TOP 1 *
-//       FROM BasePay
-//       WHERE YearsOfService = @YearsOfService
-//     `);
-//   const basePay = basePayResult.recordset[0] || null;
-//   // 8️⃣ Return final structured result
-//   return {
-//     basePay,
-//     yearsOfService,
-//     companySeniority: {
-//       percentage: companySeniorityPct,
-//       moreThan13Years: yearsOfService > 13
-//     },
-//     aaSeniority: {
-//       base: crew.Base,
-//       rank: index + 1,
-//       totalInBase: total,
-//       percentage: aaSeniorityPct
-//     },
-//     note: basePay ? null : "Base pay not found for this level of service"
-//   };
-// };
 // new
 const getCrewPayDetails = async (crewId) => {
     const pool = await (0, db_1.getPool)();
@@ -579,11 +803,11 @@ const getCrewPayDetails = async (crewId) => {
     return {
         basePay,
         yearsOfService,
-        aaSeniority: {
-            rank: companyIndex + 1,
-            totalInCompany: totalCompany,
-            percentage: companySeniorityPct
-        },
+        // aaSeniority: {
+        //   rank: companyIndex + 1,
+        //   totalInCompany: totalCompany,
+        //   percentage: companySeniorityPct
+        // },
         baseSeniority: {
             base: crew.Base,
             rank: aaIndex + 1,
@@ -640,17 +864,93 @@ const getCrewPayDetail = async (crewIds) => {
     });
 };
 exports.getCrewPayDetail = getCrewPayDetail;
+// old
+// export const getUserLanguages = async (userId: string) => {
+//   const pool = await getPool();
+//   // 1. Get crew hireDate
+//   const crewResult = await pool.request()
+//     .input("userId", sql.UniqueIdentifier, userId)
+//     .query(`
+//       SELECT *
+//       FROM UserLanguage
+//       WHERE UserID = @userId
+//     `);
+//   const crewLanguages = crewResult.recordset;
+//   return crewLanguages
+// }
+// new
 const getUserLanguages = async (userId) => {
     const pool = await (0, db_1.getPool)();
-    // 1. Get crew hireDate
-    const crewResult = await pool.request()
+    const result = await pool.request()
         .input("userId", db_1.sql.UniqueIdentifier, userId)
         .query(`
-      SELECT *
-      FROM UserLanguage
-      WHERE UserID = @userId
+      SELECT 
+        UL.LanguageID,
+        L.SpokenLanguage
+      FROM UserLanguage UL
+      INNER JOIN Language L
+        ON UL.LanguageID = L.LanguageID
+      WHERE UL.UserID = @userId
     `);
-    const crewLanguages = crewResult.recordset;
-    return crewLanguages;
+    return result.recordset; // array of languages with names
 };
 exports.getUserLanguages = getUserLanguages;
+async function getDynamicBaseRate(yearsOfService) {
+    const now = new Date();
+    // const currentYear = now.getFullYear();
+    // const nextOctober = new Date(`${currentYear}-10-01`);
+    // console.log("🔍 Using column:", now);
+    // // 🧠 Determine which pay column to use dynamically
+    // const payColumn =
+    //   now < nextOctober
+    //     ? `Pay_10/1/${String(currentYear).slice(-2)}`
+    //     : `Pay_10/1/${String(currentYear + 1).slice(-2)}`;
+    let effectiveYear = now.getFullYear();
+    // Get the Oct 1st of this year
+    const currentOct = new Date(`${effectiveYear}-10-01`);
+    // If we are before Oct 1 of this year, pay is based on last October
+    if (now < currentOct) {
+        effectiveYear = effectiveYear - 1;
+    }
+    // Now use the pay rate effective from October of `effectiveYear`
+    const payColumn = `Pay_10/1/${String(effectiveYear).slice(-2)}`;
+    console.log("🔍 Using column:", payColumn);
+    try {
+        const pool = await (0, db_1.getPool)();
+        // 1. Get crew hireDate
+        // const crewResult = await pool.request()
+        const query = `
+      SELECT [${payColumn}] AS baseRate
+      FROM dbo.BasePay
+      WHERE YearsOfService = @yearsOfService
+    `;
+        const result = await pool
+            .request()
+            .input("YearsOfService", db_1.sql.Int, yearsOfService)
+            .query(query);
+        return result.recordset.length ? Number(result.recordset[0].baseRate) : 0;
+    }
+    catch (err) {
+        console.error("Error fetching dynamic base rate:", err);
+        return 0;
+    }
+}
+const deleteLanguages = async (userId) => {
+    const pool = await (0, db_1.getPool)();
+    console.log("Deleting languages for user:", userId);
+    const request = pool.request();
+    request.input('userId', db_1.sql.UniqueIdentifier, userId);
+    const sqlQuery = `
+    DELETE FROM dbo.UserLanguage 
+    WHERE userId = @userId;
+  `;
+    try {
+        const result = await request.query(sqlQuery);
+        console.log(`Deleted ${result.rowsAffected[0]} record(s) for user ${userId}`);
+    }
+    catch (error) {
+        console.error(`Error deleting for user '${userId}':`, error);
+        throw error; // optional: rethrow if caller needs to handle
+    }
+};
+exports.deleteLanguages = deleteLanguages;

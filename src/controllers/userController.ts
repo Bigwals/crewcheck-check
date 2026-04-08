@@ -2302,76 +2302,59 @@ export const searchByMonth = async (req: Request, res: Response): Promise<any> =
             premiumMap.set(key, row);
         }
 
-        const uniqueSeqNos = sequenceData.map(s => s.UniqueSeqNo);
-
         // ---------- frequency bulk ----------
-        const seqNos = sequenceData.map(s => s.SeqNo);
-
-        // const uniqueSeqNos = sequenceData
-        //     .map(s => s.UniqueSeqNo)
-        //     .filter(Boolean);
-
-        // return res.json({ uniqueSeqNos });
-        // return res.json({ seqNos });
-
         const frequencyMap: Record<string, any[]> = {};
-
-        if (uniqueSeqNos.length > 0) {
-            const freqRequest = pool.request();
-
-            // Add all inputs safely
-            uniqueSeqNos.forEach((val, i) => {
-                freqRequest.input(`u${i}`, sql.VarChar, val);
-            });
-
-            // Build IN clause referencing parameters
-            const inClause = uniqueSeqNos.map((_, i) => `@u${i}`).join(",");
-
-            const freqResult = await freqRequest.query(`
-                SELECT *
-                FROM Frequency
-                WHERE UniqueSeqNo IN (${inClause})
+        const freqResult = await pool.request()
+            .input("crewBase", sql.VarChar, (crewBase as string).trim())
+            .input("bidMonth", sql.NVarChar, (bidMonth as string).trim())
+            .query(`
+                SELECT f.*
+                FROM Frequency f
+                WHERE EXISTS (
+                    SELECT 1
+                    FROM Sequence s
+                    WHERE s.UniqueSeqNo = f.UniqueSeqNo
+                      AND s.CrewBase = @crewBase
+                      AND s.BidMonth = @bidMonth
+                )
             `);
 
-            // Map by UniqueSeqNo
-            freqResult.recordset.forEach(row => {
-                const key = row.UniqueSeqNo?.toString();
-                if (!key) return; // skip null/undefined
-                if (!frequencyMap[key]) {
-                    frequencyMap[key] = [];
-                }
-                frequencyMap[key].push(row);
-            });
-        }
+        // Map by UniqueSeqNo
+        freqResult.recordset.forEach(row => {
+            const key = row.UniqueSeqNo?.toString();
+            if (!key) return;
+            if (!frequencyMap[key]) {
+                frequencyMap[key] = [];
+            }
+            frequencyMap[key].push(row);
+        });
 
         // Later, inside loop
         // ---------- deadhead bulk ----------
-        const seqNumbers = sequenceData
-            .map(s => s.SeqNo)
-            .filter(Boolean);
-
         const deadheadMap: Record<number, number> = {};
 
-        if (seqNumbers.length > 0) {
-            const deadheadRequest = pool.request();
+        const deadheadResult = await pool.request()
+            .input("crewBase", sql.VarChar, (crewBase as string).trim())
+            .input("bidMonth", sql.NVarChar, (bidMonth as string).trim())
+            .query(`
+                SELECT l.SeqNo,
+                       SUM(TRY_CAST(l.CvtDPDeadheadTime AS FLOAT)) AS TotalDPDeadheadHours
+                FROM dbo.Leg l
+                                WHERE EXISTS (
+                                        SELECT 1
+                                        FROM dbo.Sequence s
+                                        WHERE s.SeqNo = l.SeqNo
+                                            AND s.BidMonth = l.BidMonth
+                                            AND s.CrewBase = @crewBase
+                                            AND s.BidMonth = @bidMonth
+                                )
+                  AND l.DPDeadheadTime = 1
+                GROUP BY l.SeqNo
+            `);
 
-            seqNumbers.forEach((val, i) => {
-                deadheadRequest.input(`s${i}`, sql.Int, val);
-            });
-
-            const deadheadResult = await deadheadRequest.query(`
-            SELECT SeqNo,
-                SUM(TRY_CAST(CvtDPDeadheadTime AS FLOAT)) AS TotalDPDeadheadHours
-            FROM dbo.Leg
-            WHERE SeqNo IN (${seqNumbers.map((_, i) => `@s${i}`).join(",")})
-            AND DPDeadheadTime = 1
-            GROUP BY SeqNo
-        `);
-
-            deadheadResult.recordset.forEach(r => {
-                deadheadMap[r.SeqNo] = r.TotalDPDeadheadHours ?? 0;
-            });
-        }
+        deadheadResult.recordset.forEach(r => {
+            deadheadMap[r.SeqNo] = r.TotalDPDeadheadHours ?? 0;
+        });
 
         const userId = (req as any).user.id;
         const languages = await getUserLanguages(userId)

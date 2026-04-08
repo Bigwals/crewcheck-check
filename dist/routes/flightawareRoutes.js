@@ -1,0 +1,10 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const flightawareController_1 = require("../controllers/flightawareController");
+// import { changePassword } from '../controllers/authControllerNew';
+const router = (0, express_1.Router)();
+// router.post('webhook', handleFlightAwareWebhook);
+router.get('/get-stubs', flightawareController_1.getStubs);
+// router.get('/get-stubs', updateDailyFlights);
+exports.default = router;

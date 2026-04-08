@@ -21,9 +21,14 @@ const db_1 = require("../config/db");
 const mongoose_1 = require("mongoose");
 const register = async (req, res) => {
     try {
-        const { airline, crewId, firstName, lastName, telephone, email, purser, speaker, languages, deviceToken,
+        const { airline, crewId, firstName, lastName, telephone, email, defaultLanguage, 
+        // sex,
+        purser, speaker, languages, deviceToken,
         // commuterAirportCode,
          } = authValidation_1.registerSchema.parse(req.body);
+        // const otp = randomUUID().slice(0, 4);
+        const otp = await (0, otp_1.generateOtp)();
+        console.log('OTP ', otp);
         const existingEmail = await (0, userServiceNew_1.findCrewByEmail)(email);
         if (existingEmail) {
             return res
@@ -54,25 +59,29 @@ const register = async (req, res) => {
             .input("Base", db_1.sql.NVarChar, existingCrew.Base)
             .input("Seniority", db_1.sql.Int, existingCrew.Seniority)
             .input("Email", db_1.sql.NVarChar, email)
+            .input("Sex", db_1.sql.Bit, existingCrew.sex)
             .input("PasswordHash", db_1.sql.NVarChar, hashedPassword)
             .input("PhoneNumber", db_1.sql.NVarChar, telephone)
             .input("Airline", db_1.sql.NVarChar, airline)
             .input("Purser", db_1.sql.NVarChar, purser)
+            .input("defaultLanguage", db_1.sql.VarChar, defaultLanguage)
             .input("Speaker", db_1.sql.NVarChar, speaker)
             .input("RoleID", db_1.sql.Int, RoleID)
             .input("ActiveStatus", db_1.sql.Bit, ActiveStatus)
             .input("CreatedAt", db_1.sql.DateTime, CreatedAt)
             .input("DeviceToken", db_1.sql.NVarChar, deviceToken)
+            .input("Otp", db_1.sql.Int, otp)
             .query(`
-        INSERT INTO Users
-          (UserID, CrewId, FirstName, LastName, HireDate, OccDate, Base, Seniority, Airline, Email, PasswordHash, PhoneNumber, Purser, Speaker, RoleID, ActiveStatus, DeviceToken, CreatedAt)
+        INSERT INTO Users 
+          (UserID, CrewId, FirstName, LastName, HireDate, OccDate, Base, Seniority, Airline, Email, Sex, PasswordHash, PhoneNumber, Purser, Speaker, RoleID, ActiveStatus, DeviceToken, Otp, defaultLanguage, CreatedAt)
         VALUES 
-          (@UserID, @CrewId, @FirstName, @LastName, @HireDate, @OccDate, @Base, @Seniority, @Airline, @Email, @PasswordHash, @PhoneNumber, @Purser, @Speaker, @RoleID, @ActiveStatus, @DeviceToken, @CreatedAt)
+          (@UserID, @CrewId, @FirstName, @LastName, @HireDate, @OccDate, @Base, @Seniority, @Airline, @Email, @Sex, @PasswordHash, @PhoneNumber, @Purser, @Speaker, @RoleID, @ActiveStatus, @DeviceToken, @Otp, @defaultLanguage, @CreatedAt)
       `);
         console.log("Languages from request:", languages);
         await (0, authService_1.addLanguages)(UserID, languages ?? []);
         // Send password via email
-        await (0, mailer_1.sendPasswordEmail)(email, firstName, password);
+        // await sendPasswordEmail(email, firstName, password);
+        await (0, mailer_1.sendOtpEmail)(email, firstName, otp);
         return res
             .status(statusCodes_1.StatusCode.CREATED)
             .json({ message: responseMessages_1.Messages.OTP_SENT, user: { id: UserID, email } });
@@ -93,7 +102,7 @@ const getLanguages = async (req, res) => {
         const pool = await (0, db_1.getPool)();
         const result = await pool.request().query(`
     SELECT *
-    FROM dbo.language
+    FROM dbo.Language
   `);
         const languages = result.recordset;
         return res
@@ -117,21 +126,122 @@ const verifyOTP = async (req, res) => {
         // Example dummy logic — replace with your actual verification
         const crew = await (0, userServiceNew_1.findCrewByEmail)(email);
         console.log("crew==>> ", crew);
-        if (!crew || crew.otp !== otp) {
+        if (!crew || crew.Otp != otp) {
             return res.status(statusCodes_1.StatusCode.BAD_REQUEST).json({ message: responseMessages_1.Messages.INVALID_OTP_OR_EXPIRED });
         }
+        const userId = crew?.UserID;
+        const crewId = crew.CrewID;
         await (0, otp_1.deleteOtp)(email);
         // await deviceModel.createDeviceId(savedOtp.id, deviceId, deviceType);
         // const token = generateToken({ id: crew?.id, crewId: crew?.crewId, email: crew?.email });
+        const token = (0, jwt_1.generateToken)({ id: crew?.UserID, crewId: crew?.CrewID, email: crew?.Email, roleId: crew?.RoleID });
+        const crewBase = crew?.Base;
+        const pool = await (0, db_1.getPool)();
+        // const baseSeniority = await pool
+        //     .request()
+        //     .input("crewId", sql.Int, crewId)
+        //     .input("crewBase", sql.NVarChar, crewBase)   // ✅ You MUST pass this
+        //     .query(`
+        //             SELECT *
+        //             FROM (
+        //                 SELECT 
+        //                     CrewID,
+        //                     Base,
+        //                     ROW_NUMBER() OVER (ORDER BY CrewID) AS PositionNumber
+        //                 FROM Roster
+        //                 WHERE Base = @crewBase
+        //             ) AS Ranked
+        //             WHERE CrewID = @crewId;
+        //         `);
+        // // return res.json({ baseSeniority })
+        // if (baseSeniority.recordset.length == 0) {
+        //     return res.status(404).json({ message: "Crew not found" });
+        // }
+        // // ✅ Extract the position
+        // const position = baseSeniority.recordset[0].PositionNumber;
+        const currentBASE = null;
+        const result = await pool
+            .request()
+            .input("mySeniority", db_1.sql.Int, crew.Seniority)
+            .input("currentBase", db_1.sql.NVarChar, crew.Base)
+            .query(`
+                WITH BaseSizes AS (
+                    SELECT 
+                        Base,
+                        COUNT(*) AS BaseSize
+                    FROM Roster
+                    GROUP BY Base
+                ),
+                ProjectedRanks AS (
+                    SELECT
+                        b.Base,
+                        COUNT(CASE WHEN r.Seniority < @mySeniority THEN 1 END) + 1 AS ProjectedRank
+                    FROM (SELECT DISTINCT Base FROM Roster) b
+                    LEFT JOIN Roster r
+                        ON r.Base = b.Base
+                    GROUP BY b.Base
+                ),
+                CurrentBaseStats AS (
+                    SELECT
+                        COUNT(CASE WHEN Seniority < @mySeniority THEN 1 END) + 1 AS CurrentBaseRank,
+                        COUNT(*) AS CurrentBaseSize
+                    FROM Roster
+                    WHERE Base = @currentBase
+                )
+                SELECT
+                    p.Base AS iata_code,
+                    a.name AS airportName,
+                    a.IsInternational,
+                    s.BaseSize,
+                    p.ProjectedRank,
+                    c.CurrentBaseRank,
+                    c.CurrentBaseSize
+                FROM ProjectedRanks p
+                JOIN BaseSizes s ON s.Base = p.Base
+                LEFT JOIN Airports a ON a.iata_code = p.Base
+                CROSS JOIN CurrentBaseStats c
+                ORDER BY p.Base;
+            `);
+        // ✅ FIXED: use iata_code instead of Base
+        const currentBaseRow = result.recordset.find(r => r.iata_code === crew.Base);
+        if (!currentBaseRow) {
+            return res.status(404).json({ message: "Current base stats not found" });
+        }
+        const currentBaseRank = currentBaseRow.CurrentBaseRank;
+        const currentBaseSize = currentBaseRow.CurrentBaseSize;
+        const currentPercentile = +((currentBaseRank / currentBaseSize) * 100).toFixed(2);
+        const projections = result.recordset.map(row => ({
+            baseCode: row.iata_code,
+            airportName: row.airportName,
+            isInternational: row.IsInternational,
+            projectedRank: row.ProjectedRank,
+            baseSize: row.BaseSize,
+            projectedPercentile: +((row.ProjectedRank / row.BaseSize) * 100).toFixed(2),
+            direction: row.ProjectedRank < currentBaseRank ? "up" : "down",
+            isCurrentBase: row.iata_code === crew.Base,
+            currentBASE: crew.Base
+        }));
+        const currentBaseProjection = projections.find(p => p.isCurrentBase);
+        const baseSeniority = currentBaseProjection?.projectedRank ?? null;
+        // const service = await getCrewPayDetail(crewId);
+        const service = crewId ? await (0, userServiceNew_1.getCrewPayDetails)(crewId) : null;
+        const yearsOfService = service?.basePay?.YearsOfService ?? 1;
+        const baseRate = await (0, userServiceNew_1.getDynamicBaseRate)(yearsOfService);
+        const languages = await (0, userServiceNew_1.getUserLanguages)(userId);
+        // if (service) return res.status(200).json({ message: Messages.USER_PROFILE, crew, baseSeniority: position, languages, service });
         // Mark crew as verified in DB here
         return res.status(statusCodes_1.StatusCode.OK).json({
             message: responseMessages_1.Messages.OTP_VERIFIED,
             crew: crew,
-            // token: token,
+            basePayRate: baseRate,
+            baseSeniority,
+            languages,
+            // service,
+            token: token,
         });
     }
     catch (error) {
-        return res.status(statusCodes_1.StatusCode.INTERNAL_SERVER_ERROR).json({ message: responseMessages_1.Messages.INTERNAL_SERVER_ERROR });
+        return res.status(statusCodes_1.StatusCode.INTERNAL_SERVER_ERROR).json({ message: responseMessages_1.Messages.INTERNAL_SERVER_ERROR, error: error.message, });
     }
 };
 exports.verifyOTP = verifyOTP;
@@ -321,13 +431,15 @@ const resendOtp = async (req, res) => {
         if (!existing) {
             return res.status(statusCodes_1.StatusCode.NOT_FOUND).json({ message: responseMessages_1.Messages.NOT_FOUND });
         }
+        console.log("existing crew", existing);
         const otp = await (0, otp_1.generateOtp)();
-        await (0, otp_1.saveOtp)(email, otp);
-        await (0, mailer_1.sendOtpEmail)(existing.email, existing.firstName, otp);
-        return res.status(statusCodes_1.StatusCode.CREATED).json({ message: responseMessages_1.Messages.OTP_SENT, otp: existing.otp });
+        // const otp = randomUUID().slice(0, 4);
+        await (0, otp_1.saveOtp)(existing?.Email, otp);
+        await (0, mailer_1.sendOtpEmail)(existing?.Email, existing?.FirstName, otp);
+        return res.status(statusCodes_1.StatusCode.OK).json({ message: responseMessages_1.Messages.OTP_SENT, otp: existing.otp });
     }
     catch (error) {
-        return res.status(statusCodes_1.StatusCode.INTERNAL_SERVER_ERROR).json({ message: responseMessages_1.Messages.INTERNAL_SERVER_ERROR });
+        return res.status(statusCodes_1.StatusCode.INTERNAL_SERVER_ERROR).json({ message: responseMessages_1.Messages.INTERNAL_SERVER_ERROR, error: error.message });
     }
 };
 exports.resendOtp = resendOtp;
@@ -362,8 +474,16 @@ const resetPassword = async (req, res) => {
             return res.status(statusCodes_1.StatusCode.BAD_REQUEST).json({ message: responseMessages_1.Messages.PASSWORD_DOES_NOT_MATCH });
         }
         const hashedPassword = await bcrypt_1.default.hash(password, Number(process.env.SALT) || 10);
-        existing.password = hashedPassword;
-        await existing.save();
+        const pool = await (0, db_1.getPool)();
+        await pool
+            .request()
+            .input("PasswordHash", db_1.sql.NVarChar, hashedPassword)
+            .query(`
+        UPDATE Users Set  
+          (PasswordHash)
+        VALUES 
+          (@PasswordHash)
+      `);
         return res.status(statusCodes_1.StatusCode.OK).json({ message: responseMessages_1.Messages.PASSWORD_CHANGED });
     }
     catch (error) {
