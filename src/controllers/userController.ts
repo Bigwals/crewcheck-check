@@ -65,19 +65,14 @@ export const getProfile = async (req: Request, res: Response): Promise<any> => {
             WHERE CrewID = @crewId;
         `);
 
-        // return res.json({ baseSeniority })
-        if (baseSeniority.recordset.length == 0) {
-            return res.status(404).json({ message: "Crew not found" });
-        }
-
-        // ✅ Extract the position
-        const position = baseSeniority.recordset[0].PositionNumber;
+        // Roster row optional: profile should still work even if ranking row is missing.
+        const position = baseSeniority.recordset?.[0]?.PositionNumber ?? null;
 
         const service = await getCrewPayDetails(crewId);
         const languages = await getUserLanguages(userId);
         if (service) return res.status(200).json({ message: Messages.USER_PROFILE, crew, baseSeniority: position, languages, service });
         // const crewBases = await getCrewBaseRanking()
-        return res.status(200).json({ message: Messages.USER_PROFILE, crew, languages });
+        return res.status(200).json({ message: Messages.USER_PROFILE, crew, baseSeniority: position, languages });
     } catch (error: any) {
         console.error("Error in getProfile:", error);
         return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({ message: Messages.INTERNAL_SERVER_ERROR, error: error.message });
@@ -262,6 +257,14 @@ export const updateProfile = async (req: Request, res: Response): Promise<any> =
 
         const { base, occ_date, aa_seniority, purser, speaker, languages } = req.body;
 
+        const normalizedLanguages: number[] = Array.isArray(languages)
+            ? languages
+                .map((lang: any) => Number(lang))
+                .filter((lang: number) => Number.isInteger(lang) && lang > 0)
+            : (languages !== undefined && languages !== null && languages !== "")
+                ? [Number(languages)].filter((lang: number) => Number.isInteger(lang) && lang > 0)
+                : [];
+
         const crew = await findCrewById(crewId);
         if (!crew) {
             return res.status(StatusCode.NOT_FOUND).json({ message: Messages.NOT_FOUND });
@@ -278,15 +281,16 @@ export const updateProfile = async (req: Request, res: Response): Promise<any> =
         );
 
         console.log("Languages from request:", languages);
+        console.log("Normalized languages:", normalizedLanguages);
 
-        // ✅ Proper language handling
-        if (Array.isArray(languages)) {
+        // Replace user languages only when client sends the field.
+        if (languages !== undefined) {
             // Step 1: Delete old
             await deleteLanguages(UserID);
 
             // Step 2: Insert new (only if any)
-            if (languages.length > 0) {
-                await addLanguages(UserID, languages);
+            if (normalizedLanguages.length > 0) {
+                await addLanguages(UserID, normalizedLanguages);
             }
         }
 

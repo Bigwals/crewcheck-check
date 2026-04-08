@@ -979,13 +979,14 @@ export const getUserLanguages = async (userId: string) => {
   const result = await pool.request()
     .input("userId", sql.UniqueIdentifier, userId)
     .query(`
-      SELECT 
+      SELECT DISTINCT
         UL.LanguageID,
         L.SpokenLanguage
       FROM UserLanguage UL
       INNER JOIN Language L
         ON UL.LanguageID = L.LanguageID
       WHERE UL.UserID = @userId
+      ORDER BY UL.LanguageID
     `);
 
   return result.recordset;  // array of languages with names

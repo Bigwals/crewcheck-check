@@ -129,9 +129,17 @@ export const deleteFileFromStorage = async (filename: string) => {
 
 export const addLanguages = async (userId: string, languages: number[]) => {
     const pool = await getPool();
-    console.log("Languages to insert for user:", userId, languages);
+    const normalizedLanguageIds = Array.from(
+        new Set(
+            (Array.isArray(languages) ? languages : [])
+                .map((id) => Number(id))
+                .filter((id) => Number.isInteger(id) && id > 0)
+        )
+    );
 
-    for (const languageId of languages) {
+    console.log("Languages to insert for user:", userId, normalizedLanguageIds);
+
+    for (const languageId of normalizedLanguageIds) {
         const userLanguageId = uuidv4();
         const request = pool.request();
 
@@ -140,8 +148,16 @@ export const addLanguages = async (userId: string, languages: number[]) => {
         request.input('languageId', sql.Int, languageId);
 
         const sqlQuery = `
-            INSERT INTO dbo.UserLanguage (UserLanguageID, UserID, LanguageID)
-            VALUES (@userLanguageId, @userId, @languageId);
+            IF NOT EXISTS (
+                SELECT 1
+                FROM dbo.UserLanguage
+                WHERE UserID = @userId
+                  AND LanguageID = @languageId
+            )
+            BEGIN
+                INSERT INTO dbo.UserLanguage (UserLanguageID, UserID, LanguageID)
+                VALUES (@userLanguageId, @userId, @languageId)
+            END;
         `;
 
         try {
