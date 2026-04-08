@@ -411,6 +411,29 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
         const yearsOfService = service?.basePay?.YearsOfService ?? 1;
         const baseRate = await getDynamicBaseRate(yearsOfService);
 
+        const boardingResult = await pool.request()
+            .input("YearsOfService", sql.Int, yearsOfService)
+            .query(`
+                SELECT *
+                FROM boarding_pay
+                WHERE YearsOfService = @YearsOfService
+            `);
+
+        const boardingRow = boardingResult.recordset?.[0] ?? null;
+
+        const premiumResult = await pool.request().query(`
+            SELECT *
+            FROM crew_premium_pos_count
+        `);
+
+        const premiumRows = premiumResult.recordset || [];
+        const premiumMap = new Map<string, any>();
+
+        for (const row of premiumRows) {
+            const key = `${row.leg_equip_type}_${row.seq_catagory}`;
+            premiumMap.set(key, row);
+        }
+
         // ---------- build sequences ----------
         const leg_equip_types: any[] = [];
         const sequences: any[] = [];
@@ -638,17 +661,6 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
             let hourlyBoardingRate = 0;
             let boarding_type = 0;
 
-            // Fetch Boarding Pay ROW only once (no need to fetch again & again)
-            const boardingResult = await pool.request()
-                .input("YearsOfService", sql.Int, yearsOfService)
-                .query(`
-                SELECT *
-                FROM boarding_pay
-                WHERE YearsOfService = @YearsOfService
-            `);
-
-            const boardingRow = boardingResult.recordset?.[0] ?? null;
-
             if (!boardingRow) {
                 console.log("⚠️ No boarding pay row found for YearsOfService:", yearsOfService);
             }
@@ -671,18 +683,7 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
                         category == 'HAW' ? 'IPD' :
                             (isDepINT || isArrINT) ? 'INT' : 'DOM';
 
-                const positionPremiumPay = await pool.request()
-                    .input("leg", sql.Int, leg.leg_equip_type)
-                    .input("category", sql.NVarChar, SeqCategory)
-                    .query(`
-                    SELECT *
-                    FROM crew_premium_pos_count
-                    WHERE leg_equip_type = @leg
-                    and seq_catagory = @category
-                    `);
-                // FROM position_premium_rate
-
-                const posRow = positionPremiumPay.recordset?.[0] ?? null;
+                const posRow = premiumMap.get(`${leg.leg_equip_type}_${SeqCategory}`) ?? null;
 
                 console.log("leg:", leg.leg_equip_type);
                 console.log("position premium pay:", posRow);
@@ -2277,6 +2278,16 @@ export const searchByMonth = async (req: Request, res: Response): Promise<any> =
         const yearsOfService = service?.basePay?.YearsOfService ?? 1;
         const baseRate = await getDynamicBaseRate(yearsOfService);
 
+        const boardingResult = await pool.request()
+            .input("YearsOfService", sql.Int, yearsOfService)
+            .query(`
+                SELECT *
+                FROM boarding_pay
+                WHERE YearsOfService = @YearsOfService
+            `);
+
+        const boardingRow = boardingResult.recordset?.[0] ?? null;
+
         const premiumResult = await pool.request().query(`
             SELECT *
             FROM crew_premium_pos_count
@@ -2636,18 +2647,6 @@ export const searchByMonth = async (req: Request, res: Response): Promise<any> =
             let hourlyBoardingRate = 0;
             let boarding_type = 0;
 
-            const boardingResult = await pool.request()
-                .input("YearsOfService", sql.Int, yearsOfService)
-                .query(`
-            SELECT *
-            FROM boarding_pay
-            WHERE YearsOfService = @YearsOfService
-            `);
-
-            // const boardingRow = boardingResult.recordset?.[0] ?? null;
-
-            const boardingRow = boardingResult.recordset?.[0] ?? null;
-
             for (const leg of leg_equip_types) {
                 const dep = (leg.dep_stn || "").toString().toUpperCase();
                 const arr = (leg.arr_stn || "").toString().toUpperCase();
@@ -2673,23 +2672,7 @@ export const searchByMonth = async (req: Request, res: Response): Promise<any> =
                 //     r.leg_equip_type == leg.leg_equip_type &&
                 //     r.seq_catagory == SeqCategory
                 // );
-                // old
-                // const key = `${leg.leg_equip_type}_${SeqCategory}`;
-                // const posRow = premiumMap.get(key);
-
-                // new
-                const positionPremiumPay = await pool.request()
-                    .input("leg", sql.Int, leg.leg_equip_type)
-                    .input("category", sql.NVarChar, SeqCategory)
-                    .query(`
-                    SELECT *
-                    FROM crew_premium_pos_count
-                    WHERE leg_equip_type = @leg
-                    and seq_catagory = @category
-                    `);
-                // FROM position_premium_rate
-
-                const posRow = positionPremiumPay.recordset?.[0] ?? null;
+                const posRow = premiumMap.get(`${leg.leg_equip_type}_${SeqCategory}`) ?? null;
                 if (!posRow || !boardingRow) {
                     continue; // skip invalid rows
                 }
