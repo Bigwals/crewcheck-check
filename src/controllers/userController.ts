@@ -1212,8 +1212,10 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
                 console.log("is Dept Int", isDepINT)
                 console.log("is Arr Int", isArrINT)
                 // Determine flight rate (if either station is INT -> INT rate, else DOM)
-                let SeqCategory = (isDepINT || isArrINT) ? 'INT' : 'DOM'; // if IPD use that one as INT
-                if (category == 'IPD') { SeqCategory = 'IPD' };
+                let SeqCategory =
+                    category == 'IPD' ? 'IPD' :
+                        category == 'HAW' ? 'IPD' :
+                            (isDepINT || isArrINT) ? 'INT' : 'DOM';
 
                 const positionPremiumPay = await pool.request()
                     .input("leg_equip_type", sql.Int, leg.leg_equip_type)
@@ -1302,8 +1304,8 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
                 creditHoursDollars +
                 tafbPay +
                 premiumWithSpeaker +
-                totalBoardingPay
-                // extraAmount
+                totalBoardingPay +
+                extraAmount
             );
 
             // 9) Prepare the same output shape as before (frontend unchanged).
