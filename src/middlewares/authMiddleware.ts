@@ -25,3 +25,14 @@ export const authenticate = (req: Request, res: Response, next: NextFunction): v
     return;
   }
 };
+
+export const authorizeAdmin = (req: Request, res: Response, next: NextFunction): void => {
+  const roleId = Number((req as any)?.user?.roleId);
+
+  if (roleId !== 1) {
+    res.status(StatusCode.FORBIDDEN).json({ message: Messages.FORBIDDEN });
+    return;
+  }
+
+  next();
+};
