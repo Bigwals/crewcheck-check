@@ -2168,15 +2168,15 @@ export const get12MonthSequenceData = async (req: Request, res: Response): Promi
                     s.BidMonth,
                     s.BidYear,
 
-                    COUNT(DISTINCT s.SeqNo) AS SequenceCount,
-                    COUNT(l.SeqNo) AS TotalLegs,
+                    COUNT(DISTINCT s.UniqueSeqNo) AS SequenceCount,
+                    COUNT(l.UniqueSeqNo) AS TotalLegs,
                     
                     MIN(l.DeptStn) AS FirstDeptStn,
                     MIN(l.Date) AS StartDate,
                     MAX(l.Date) AS EndDate
 
                 FROM Sequence s
-                LEFT JOIN Leg l ON s.SeqNo = l.SeqNo
+                LEFT JOIN Leg l ON s.UniqueSeqNo = l.UniqueSeqNo
                 WHERE s.BidYear = @bidYear
                 GROUP BY s.BidMonth, s.BidYear
                 ORDER BY MIN(s.EffDate)

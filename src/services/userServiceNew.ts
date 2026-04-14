@@ -126,42 +126,6 @@ export const findByBidMonth = async (crewBase: string, bidMonth: string) => {
   ORDER BY s.SeqNo, l.SeqLegNo
 `);
 
-  // const sequencesMap = new Map();
-// old
-  // result.recordset.forEach((row) => {
-  //   if (!sequencesMap.has(row.SeqNo)) {
-  //     sequencesMap.set(row.SeqNo, {
-  //       CrewBase: row.CrewBase,
-  //       SeqNo: row.SeqNo,
-  //       UniqueSeqNo: row.UniqueSeqNo,
-  //       SeqCategory: row.SeqCategory,
-  //       NBR_Legs: row.NBR_Legs,
-  //       SeqCrewPos: row.SeqCrewPos,
-  //       CvtSeqFlyTime: row.CvtSeqFlyTime,
-  //       CvtSeqPC: row.CvtSeqPC,
-  //       CvtTAFB: row.CvtTAFB,
-  //       CvtSeqPremTime: row.CvtSeqPremTime,
-  //       BidMonth: row.BidMonth,
-  //       legs: []
-  //     });
-  //   }
-
-  //   sequencesMap.get(row.SeqNo).legs.push({
-  //     SeqLegNo: row.SeqLegNo,
-  //     CvtDptTime: row.CvtDptTime,
-  //     CvtArvTime: row.CvtArvTime,
-  //     CvtLegPC: row.CvtLegPC,
-  //     EOD: row.EOD,
-  //     DptTime: row.DptTime,
-  //     ArvTime: row.ArvTime,
-  //     DeptStn: row.DeptStn,
-  //     ArrvStn: row.ArrvStn,
-  //     LegEqupType: row.LegEqupType,
-  //     LegPC: row.LegPC,
-  //     CvtLayover: row.CvtLayover
-  //   });
-  // });
-
   // new
   const sequencesMap = new Map();
 
@@ -241,22 +205,6 @@ export const findByDateAndSeqNo = async (uniqueSeqNo: string, frequency_date: St
   return result.recordset.length > 0 ? result.recordset : null;
 };
 
-// old
-// export const findByDateAndSeqNo = async (seqNo: number, effDate: String) => {
-//   const pool = await getPool();
-//   const result = await pool.request()
-//     .input("seqNo", sql.Int, seqNo)
-//     .input("effDate", sql.Date, effDate)
-//     .query(`
-//             SELECT *
-//             FROM Fre
-//             WHERE SeqNo = @seqNo 
-//             AND EffDate = @effDate
-//         `);
-
-//   return result.recordset.length > 0 ? result.recordset : null;
-// };
-
 // export const checkAlreadyApplied = async (seqNo: number, bidMonth: string, effDate: string, userId: string) => {
 export const checkAlreadyApplied = async (uniqueSeqNo: string, bidMonth: string, effDate: string, userId: string) => {
   const pool = await getPool();
@@ -290,63 +238,6 @@ export const getBoardingPayByYears = async (YearsOfService: number) => {
 
   return result.recordset.length > 0 ? result.recordset[0] : null;
 }
-
-// export const updatePosition = async (seqNo: number, position: number, effDate: Date) => {
-// old
-// export const updatePosition = async (seqNo: number, position: number, effDate: string, bidMonth: string) => {
-//   const pool = await getPool();
-
-//   // 1) Fetch the row
-//   const result = await pool.request()
-//     .input("seqNo", sql.Int, seqNo)
-//     .input("effDate", sql.NVarChar, effDate)
-//     .input("bidMonth", sql.NVarChar, bidMonth)
-//     .query(`
-//       SELECT *
-//       FROM Sequence
-//       WHERE SeqNo = @seqNo AND BidMonth = @bidMonth
-//     `);
-
-//   if (result.recordset.length === 0) return null;
-
-//   // Get the row object
-//   let row = result.recordset[0];
-
-
-
-//   let seqCrewPos: string = row.SeqCrewPos;
-
-//   // 2) Update the SeqCrewPos string
-//   let seqCrewPosArr = seqCrewPos.split("");
-
-//   let originalDigit = seqCrewPosArr[position - 1];
-
-//   if (position > 0 && position <= seqCrewPosArr.length) {
-//     seqCrewPosArr[position - 1] = "0"; // mark position as taken
-//   }
-
-//   const updatedSeqCrewPos = seqCrewPosArr.join("");
-
-//   // 3) Update DB
-//   await pool.request()
-//     .input("seqNo", sql.Int, seqNo)
-//     // .input("effDate", sql.NVarChar, effDate)
-//     .input("bidMonth", sql.NVarChar, bidMonth)
-//     // .input("seqCrewPos", sql.VarChar, updatedSeqCrewPos)
-//     .input("seqCrewPos", sql.VarChar(20), updatedSeqCrewPos)
-//     .query(`
-//       UPDATE Sequence
-//       SET SeqCrewPos = @seqCrewPos
-//       WHERE SeqNo = @seqNo AND BidMonth = @bidMonth
-//     `);
-
-//   // 4) Return the updated row (with new SeqCrewPos)
-//   return {
-//     ...row,
-//     SeqCrewPos: updatedSeqCrewPos,
-//     originalDigit
-//   };
-// };
 
 // new
 export const updatePosition = async (
@@ -953,25 +844,6 @@ export const getCrewPayDetail = async (crewIds: number[]) => {
     };
   });
 };
-
-// old
-// export const getUserLanguages = async (userId: string) => {
-//   const pool = await getPool();
-
-//   // 1. Get crew hireDate
-//   const crewResult = await pool.request()
-//     .input("userId", sql.UniqueIdentifier, userId)
-//     .query(`
-//       SELECT *
-//       FROM UserLanguage
-//       WHERE UserID = @userId
-//     `);
-//   const crewLanguages = crewResult.recordset;
-
-//   return crewLanguages
-// }
-
-// new
 
 export const getUserLanguages = async (userId: string) => {
   const pool = await getPool();
