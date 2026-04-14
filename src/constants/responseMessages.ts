@@ -19,7 +19,7 @@ export const Messages = {
     AVATAR_UPLOADED: "Avatar Uploaded Successfully",
     PROFILE_UPDATED: "Profile Updated Successfully",
     OTP_VERIFIED: "Otp Verified Successfully",
-    
+
     LANGUAGES_FETCHED: "Languages Fetched",
 
     NOT_FOUND: "Crew not found.",
@@ -27,7 +27,9 @@ export const Messages = {
     UPDATE_SUCCESS: "Crew updated successfully.",
     DELETE_SUCCESS: "Crew deleted successfully.",
     USER_PROFILE: "Crew Profile fetched.",
-    
+
+    VACATIONS_ADDED: "Vacations added successfully",
+
     // Validation Error
     AUTHORIZATION_TOKEN_MISSING: "Authorization token missing or malformed.",
     INTERNAL_SERVER_ERROR: "Something went wrong. Please try again.",

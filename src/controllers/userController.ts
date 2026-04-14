@@ -24,6 +24,7 @@ require("dotenv").config()
 import { config } from 'dotenv';
 import cron from "node-cron";
 import { totalmem } from 'os';
+import { getCrewVacations } from '../services/vacationService';
 // import { buildMonthSummary } from "../services/monthService";
 
 export const getProfile = async (req: Request, res: Response): Promise<any> => {
@@ -68,11 +69,13 @@ export const getProfile = async (req: Request, res: Response): Promise<any> => {
         // Roster row optional: profile should still work even if ranking row is missing.
         const position = baseSeniority.recordset?.[0]?.PositionNumber ?? null;
 
+        const vacations = await getCrewVacations(userId);
+
         const service = await getCrewPayDetails(crewId);
         const languages = await getUserLanguages(userId);
-        if (service) return res.status(200).json({ message: Messages.USER_PROFILE, crew, baseSeniority: position, languages, service });
+        if (service) return res.status(200).json({ message: Messages.USER_PROFILE, crew, baseSeniority: position, languages, service, vacations });
         // const crewBases = await getCrewBaseRanking()
-        return res.status(200).json({ message: Messages.USER_PROFILE, crew, baseSeniority: position, languages });
+        return res.status(200).json({ message: Messages.USER_PROFILE, crew, baseSeniority: position, languages,vacations });
     } catch (error: any) {
         console.error("Error in getProfile:", error);
         return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({ message: Messages.INTERNAL_SERVER_ERROR, error: error.message });
