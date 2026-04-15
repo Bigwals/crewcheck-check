@@ -14,7 +14,7 @@ export const addCrewVacations = async (
     dateFrom: Date,
     dateTo: Date,
     bidMonth: string,
-    totalDaysOfBidMonth: number,
+    // totalDaysOfBidMonth: number,
     totalPay: number,
 ) => {
     const pool = await getPool();
@@ -24,20 +24,19 @@ export const addCrewVacations = async (
         .input("DateFrom", sql.Date, dateFrom)
         .input("DateTo", sql.Date, dateTo)
         .input("BidMonth", sql.VarChar(20), bidMonth)
-        .input("TotalDaysOfBidMonth", sql.Int, totalDaysOfBidMonth)
+        // .input("TotalDaysOfBidMonth", sql.Int, totalDaysOfBidMonth)
         .input("TotalPay", sql.Decimal(12, 2), totalPay)
         .query(`
         INSERT INTO CrewVacations (
-            UserID, DateFrom, DateTo, BidMonth, TotalDaysOfBidMonth, TotalPay
+            UserID, DateFrom, DateTo, BidMonth, TotalPay
         )
         OUTPUT INSERTED.*
         VALUES (
-            @UserID, @DateFrom, @DateTo, @BidMonth, @TotalDaysOfBidMonth, @TotalPay
+            @UserID, @DateFrom, @DateTo, @BidMonth, @TotalPay
         );
     `);
 
     return vacations.recordset;
-
 };
 
 export const getCrewVacations = async (
@@ -55,3 +54,41 @@ export const getCrewVacations = async (
 
     return result.recordset.length > 0 ? result.recordset : null;
 }
+
+export const getCrewVacationsByMonth = async (
+    userId: string,
+    bidMonth: string
+) => {
+    const pool = await getPool();
+
+    const result = await pool.request()
+        .input("userId", sql.UniqueIdentifier, userId)
+        .input("bidMonth", sql.VarChar(20), bidMonth)
+        .query(`
+            SELECT TOP 1 *
+            FROM CrewVacations
+            WHERE UserID = @userId
+            AND BidMonth = @bidMonth
+        `);
+
+    return result.recordset[0] || null;
+};
+
+export const getCrewVacationsById = async (
+    Id: string,
+    bidMonth: string,
+) => {
+    const pool = await getPool();
+
+    const result = await pool.request()
+        .input("Id", sql.Int, Id)
+        .input("bidMonth", sql.VarChar(20), bidMonth)
+        .query(`
+            SELECT TOP 1 *
+            FROM CrewVacations
+            WHERE Id = @Id
+            AND BidMonth = @bidMonth
+            `);
+
+    return result.recordset[0] || null;
+};

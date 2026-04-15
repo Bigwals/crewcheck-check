@@ -29,6 +29,8 @@ export const Messages = {
     USER_PROFILE: "Crew Profile fetched.",
 
     VACATIONS_ADDED: "Vacations added successfully",
+    VACATIONS_UPDATED: "Vacations updated successfully",
+    VACATIONS_DELETED: "Vacations deleted successfully",
 
     // Validation Error
     AUTHORIZATION_TOKEN_MISSING: "Authorization token missing or malformed.",
