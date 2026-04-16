@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 // import { createUser } from '../services/authService';
 import { addLanguages, updateCrew } from '../services/authService';
 // import { findUserByEmail, findUserByCrewId, findUserByClientCrewId, getCrewPayDetails, findCrewOld } from '../services/userService';
-import { findCrewByEmail, findByCrewId, getCrewPayDetails, findCrewById, UpdatePassword, getCrewPayDetail, getUserLanguages, getDynamicBaseRate } from '../services/userServiceNew';
+import { findCrewByEmail, findByCrewId, getCrewPayDetails, findCrewById, UpdatePassword, getCrewPayDetail, getUserLanguages, getDynamicBaseRate, UpdateDeviceToken } from '../services/userServiceNew';
 import bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
 import { generateToken } from '../utils/jwt';
@@ -283,7 +283,8 @@ export const verifyOTP = async (req: Request, res: Response): Promise<any> => {
 export const login = async (req: Request, res: Response): Promise<any> => {
     try {
         // const { crewId, password } = loginSchema.parse(req.body);
-        const { crewId, password } = req.body;
+
+        const { crewId, password, deviceToken } = req.body;
 
         const crew = await findCrewById(crewId); // crewId is string
         // const parsedCrewId = parseInt(crewId);
@@ -308,6 +309,8 @@ export const login = async (req: Request, res: Response): Promise<any> => {
             // if (!crew.otpVerified) {
             //     return res.status(StatusCode.BAD_REQUEST).json({ message: Messages.ACCOUNT_NOT_VERIFIED });
             // }
+
+            await UpdateDeviceToken(crewId, deviceToken)
 
             const token = generateToken({ id: crew?.UserID, crewId: crew?.CrewID, email: crew?.Email, roleId: crew?.RoleID });
 

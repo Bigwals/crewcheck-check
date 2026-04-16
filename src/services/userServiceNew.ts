@@ -46,6 +46,19 @@ export const UpdatePassword = async (crewId: number, hashedPassword: string) => 
   return records.length > 0 ? records[0] : null;
 }
 
+export const UpdateDeviceToken = async (crewId: number, deviceToken: string) => {
+  const pool = await getPool();
+  const result = await pool.request()
+    .input("crewId", sql.Int, crewId)
+    .input("deviceToken", sql.NVarChar, deviceToken)
+    .query(`
+    UPDATE Users SET DeviceToken = @deviceToken WHERE crewId = @crewId 
+    `)
+
+  const records = result?.recordset ?? [];
+  return records.length > 0 ? records[0] : null;
+}
+
 export const findByCrewId = async (crewId: number, firstName: string, lastName: string) => {
   const pool = await getPool();
 
