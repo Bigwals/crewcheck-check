@@ -795,15 +795,15 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
 
             console.log("premiumWithSpeaker", premiumWithSpeaker)
             // if user has languages → apply speaker pay
-            if (languages.length > 0) {
-                speakerPay = premiumHours * 2;
+            // if (languages.length > 0) {
+            //     speakerPay = premiumHours * 2;
 
-                premiumWithSpeaker += speakerPay;
-                // premiumWithSpeaker += Math.round(speakerPay);
-                console.log("Languages.....", languages);
-                console.log("premiumPay.....", premiumPay);
-                console.log("speakerPay.....", speakerPay);
-            }
+            //     premiumWithSpeaker += speakerPay;
+            //     // premiumWithSpeaker += Math.round(speakerPay);
+            //     console.log("Languages.....", languages);
+            //     console.log("premiumPay.....", premiumPay);
+            //     console.log("speakerPay.....", speakerPay);
+            // }
 
             const totalEarnings =
                 payHoursDollars +
