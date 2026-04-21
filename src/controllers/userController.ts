@@ -2770,11 +2770,11 @@ export const searchByMonth = async (req: Request, res: Response): Promise<any> =
 
             // if user has languages → apply speaker pay
             // if (languages.length > 0) 
-            if (languages?.length) {
-                speakerPay = premiumHours * 2;
+            // if (languages?.length) {
+            //     speakerPay = premiumHours * 2;
 
-                premiumWithSpeaker += speakerPay;
-            }
+            //     premiumWithSpeaker += speakerPay;
+            // }
 
             let PBI = false;
 
