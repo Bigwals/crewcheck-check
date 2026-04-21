@@ -708,13 +708,13 @@ export const getCrewPayDetails = async (crewId: number) => {
   const crewResult = await pool.request()
     .input("crewId", sql.Int, crewId)
     .query(`
-      SELECT CrewId, OccDate, Base
+      SELECT CrewId, OccDate, Base, HireDate
       FROM Roster
       WHERE CrewId = @crewId
     `);
 
   const crew = crewResult.recordset[0];
-  if (!crew || !crew.OccDate) {
+  if (!crew || !crew.HireDate) {
     return {
       basePay: null,
       yearsOfService: null,
@@ -725,17 +725,17 @@ export const getCrewPayDetails = async (crewId: number) => {
   }
 
   // 2️⃣ Compute current crew's years of service
-  const yearsOfService = getYearsOfService(new Date(crew.OccDate));
+  const yearsOfService = getYearsOfService(new Date(crew.HireDate));
 
   // 3️⃣ Get all crews (for company seniority)
   const allCrewResult = await pool.request().query(`
-    SELECT CrewId, OccDate
+    SELECT CrewId, OccDate, HireDate
     FROM Roster
     WHERE OccDate IS NOT NULL
   `);
   const allCrews = allCrewResult.recordset.map(c => ({
     crewId: c.CrewId,
-    years: getYearsOfService(new Date(c.OccDate))
+    years: getYearsOfService(new Date(c.HireDate))
   }));
 
   // Sort descending (most experienced first)
@@ -754,14 +754,14 @@ export const getCrewPayDetails = async (crewId: number) => {
   const baseCrewResult = await pool.request()
     .input("Base", sql.VarChar, crew.Base)
     .query(`
-      SELECT CrewId, OccDate
+      SELECT CrewId, OccDate, HireDate
       FROM Roster
       WHERE Base = @Base AND OccDate IS NOT NULL
     `);
 
   const baseCrews = baseCrewResult.recordset.map(c => ({
     crewId: c.CrewId,
-    years: getYearsOfService(new Date(c.OccDate))
+    years: getYearsOfService(new Date(c.HireDate))
   }));
 
   baseCrews.sort((a, b) => b.years - a.years);
