@@ -940,11 +940,21 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
             FROM Airports
         `);
         const airportRows = airportResult.recordset || [];
-        const airportIntl: Record<string, boolean> = {};
-        airportRows.forEach(a => {
-            if (a && a.IATA_Code) airportIntl[a.IATA_Code.toUpperCase()] = a.IsInternational == 1;
-        });
+        // const airportIntl: Record<string, boolean> = {};
+        // airportRows.forEach(a => {
+        //     if (a && a.IATA_Code) airportIntl[a.IATA_Code.toUpperCase()] = a.IsInternational == 1;
+        // });
 
+        const airportIntl: Record<string, { isInternational: boolean; name: string }> = {};
+
+        airportRows.forEach(a => {
+            if (a && a.IATA_Code) {
+                airportIntl[a.IATA_Code.toUpperCase()] = {
+                    isInternational: a.IsInternational == 1,
+                    name: a.Name
+                };
+            }
+        });
         // new
         const sequences: any[] = [];
 
@@ -991,6 +1001,8 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
                     seqLegNo: leg.SeqLegNo,
                     departure: leg.DeptStn,
                     arrival: leg.ArrvStn,
+                    airportDepartureName: airportIntl[leg.DeptStn]?.name,
+                    airportArrivalName: airportIntl[leg.ArrvStn]?.name,
                     flightNo: leg.FitNo,
                     fitLegNo: leg.FitLegNo,
                     // dptTime: toHHmm(leg.DptTime),
@@ -1164,8 +1176,8 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
                     const dep = (leg.DeptStn || "").toString().toUpperCase();
                     const arr = (leg.ArrvStn || "").toString().toUpperCase();
 
-                    const isDepINT = airportIntl[dep] == true;
-                    const isArrINT = airportIntl[arr] == true;
+                    const isDepINT = airportIntl[dep]?.isInternational == true;
+                    const isArrINT = airportIntl[arr]?.isInternational == true;
 
                     // Determine flight rate (if either station is INT -> INT rate, else DOM)
                     const flightRate = (isDepINT || isArrINT) ? perDiem_int : perDiem_dom;
@@ -1234,8 +1246,8 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
                 const dep = (leg.dep_stn || "").toString().toUpperCase();
                 const arr = (leg.arr_stn || "").toString().toUpperCase();
 
-                const isDepINT = airportIntl[dep] == true;
-                const isArrINT = airportIntl[arr] == true;
+                const isDepINT = airportIntl[dep]?.isInternational == true;
+                const isArrINT = airportIntl[arr]?.isInternational == true;
 
                 console.log("is Dept Int", isDepINT)
                 console.log("is Arr Int", isArrINT)
@@ -1382,6 +1394,8 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
                     seqLegNo: leg.SeqLegNo,
                     departure: leg.DeptStn,
                     arrival: leg.ArrvStn,
+                    airportDepartureName: airportIntl[leg.DeptStn]?.name,
+                    airportArrivalName: airportIntl[leg.ArrvStn]?.name,
                     flightNo: leg.FitNo,
                     dptTime: leg.CvtDptTime,
                     arvTime: leg.CvtArvTime,
