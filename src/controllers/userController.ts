@@ -982,6 +982,7 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
                     arvZone: leg.ArvZone,
                     // flyingHours: formatMinutes(leg.LegTotalFlying || 0),
                     flyingHours: leg.CvtLegTotalFlying || 0,
+                    date: leg.Date,
                     legPc: leg.LegPC,
                     layover: leg.CvtLayover ? leg.CvtLayover : null,
                     eod: leg.EOD
@@ -1366,6 +1367,7 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
                     dptTime: leg.CvtDptTime,
                     arvTime: leg.CvtArvTime,
                     flyingHours: leg.CvtLegTotalFlying,
+                    date: leg.Date,
                     legPc: leg.LegPC,
                     layover: leg.LayoverTime ? formatMinutes(leg.LayoverTime) : null,
                     eod: leg.EOD
