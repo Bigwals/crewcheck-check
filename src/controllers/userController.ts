@@ -75,7 +75,7 @@ export const getProfile = async (req: Request, res: Response): Promise<any> => {
         const languages = await getUserLanguages(userId);
         if (service) return res.status(200).json({ message: Messages.USER_PROFILE, crew, baseSeniority: position, languages, service, vacations });
         // const crewBases = await getCrewBaseRanking()
-        return res.status(200).json({ message: Messages.USER_PROFILE, crew, baseSeniority: position, languages,vacations });
+        return res.status(200).json({ message: Messages.USER_PROFILE, crew, baseSeniority: position, languages, vacations });
     } catch (error: any) {
         console.error("Error in getProfile:", error);
         return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({ message: Messages.INTERNAL_SERVER_ERROR, error: error.message });
@@ -394,15 +394,32 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
 
         // ---------- fetch airports once ----------
         const airportResult = await pool.request().query(`
-            SELECT IATA_Code, IsInternational
+            SELECT IATA_Code, IsInternational, Name
             FROM Airports
         `);
         const airportRows = airportResult.recordset || [];
 
+        // old
         // return res.json({ airportRows })
-        const airportIntl: Record<string, boolean> = {};
+        // const airportIntl: Record<string, boolean> = {};
+        // const airportIntl: Record<string, { isInternational: boolean; name: string }> = {};
+        // airportRows.forEach(a => {
+        //     if (a && a.IATA_Code) airportIntl[a.IATA_Code.toUpperCase()] = {
+        //             isInternational: a.IsInternational == 1,
+        //             name: a.Name
+        //         };
+        // });
+
+        // new
+        const airportIntl: Record<string, { isInternational: boolean; name: string }> = {};
+
         airportRows.forEach(a => {
-            if (a && a.IATA_Code) airportIntl[a.IATA_Code.toUpperCase()] = a.IsInternational == 1;
+            if (a && a.IATA_Code) {
+                airportIntl[a.IATA_Code.toUpperCase()] = {
+                    isInternational: a.IsInternational == 1,
+                    name: a.Name
+                };
+            }
         });
 
         // ---------- fetch all legs ----------
@@ -482,6 +499,8 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
                     seqLegNo: leg.SeqLegNo,
                     departure: leg.DeptStn,
                     arrival: leg.ArrvStn,
+                    airportDepartureName: airportRows[leg.DeptStn]?.name,
+                    airportArrivalName: airportRows[leg.ArrvStn]?.name,
                     flightNo: leg.FitNo,
                     dptTime: leg.CvtDptTime,
                     arvTime: leg.CvtArvTime,
@@ -622,8 +641,8 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
                     const dep = (leg.DeptStn || "").toString().toUpperCase();
                     const arr = (leg.ArrvStn || "").toString().toUpperCase();
 
-                    const isDepINT = airportIntl[dep] == true;
-                    const isArrINT = airportIntl[arr] == true;
+                    const isDepINT = airportIntl[dep]?.isInternational == true;
+                    const isArrINT = airportIntl[arr]?.isInternational == true;
 
                     console.log("is Dept Int", isDepINT)
                     console.log("is Arr Int", isArrINT)
@@ -676,8 +695,8 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
                 const dep = (leg.dep_stn || "").toString().toUpperCase();
                 const arr = (leg.arr_stn || "").toString().toUpperCase();
 
-                const isDepINT = airportIntl[dep] == true;
-                const isArrINT = airportIntl[arr] == true;
+                const isDepINT = airportIntl[dep]?.isInternational == true;
+                const isArrINT = airportIntl[arr]?.isInternational == true;
 
                 console.log("is Dept Int", isDepINT)
                 console.log("is Arr Int", isArrINT)
@@ -917,7 +936,7 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
         // return res.json({ perDiem_dom });
         // ---------- fetch airports once ----------
         const airportResult = await pool.request().query(`
-            SELECT IATA_Code, IsInternational
+            SELECT IATA_Code, IsInternational, Name
             FROM Airports
         `);
         const airportRows = airportResult.recordset || [];
@@ -2268,7 +2287,7 @@ export const searchByMonth = async (req: Request, res: Response): Promise<any> =
 
         // ---------- fetch airports once ----------
         const airportResult = await pool.request().query(`
-            SELECT IATA_Code, IsInternational
+            SELECT IATA_Code, IsInternational, Name
             FROM Airports
             `);
 
