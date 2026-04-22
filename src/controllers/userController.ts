@@ -1298,13 +1298,13 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
             let premiumWithSpeaker = premiumPay;
 
             // if user has languages → apply speaker pay
-            if (languages.length > 0) {
-                speakerPay = premiumHours * 2;
-                // premiumWithSpeaker += Math.round(speakerPay);
+            // if (languages.length > 0) {
+            //     speakerPay = premiumHours * 2;
+            //     // premiumWithSpeaker += Math.round(speakerPay);
 
-                premiumWithSpeaker += speakerPay;
-                console.log("Languages.....", languages);
-            }
+            //     premiumWithSpeaker += speakerPay;
+            //     console.log("Languages.....", languages);
+            // }
 
             // 8) Total sequence earnings
             const totalSequenceEarnings = Number(
