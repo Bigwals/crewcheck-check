@@ -644,6 +644,7 @@ export const addLegDataInUserLeg = async (
       .input("CvtLegTotalFlying", sql.VarChar, leg.CvtLegTotalFlying)
       .input("CvtLayover", sql.VarChar, leg.CvtLayover)
       .input("BidMonth", sql.VarChar, leg.BidMonth)
+      .input("Date", sql.Date, leg.Date)
       .query(`
         INSERT INTO UserLeg (
           UserLegID, UserID, UniqueSeqNo, EffDate, ThruDate, Frequency, SeqNo, SeqLegNo, DeptStn, ArrvStn, DptTime, DptZone, ArvTime, ArvZone,
@@ -652,7 +653,7 @@ export const addLegDataInUserLeg = async (
           Calendar_40Day, Terminal, GateNumber, FlightStatus, BookingCode, SeatNumber, TailNumber, UserSequenceId,
           LegEndDateLocal, LegEndDateUtc, LegStartDateLocal, LegStartDateUtc, LegEndTimeLocal, LegEndTimeUtc,
           LegStartTimeLocal, LegStartTimeUtc, CvtArvTime, CvtDPDeadheadTime, CvtDPOnDutyTime, CvtDptTime,
-          CvtLegNiteFly, CvtLegPC, CvtLegTotalFlying, CvtLayover, BidMonth
+          CvtLegNiteFly, CvtLegPC, CvtLegTotalFlying, CvtLayover, BidMonth, Date
         )
         VALUES (
           @UserLegID, @UserID, @UniqueSeqNo, @EffDate, @ThruDate, @Frequency, @SeqNo, @SeqLegNo, @DeptStn, @ArrvStn, @DptTime, @DptZone, @ArvTime, @ArvZone,
@@ -661,7 +662,7 @@ export const addLegDataInUserLeg = async (
           @Calendar_40Day, @Terminal, @GateNumber, @FlightStatus, @BookingCode, @SeatNumber, @TailNumber, @UserSequenceId,
           @LegEndDateLocal, @LegEndDateUtc, @LegStartDateLocal, @LegStartDateUtc, @LegEndTimeLocal, @LegEndTimeUtc,
           @LegStartTimeLocal, @LegStartTimeUtc, @CvtArvTime, @CvtDPDeadheadTime, @CvtDPOnDutyTime, @CvtDptTime,
-          @CvtLegNiteFly, @CvtLegPC, @CvtLegTotalFlying, @CvtLayover, @BidMonth
+          @CvtLegNiteFly, @CvtLegPC, @CvtLegTotalFlying, @CvtLayover, @BidMonth, @Date
         )
       `);
   }

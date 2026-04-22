@@ -1740,8 +1740,8 @@ export const basePay = async (req: Request, res: Response): Promise<any> => {
 
         const boardingPayRate = await getBoardingPayByYears(service.basePay.YearsOfService);
         // return res.json({ boardingPay: boardingPayRate });
-        const ipdRate = 3.00;
-        const nipsRate = 2.85;
+        const ipdRate = 3.75;
+        const nipsRate = 3.00;
         const speakerRate = 2.00;
         const speakerIntNipdRate = 3.00;
         const speakerIpdRate = 3.75;
@@ -1749,7 +1749,7 @@ export const basePay = async (req: Request, res: Response): Promise<any> => {
         const regularPayRates = {
             basePay: pay,
             rigPay: pay,
-            sickPay: 0,
+            sickPay: pay,
             vacationPay: pay,
             holidayPay: pay,
             jurydutyPay: pay,
