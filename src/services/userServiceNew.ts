@@ -690,11 +690,30 @@ export const getAllCrews = async () => {
 };
 
 // helper function
-const getYearsOfService = (hireDate: Date, today = new Date()): number => {
-  let years = today.getFullYear() - hireDate.getFullYear();
-  const monthDiff = today.getMonth() - hireDate.getMonth();
+// const getYearsOfService = (hireDate: Date, today = new Date()): number => {
+//   let years = today.getFullYear() - hireDate.getFullYear();
+//   const monthDiff = today.getMonth() - hireDate.getMonth();
 
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < hireDate.getDate())) {
+//   if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < hireDate.getDate())) {
+//     years--;
+//   }
+
+//   return years + 1;
+// };
+
+// new
+const getYearsOfService = (hireDate: Date, today = new Date()): number => {
+  // Shift today one day back
+  const adjustedToday = new Date(today);
+  adjustedToday.setDate(adjustedToday.getDate() - 1);
+
+  let years = adjustedToday.getFullYear() - hireDate.getFullYear();
+  const monthDiff = adjustedToday.getMonth() - hireDate.getMonth();
+
+  if (
+    monthDiff < 0 ||
+    (monthDiff === 0 && adjustedToday.getDate() < hireDate.getDate())
+  ) {
     years--;
   }
 

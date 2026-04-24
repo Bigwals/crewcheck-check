@@ -92,3 +92,50 @@ export const getCrewVacationsById = async (
 
     return result.recordset[0] || null;
 };
+
+export const addExtraStuff = async (
+    userId: string,
+    vacationTime: string,
+    sickTime: string,
+    stateCareTime: string,
+    fMLA: string,
+    myViewPoints: string,
+) => {
+    const pool = await getPool();
+
+    const vacations = await pool.request()
+        .input("UserID", sql.UniqueIdentifier, userId)
+        .input("VacationTime", sql.NVarChar, vacationTime)
+        .input("SickTime", sql.NVarChar, sickTime)
+        .input("StateCareTime", sql.NVarChar, stateCareTime)
+        .input("FMLA", sql.NVarChar, fMLA)
+        .input("MyViewPoints", sql.NVarChar, myViewPoints)
+        // .input("TotalDaysOfBidMonth", sql.Int, totalDaysOfBidMonth)
+        .query(`
+        INSERT INTO CrewExtraStuff (
+            UserID, VacationTime, SickTime, StateCareTime, FMLA, MyViewPoints
+        )
+        OUTPUT INSERTED.*
+        VALUES (
+            @UserID, @VacationTime, @SickTime, @StateCareTime, @FMLA, @MyViewPoints
+        );
+    `);
+
+    return vacations.recordset;
+};
+
+export const getExtraStuffById = async (
+    Id: string,
+) => {
+    const pool = await getPool();
+
+    const result = await pool.request()
+        .input("Id", sql.Int, Id)
+        .query(`
+            SELECT TOP 1 *
+            FROM CrewExtraStuff
+            WHERE Id = @Id
+            `);
+
+    return result.recordset[0] || null;
+};

@@ -31,7 +31,9 @@ export const Messages = {
     VACATIONS_ADDED: "Vacations added successfully",
     VACATIONS_UPDATED: "Vacations updated successfully",
     VACATIONS_DELETED: "Vacations deleted successfully",
-
+    
+    STUFF_ADDED: "Stuff added successfully",
+    STUFF_UPDATED: "Stuff updated successfully",
     // Validation Error
     AUTHORIZATION_TOKEN_MISSING: "Authorization token missing or malformed.",
     INTERNAL_SERVER_ERROR: "Something went wrong. Please try again.",

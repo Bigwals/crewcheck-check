@@ -7,9 +7,11 @@ import { resetPasswordSchema } from '../validations/authValidation';
 import { getPool, sql } from "../config/db";
 import {
     addCrewVacations,
+    addExtraStuff,
     getCrewVacations,
     getCrewVacationsById,
-    getCrewVacationsByMonth
+    getCrewVacationsByMonth,
+    getExtraStuffById
 }
     from '../services/vacationService';
 import { getCrewPayDetails, getDynamicBaseRate } from '../services/userServiceNew';
@@ -203,6 +205,78 @@ export const deleteVacations = async (req: Request, res: Response): Promise<any>
         }
 
         return res.status(StatusCode.OK).json({ message: Messages.VACATIONS_UPDATED, result })
+
+    } catch (error: any) {
+        console.error("Error in getProfile:", error);
+        return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({ message: Messages.INTERNAL_SERVER_ERROR, error: error.message });
+    }
+}
+
+export const addStuff = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const userId = (req as any).user.id;
+        // const crewId = (req as any).user.crewId;
+
+        const {
+            vacationTime,
+            sickTime,
+            stateCareTime,
+            fMLA,
+            myViewPoints,
+        } = req.body;
+
+        const result = await addExtraStuff(userId, vacationTime, sickTime, stateCareTime, fMLA, myViewPoints);
+
+        return res.status(StatusCode.OK).json({ message: Messages.STUFF_ADDED, result })
+
+    } catch (error: any) {
+        console.error("Error in getProfile:", error);
+        return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({ message: Messages.INTERNAL_SERVER_ERROR, error: error.message });
+    }
+}
+
+export const updateStuff = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const userId = (req as any).user.id;
+        const crewId = (req as any).user.crewId;
+
+        const {
+            Id,
+            vacationTime,
+            sickTime,
+            stateCareTime,
+            fMLA,
+            myViewPoints,
+        } = req.body;
+
+        const pool = await getPool();
+
+        const existing = await getExtraStuffById(Id);
+        // return res.json({ existing });
+        let result;
+        if (existing) {
+            // UPDATE
+            result = await pool.request()
+                .input("Id", sql.Int, Id)
+                .input("UserID", sql.UniqueIdentifier, userId)
+                .input("VacationTime", sql.NVarChar, vacationTime)
+                .input("SickTime", sql.NVarChar, sickTime)
+                .input("StateCareTime", sql.NVarChar, stateCareTime)
+                .input("FMLA", sql.NVarChar, fMLA)
+                .input("MyViewPoints", sql.NVarChar, myViewPoints)
+                .query(`
+                    UPDATE CrewExtraStuff
+                    SET VacationTime = @VacationTime,
+                        SickTime = @SickTime,
+                        StateCareTime = @StateCareTime,
+                        FMLA = @FMLA,
+                        MyViewPoints = @MyViewPoints,
+                        UpdatedAt = SYSDATETIME()
+                    WHERE Id = @Id
+                `);
+        }
+
+        return res.status(StatusCode.OK).json({ message: Messages.STUFF_UPDATED, result })
 
     } catch (error: any) {
         console.error("Error in getProfile:", error);

@@ -685,6 +685,7 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
 
             // Boarding Pay
             let hourlyBoardingRate = 0;
+            let boardingPayHours = 0;
             let boarding_type = 0;
 
             if (!boardingRow) {
@@ -735,6 +736,8 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
                         console.log("boarding_type", boarding_type)
                         // hourlyBoardingRate += parseFloat(boardingRow.hourly_boarding_rate ?? 0);
                         hourlyBoardingRate += parseFloat(boardingRow.boarding_35_type ?? 0);
+                        // hourlyBoardingRate = (baseRate / 2);
+                        // boardingPayHours += hourlyBoardingRate;
                     }
                     else if (boardingType == 40) {
                         console.log("boardingType", boardingType)
@@ -743,6 +746,8 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
                         console.log("boarding_type", boarding_type)
                         // hourlyBoardingRate += parseFloat(boardingRow.hourly_boarding_rate ?? 0);
                         hourlyBoardingRate += parseFloat(boardingRow.boarding_40_type ?? 0);
+                        // hourlyBoardingRate = (baseRate / 2);
+                        // boardingPayHours += hourlyBoardingRate;
                     }
                 }
 
@@ -757,6 +762,8 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
                         console.log("boarding_type", boarding_type)
                         // hourlyBoardingRate += parseFloat(boardingRo/w.hourly_boarding_rate ?? 0);
                         hourlyBoardingRate += parseFloat(boardingRow.boarding_45_type ?? 0);
+                        // hourlyBoardingRate = (baseRate / 2);
+                        // boardingPayHours += hourlyBoardingRate;
                     }
                     else if (boardingType == 50) {
                         console.log("boardingType", boardingType)
@@ -765,6 +772,8 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
                         console.log("boarding_type", boarding_type)
                         // hourlyBoardingRate += parseFloat(boardingRow.hourly_boarding_rate ?? 0);
                         hourlyBoardingRate += parseFloat(boardingRow.boarding_50_type ?? 0);
+                        // hourlyBoardingRate = (baseRate / 2);
+                        // boardingPayHours += hourlyBoardingRate;
                     }
                 }
 
@@ -779,6 +788,8 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
                         console.log("boarding_type", boarding_type)
                         // hourlyBoardingRate += parseFloat(boardingRow.hourly_boarding_rate ?? 0);
                         hourlyBoardingRate += parseFloat(boardingRow.boarding_50_type ?? 0);
+                        // hourlyBoardingRate = (baseRate / 2);
+                        // boardingPayHours += hourlyBoardingRate;
                     }
                 }
 
@@ -791,7 +802,10 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
             }
             const boardingPay = boarding_type;
 
-            console.log("Final Boarding Pay:", hourlyBoardingRate);
+            // const boardingPay = (boardingPayHours / 60) * (hourlyBoardingRate);
+
+            // console.log("Final Boarding Pay:", hourlyBoardingRate);
+            // console.log("No matching seq category for leg:", boardingPayHours);
 
             // Premium Pay
             let premiumRate = 0;
@@ -814,15 +828,37 @@ export const sequenceWithLegs = async (req: Request, res: Response): Promise<any
 
             console.log("premiumWithSpeaker", premiumWithSpeaker)
             // if user has languages → apply speaker pay
-            // if (languages.length > 0) {
-            //     speakerPay = premiumHours * 2;
+            if (languages.length > 0) {
 
-            //     premiumWithSpeaker += speakerPay;
-            //     // premiumWithSpeaker += Math.round(speakerPay);
-            //     console.log("Languages.....", languages);
-            //     console.log("premiumPay.....", premiumPay);
-            //     console.log("speakerPay.....", speakerPay);
-            // }
+                // for (const language of languages) {
+                //     // if (language.SpokenLanguage === seq.Language1 || seq.Language2) {
+                //     if (
+                //         language.SpokenLanguage === seq.Language1 ||
+                //         language.SpokenLanguage === seq.Language2
+                //     ) {
+                //         speakerPay = premiumHours * 2;
+                //         console.log("Language.....", language.SpokenLanguage);
+                //         console.log("Language1.....", seq.Language1);
+                //         console.log("Language2.....", seq.Language2);
+                //         premiumWithSpeaker += speakerPay;
+                //     }
+                // }
+
+                const hasMatchingLanguage = languages.some(language =>
+                    (seq.Language1 && language.SpokenLanguage === seq.Language1) ||
+                    (seq.Language2 && language.SpokenLanguage === seq.Language2)
+                );
+
+                if (hasMatchingLanguage) {
+                    speakerPay = premiumHours * 2;
+                    premiumWithSpeaker += speakerPay;
+                }
+
+                // premiumWithSpeaker += Math.round(speakerPay);
+                console.log("Languages.....", languages);
+                console.log("premiumPay.....", premiumPay);
+                console.log("speakerPay.....", speakerPay);
+            }
 
             const totalEarnings =
                 payHoursDollars +
@@ -1330,13 +1366,22 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
             let premiumWithSpeaker = premiumPay;
 
             // if user has languages → apply speaker pay
-            // if (languages.length > 0) {
-            //     speakerPay = premiumHours * 2;
-            //     // premiumWithSpeaker += Math.round(speakerPay);
+            if (languages.length > 0) {
+                //     speakerPay = premiumHours * 2;
+                //     // premiumWithSpeaker += Math.round(speakerPay);
 
-            //     premiumWithSpeaker += speakerPay;
-            //     console.log("Languages.....", languages);
-            // }
+                //     premiumWithSpeaker += speakerPay;
+                //     console.log("Languages.....", languages);
+                const hasMatchingLanguage = languages.some(language =>
+                    (seq.Language1 && language.SpokenLanguage === seq.Language1) ||
+                    (seq.Language2 && language.SpokenLanguage === seq.Language2)
+                );
+
+                if (hasMatchingLanguage) {
+                    speakerPay = premiumHours * 2;
+                    premiumWithSpeaker += speakerPay;
+                }
+            }
 
             // 8) Total sequence earnings
             const totalSequenceEarnings = Number(
@@ -2805,11 +2850,20 @@ export const searchByMonth = async (req: Request, res: Response): Promise<any> =
 
             // if user has languages → apply speaker pay
             // if (languages.length > 0) 
-            // if (languages?.length) {
-            //     speakerPay = premiumHours * 2;
+            if (languages?.length) {
+                //     speakerPay = premiumHours * 2;
 
-            //     premiumWithSpeaker += speakerPay;
-            // }
+                //     premiumWithSpeaker += speakerPay;
+                const hasMatchingLanguage = languages.some(language =>
+                    (seq.Language1 && language.SpokenLanguage === seq.Language1) ||
+                    (seq.Language2 && language.SpokenLanguage === seq.Language2)
+                );
+
+                if (hasMatchingLanguage) {
+                    speakerPay = premiumHours * 2;
+                    premiumWithSpeaker += speakerPay;
+                }
+            }
 
             let PBI = false;
 
