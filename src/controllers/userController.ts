@@ -930,6 +930,8 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
         const userId = (req as any).user.id;
         const crewId = (req as any).user.crewId;
 
+        const vacations = await getCrewVacations(userId);
+
         // 1) Get UserSequence
         const pool = await getPool();
 
@@ -1431,8 +1433,10 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
                     creditHoursDollars: creditHoursDollars.toFixed(2),
                     premiumPay: premiumWithSpeaker.toFixed(2),
                     totalBoardingPay: totalBoardingPay.toFixed(2),
-                    totalSequenceEarnings: totalSequenceEarnings.toFixed(2)
+                    totalSequenceEarnings: totalSequenceEarnings.toFixed(2),
                 },
+
+                vacation: vacations,
 
                 legs: seqLegs.map((leg: any) => ({
                     seqNo: leg.SeqNo,
