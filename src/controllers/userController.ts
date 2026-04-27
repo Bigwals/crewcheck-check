@@ -1480,12 +1480,30 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
             0
         );
 
-        const totalCrewVacationCreditHours = crewVacations?.reduce(
-            (sum, v) => sum + (v.CreditHours || 0),
-            0
-        );
+        // const totalCrewVacationCreditHours = crewVacations?.reduce(
+        //     (sum, v) => sum + (v.CreditHours || 0),
+        //     0
+        // );
 
-        // return res.json({ totalCrewVacationCreditHours })
+        const totalMinutes = crewVacations?.reduce((sum, v) => {
+            if (!v.CreditHours) return sum;
+
+            // Split "10:30" into [10, 30]
+            const [hours, minutes] = v.CreditHours.split(':').map(Number);
+
+            // Add total minutes to the accumulator
+            return sum + (hours * 60) + minutes;
+        }, 0);
+        
+        // Convert total minutes back to HH:MM format
+        const totalHours = Math.floor(totalMinutes / 60);
+        const remainingMinutes = totalMinutes % 60;
+
+        // Use padStart to ensure minutes always show two digits (e.g., :05 instead of :5)
+        const formattedTotal = `${totalHours}:${remainingMinutes.toString().padStart(2, '0')}`;
+        
+        const crewVacationsCreditHours = formattedTotal;
+        // return res.json({ totalCrewVacationCreditHours: formattedTotal });
 
         let upcomingEarnings = 0;
         let payHours = '';
@@ -1595,12 +1613,6 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
             completedTafb = formatMinutes(completedTafbTotal);
             completedSeqPremiumTime = formatMinutes(completedSeqPremiumTimeTotal);
         }
-        let crewVacationsCreditHours = '';
-
-        // crewVacationsCreditHours = formatMinutes(totalCrewVacationCreditHours);
-
-        // return res.json({ totalCrewVacationCreditHours });
-        // return res.json({ crewVacationsCreditHours });
 
         // last completed earnings
         let lastCompletedEarnings = 0;
