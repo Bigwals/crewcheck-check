@@ -1599,8 +1599,8 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
 
         // crewVacationsCreditHours = formatMinutes(totalCrewVacationCreditHours);
 
-        return res.json({ totalCrewVacationCreditHours });
-        return res.json({ crewVacationsCreditHours });
+        // return res.json({ totalCrewVacationCreditHours });
+        // return res.json({ crewVacationsCreditHours });
 
         // last completed earnings
         let lastCompletedEarnings = 0;
