@@ -69,13 +69,14 @@ export const getProfile = async (req: Request, res: Response): Promise<any> => {
         // Roster row optional: profile should still work even if ranking row is missing.
         const position = baseSeniority.recordset?.[0]?.PositionNumber ?? null;
 
+        const vacations = await getCrewVacations(userId);
         const extraStuff = await getCrewExtraStuff(userId);
 
         const service = await getCrewPayDetails(crewId);
         const languages = await getUserLanguages(userId);
-        if (service) return res.status(200).json({ message: Messages.USER_PROFILE, crew, baseSeniority: position, languages, service, extraStuff });
+        if (service) return res.status(200).json({ message: Messages.USER_PROFILE, crew, baseSeniority: position, languages, service, vacations, extraStuff });
         // const crewBases = await getCrewBaseRanking()
-        return res.status(200).json({ message: Messages.USER_PROFILE, crew, baseSeniority: position, languages, extraStuff });
+        return res.status(200).json({ message: Messages.USER_PROFILE, crew, baseSeniority: position, languages, vacations, extraStuff });
     } catch (error: any) {
         console.error("Error in getProfile:", error);
         return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({ message: Messages.INTERNAL_SERVER_ERROR, error: error.message });
