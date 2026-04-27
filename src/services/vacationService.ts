@@ -16,6 +16,7 @@ export const addCrewVacations = async (
     bidMonth: string,
     // totalDaysOfBidMonth: number,
     totalPay: number,
+    creditHours: string,
 ) => {
     const pool = await getPool();
 
@@ -26,17 +27,18 @@ export const addCrewVacations = async (
         .input("BidMonth", sql.VarChar(20), bidMonth)
         // .input("TotalDaysOfBidMonth", sql.Int, totalDaysOfBidMonth)
         .input("TotalPay", sql.Decimal(12, 2), totalPay)
+        .input("CreditHours", sql.VarChar(10), creditHours)
         .query(`
         INSERT INTO CrewVacations (
-            UserID, DateFrom, DateTo, BidMonth, TotalPay
+            UserID, DateFrom, DateTo, BidMonth, TotalPay, CreditHours
         )
         OUTPUT INSERTED.*
         VALUES (
-            @UserID, @DateFrom, @DateTo, @BidMonth, @TotalPay
+            @UserID, @DateFrom, @DateTo, @BidMonth, @TotalPay, @CreditHours
         );
     `);
 
-    return vacations.recordset;
+return vacations.recordset;
 };
 
 export const getCrewVacations = async (
@@ -53,6 +55,22 @@ export const getCrewVacations = async (
         `);
 
     return result.recordset.length > 0 ? result.recordset : null;
+}
+
+export const getCrewExtraStuff = async (
+    userId: string,
+) => {
+    const pool = await getPool();
+    const result = await pool.request()
+
+        .input("userId", sql.UniqueIdentifier, userId)
+        .query(`
+            SELECT *
+            FROM CrewExtraStuff
+            WHERE UserID = @userId
+        `);
+
+    return result.recordset.length > 0 ? result.recordset[0] : null;
 }
 
 export const getCrewVacationsByMonth = async (

@@ -24,7 +24,7 @@ require("dotenv").config()
 import { config } from 'dotenv';
 import cron from "node-cron";
 import { totalmem } from 'os';
-import { getCrewVacations } from '../services/vacationService';
+import { getCrewExtraStuff, getCrewVacations } from '../services/vacationService';
 // import { buildMonthSummary } from "../services/monthService";
 
 export const getProfile = async (req: Request, res: Response): Promise<any> => {
@@ -69,13 +69,13 @@ export const getProfile = async (req: Request, res: Response): Promise<any> => {
         // Roster row optional: profile should still work even if ranking row is missing.
         const position = baseSeniority.recordset?.[0]?.PositionNumber ?? null;
 
-        const vacations = await getCrewVacations(userId);
+        const extraStuff = await getCrewExtraStuff(userId);
 
         const service = await getCrewPayDetails(crewId);
         const languages = await getUserLanguages(userId);
-        if (service) return res.status(200).json({ message: Messages.USER_PROFILE, crew, baseSeniority: position, languages, service, vacations });
+        if (service) return res.status(200).json({ message: Messages.USER_PROFILE, crew, baseSeniority: position, languages, service, extraStuff });
         // const crewBases = await getCrewBaseRanking()
-        return res.status(200).json({ message: Messages.USER_PROFILE, crew, baseSeniority: position, languages, vacations });
+        return res.status(200).json({ message: Messages.USER_PROFILE, crew, baseSeniority: position, languages, extraStuff });
     } catch (error: any) {
         console.error("Error in getProfile:", error);
         return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({ message: Messages.INTERNAL_SERVER_ERROR, error: error.message });
@@ -1466,12 +1466,26 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
         // new 
         const upcomingSequences = sequences.filter(s => new Date(s.EffDate) >= today);
         const completedSequences = sequences.filter(s => new Date(s.EffDate) < today);
+        const crewVacations = vacations?.filter(v => new Date(v.DateFrom));
 
         // ✅ Total = sum of all upcoming sequences
         const totalEarnings = upcomingSequences.reduce(
             (sum, s) => sum + parseFloat(s.earnings.totalSequenceEarnings || 0),
             0
         );
+
+        // crew vacations
+        const totalCrewVacationsEarning = crewVacations?.reduce(
+            (sum, v) => sum + parseFloat(v.TotalPay || 0),
+            0
+        );
+
+        const totalCrewVacationCreditHours = crewVacations?.reduce(
+            (sum, v) => sum + (v.CreditHours || 0),
+            0
+        );
+
+        // return res.json({ totalCrewVacationCreditHours })
 
         let upcomingEarnings = 0;
         let payHours = '';
@@ -1543,6 +1557,7 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
         let completedSeqPremiumTime = '';
         let completedBoardings = 0;
 
+
         if (completedSequences.length > 0) {
             const parseFormattedMinutes = (formatted: string): number => {
                 if (!formatted) return 0;
@@ -1580,6 +1595,12 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
             completedTafb = formatMinutes(completedTafbTotal);
             completedSeqPremiumTime = formatMinutes(completedSeqPremiumTimeTotal);
         }
+        let crewVacationsCreditHours = '';
+
+        // crewVacationsCreditHours = formatMinutes(totalCrewVacationCreditHours);
+
+        return res.json({ totalCrewVacationCreditHours });
+        return res.json({ crewVacationsCreditHours });
 
         // last completed earnings
         let lastCompletedEarnings = 0;
@@ -1604,7 +1625,7 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
         const combinedPayMinutes =
             parseTimeToMinutes(payHours) + parseTimeToMinutes(completedPayHours);
         const combinedCreditMinutes =
-            parseTimeToMinutes(creditHours) + parseTimeToMinutes(completedCreditHours);
+            parseTimeToMinutes(creditHours) + parseTimeToMinutes(completedCreditHours) + parseTimeToMinutes(crewVacationsCreditHours);
         const combinedTafbMinutes =
             parseTimeToMinutes(tafb) + parseTimeToMinutes(completedTafb);
         const combinedSeqPremiumMinutes =
@@ -1615,7 +1636,7 @@ export const sequence = async (req: Request, res: Response): Promise<any> => {
 
         // Combine earnings
         const combinedTotalEarnings =
-            (totalEarnings ?? 0) + (completedSequencesTotalEarnings ?? 0);
+            (totalEarnings ?? 0) + (completedSequencesTotalEarnings ?? 0) + (totalCrewVacationsEarning ?? 0);
 
         // Final summaries
         const completedSequencesEarningsSummary = {

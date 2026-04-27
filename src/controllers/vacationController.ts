@@ -51,7 +51,11 @@ export const addVacations = async (req: Request, res: Response): Promise<any> =>
 
         const hoursPerDay = numberOfDays <= 6 ? 3.5 : 4;
         const totalPay = numberOfDays * hoursPerDay * pay;
+        const creditHours = numberOfDays * hoursPerDay;
+        const chResult = decimalHoursToHHMM(creditHours)
         const existing = await getCrewVacationsByMonth(userId, bidMonth);
+
+        // return res.json({ chResult });
         // let result;
         // if (existing) {
         //     // UPDATE
@@ -88,7 +92,7 @@ export const addVacations = async (req: Request, res: Response): Promise<any> =>
         // }
 
         // const result = await addCrewVacations(userId, dateFrom, dateTo, bidMonth, totalDaysOfBidMonth, totalPay);
-        const result = await addCrewVacations(userId, dateFrom, dateTo, bidMonth, totalPay);
+        const result = await addCrewVacations(userId, dateFrom, dateTo, bidMonth, totalPay, chResult);
 
         return res.status(StatusCode.OK).json({ message: Messages.VACATIONS_ADDED, result })
 
@@ -129,6 +133,8 @@ export const updateVacations = async (req: Request, res: Response): Promise<any>
 
         const hoursPerDay = numberOfDays <= 6 ? 3.5 : 4;
         const totalPay = numberOfDays * hoursPerDay * pay;
+        const creditHours = numberOfDays * hoursPerDay;
+        const chResult = decimalHoursToHHMM(creditHours)
         const existing = await getCrewVacationsById(Id, bidMonth);
         // return res.json({ existing });
         let result;
@@ -141,11 +147,13 @@ export const updateVacations = async (req: Request, res: Response): Promise<any>
                 .input("DateFrom", sql.Date, dateFrom)
                 .input("DateTo", sql.Date, dateTo)
                 .input("TotalPay", sql.Decimal(12, 2), totalPay)
+                .input("CreditHours", sql.VarChar(10), creditHours)
                 .query(`
                     UPDATE CrewVacations
                     SET DateFrom = @DateFrom,
                         DateTo = @DateTo,
                         TotalPay = @TotalPay,
+                        CreditHours = @CreditHours,
                         UpdatedAt = SYSDATETIME()
                     WHERE Id = @Id
                     AND BidMonth = @bidMonth
@@ -283,3 +291,11 @@ export const updateStuff = async (req: Request, res: Response): Promise<any> => 
         return res.status(StatusCode.INTERNAL_SERVER_ERROR).json({ message: Messages.INTERNAL_SERVER_ERROR, error: error.message });
     }
 }
+
+const decimalHoursToHHMM = (decimalHours: number): string => {
+    const totalMinutes = Math.round(decimalHours * 60);
+    const h = Math.floor(totalMinutes / 60);
+    const m = totalMinutes % 60;
+    return `${h}:${String(m).padStart(2, "0")}`;
+};
+
