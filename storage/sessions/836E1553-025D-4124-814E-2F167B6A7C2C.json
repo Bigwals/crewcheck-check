@@ -1,0 +1,150 @@
+{
+  "cookies": [
+    {
+      "name": "aacook",
+      "value": "server1",
+      "domain": "idp.aa.com",
+      "path": "/pf-ws/authn/flows",
+      "expires": 1778888506.518775,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "aacook",
+      "value": "server1",
+      "domain": "idp.aa.com",
+      "path": "/as",
+      "expires": 1778888478.203728,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "aka_lc_code",
+      "value": "CL",
+      "domain": "pfloginapp.cloud.aa.com",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "MFA_APP_GROUP",
+      "value": "undefined",
+      "domain": ".aa.com",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "PF",
+      "value": "vRRxrq7yge1pO3gVrA7zDId8S4vShCzcZSK9CexFJRVop2eaX2rkNxZkXGWATPWA5zq7HFw730kNs25YcWoxCVQwqJtY2pNFTsHU",
+      "domain": ".aa.com",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "_abck",
+      "value": "2A0EEFCAECD9B6DCF368D1D5D2ED3B9C~-1~YAAQJ/V0aNt4ARueAQAArbwoLQ+jTUNDKvTqT0kRlTLYMkBpHNh5TGq7drBsRrp5qraMMdhTyojJpeRxKIZsWAlbbXAifSxFItSQORw47LOMuE3KnPXrytTRWlYP52WdvB1FW+PONIaUCihMALJSgAsb1zvr3zwmao+XdM9V055G1ZKKcAS7wg1Kz9+f+rsHPJcq18OF8LA7NUuSykJkvmDxM/Ziiyl+Ncj7coj8ygIVb1gXTPauoWK+9WLRXMAnJfx9X2Tx93W4ull1X8SvAr1hSOwNF3TNxmmm3Tmf+MWD8CEHzBYi9cSK3OZtg2ADn2clQBl2A8XDKRtebrPVQzpCNMosGHOeByCjQHhyYYp57BpOMQKpdt8jxHb3zgEyVYW9GkOnCdhWXkQTgPGi14bos81Bz9CszM8ttIQ0bKOLcQD1KJ18YASLdLLok2yueh8tZeFbW7Vn1ZbQLZGbG2gbdhhhTLz2c2Ku8HK2/vT3z7SnOOAEIm6dzoMnmZss3WPzpW88CqXFQX3VFagKjuHljMO008U8vDQjpz7AkeVSVGEKQtzTbpcL4gbLzbDmdovejqbU3vJkmQhKWfEY8XPA443461sWtbhPz6C9oJ+JbQRulDPLDUMhbJnblL6H8dusQGuyCWUeUmt9NbVEckshW2FutctsdWDL7dA/s0DWTZAjfjUTW0DMQGiD5E9GPjkXiA6W2XPX802iFMM8e+GOHuXOEje8/ZEK+ptgUsiexqOJVEEqspflq7lnyAuWmKiwHBbMu3HHoQfKaBArt+GLHCfV8isL/LFNoDWJjKFtMKngsYshBedwTXfFaGKcoTycVFZU0gz1efyD60WblLq2P8wJGnACAAukbk7H4nLr9YGQBINb1ujSLmofdoaxdngBrfZKtQq3wfmSyrpttxz+FA==~-1~-1~1778877687~AAQAAAAF%2f%2f%2f%2f%2fyHg2KVSTN78pUMIwqzgQ61Yha6hJPxsDrSKYwdzHsxpPzII6G%2fpL9DqFmhQFOCJYP8Z2uWjI2z9zF1g3VgCE656sU+OGc2ACrUc~-1",
+      "domain": ".aa.com",
+      "path": "/",
+      "expires": 1810410106.519907,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "bm_sz",
+      "value": "1951F5333F704D618EB979A5B55C7C18~YAAQJ/V0aNx4ARueAQAArbwoLR8qF3obkul79OBP4kuPhWg3jbUQmbD2YfydLnx5uVCUtitcKgUerUus0IApumBrAFpYVB1wJ/1IzRHNy/jcn+KoYltbtqJPldtCTnybOR/Qv4nYhTIwYOwwba8AnwlXHUvu/KWo+oY55Sy2B5nssqOWCe0Uji6KyMjE8st0lAv7FnqfEt9SAXuRLY/882v4nB3N3DJ9Rkqp7CKcX7I9MHktuulf86UC6ndxGYedfwVUw9B7k4+T8wVhIaaKOQ1gZIb9Fz8kTpIEXLSsfnPY0WpJtVT+qy6G0SJxv1bqksw3db5ytvHsu2mUTCi7XdSyG8H6bxbUdRKnjSX4aPWp58BahEFUEJQnafp/usqUNPWcdmaXmnYRyNPK6U4CSPDqeycjdV9zfwahgKu8V3tYE8dBxzTMexOxds33FMbmahfuFZu4dZijYRvs8TL7RKjDHA==~3420981~3360065",
+      "domain": ".aa.com",
+      "path": "/",
+      "expires": 1778888463.520291,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "PFLOGIN_USERID",
+      "value": "00458975",
+      "domain": ".aa.com",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "sid|6ac881df-78c5-46ee-b4bd-eec1abe70a3b",
+      "value": "\"NzQ0OTIxZDBhMDAwNDRjN2ExYzJlOTZkOThkY2Y4MTk=|1778874106|d457283a44e061f48f5eaeb0124d820203912a74\"",
+      "domain": "api-89672378.duosecurity.com",
+      "path": "/",
+      "expires": 1778875008.147788,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "_xsrf|6ac881df-78c5-46ee-b4bd-eec1abe70a3b",
+      "value": "\"OTJkNDBkOGU1NGU3NDgzYmI0YTFlY2Y0N2IxN2E4N2I=|1778874106|3db4634a841291f19cb83f734bbc6d537d808fa9\"",
+      "domain": "api-89672378.duosecurity.com",
+      "path": "/",
+      "expires": 1778879508.148296,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "trc|DUBSGFOS9RQO5N5LJS9P|DA08WYV4PPNY969MY1P3",
+      "value": "EPFZWEAVFEZ8M4BCWA0A",
+      "domain": "api-89672378.duosecurity.com",
+      "path": "/",
+      "expires": 1813434111.028998,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    }
+  ],
+  "origins": [
+    {
+      "origin": "https://cci.aa.com",
+      "localStorage": [
+        {
+          "name": "ak_a",
+          "value": "2A0EEFCAECD9B6DCF368D1D5D2ED3B9C"
+        },
+        {
+          "name": "ak_ax",
+          "value": "-1"
+        },
+        {
+          "name": "oidc.0d585049c6b04a4a94a0867bb432cfbb",
+          "value": "{\"id\":\"0d585049c6b04a4a94a0867bb432cfbb\",\"data\":{\"redirect_url\":\"/overview\"},\"created\":1778874077,\"request_type\":\"si:r\",\"code_verifier\":\"b776df2a39e8425a9a3bea2263fb6dded7831c24ed884d09a39b194a624d1f349434962897684fd7a9c61c02cd55fd91\",\"authority\":\"https://idp.aa.com\",\"client_id\":\"CrewChkIn-141609-prod-tWEZF\",\"redirect_uri\":\"https://cci.aa.com/auth-callback\",\"scope\":\"openid profile\",\"extraTokenParams\":{},\"response_mode\":\"query\"}"
+        },
+        {
+          "name": "preferences",
+          "value": "{\"darkMode\":false,\"calendarToggles\":[{\"type\":\"S\",\"code\":[]},{\"type\":\"D\",\"code\":[]},{\"type\":\"RAP\",\"code\":[]},{\"type\":\"VC\",\"code\":[]},{\"type\":\"A\",\"code\":[]},{\"type\":\"A\",\"code\":[\"2R\",\"TI\"]}]}"
+        }
+      ]
+    },
+    {
+      "origin": "https://pfloginapp.cloud.aa.com",
+      "localStorage": [
+        {
+          "name": "ak_a",
+          "value": "2A0EEFCAECD9B6DCF368D1D5D2ED3B9C"
+        },
+        {
+          "name": "ak_ax",
+          "value": "-1"
+        }
+      ]
+    }
+  ]
+}

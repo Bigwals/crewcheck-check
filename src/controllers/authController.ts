@@ -579,3 +579,80 @@ const normalizeSeqCrewPos = (seqCrewPos: string): boolean[] => {
     if (!seqCrewPos) return [];
     return seqCrewPos.split("").map(ch => ch === "1");
 };
+
+// cci-login 
+import { getContextForUser } from '../services/browserService';
+import path from 'path';
+import fs from 'fs';
+
+// const SESSION_DIR = path.join(process.cwd(), 'storage', 'sessions');
+const SESSION_DIR = path.resolve(__dirname, '../../storage/sessions');
+
+// ─────────────────────────────────────────
+// GET /api/v1/sync/cci-status
+// App calls this on startup to know whether
+// the user needs to login to CCI or not
+// ─────────────────────────────────────────
+export const cciStatusController = async (
+    req: Request,
+    res: Response
+): Promise<void> => {
+
+    const userId = (req as any).user?.id;
+    const authFile = path.join(SESSION_DIR, `${userId}.json`);
+    const loggedIn = fs.existsSync(authFile);
+
+    res.json({
+        success: true,
+        loggedIn,
+        message: loggedIn
+            ? 'CCI session active'
+            : 'CCI login required'
+    });
+};
+
+// ─────────────────────────────────────────
+// POST /api/v1/sync/cci-login
+// First-time login: opens browser for SSO
+// Returns immediately if already logged in
+// ─────────────────────────────────────────
+export const cciLoginController = async (
+    req: Request,
+    res: Response
+): Promise<void> => {
+
+    try {
+        const userId = (req as any).user?.id;
+        const authFile = path.join(SESSION_DIR, `${userId}.json`);
+
+        // ── Already logged in ──────────────────
+        if (fs.existsSync(authFile)) {
+            res.json({
+                success: true,
+                firstTime: false,
+                message: 'Already logged in to CCI'
+            });
+            return;
+        }
+
+        // ── First time: trigger browser login ──
+        console.log(`🆕 First-time CCI login for user ${userId}`);
+
+        // This opens the browser and WAITS until
+        // the crew member completes SSO + 2FA
+        await getContextForUser(userId);
+
+        // Only reaches here after successful login
+        res.json({
+            success: true,
+            firstTime: true,
+            message: 'CCI login successful. Session saved.'
+        });
+
+    } catch (error: any) {
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+};

@@ -3063,4 +3063,3 @@ const calculateBoardingTime = (dptTime: number): number => {
     }
     return boarding;
 };
-

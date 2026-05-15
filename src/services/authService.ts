@@ -4,9 +4,16 @@ import { NewCrew } from '../models/newCrewModel';
 import { Media } from '../models/mediaModel';
 import bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
-import dotenv from 'dotenv';
 import { Types } from "mongoose";
 import { getPool, sql } from '../config/db';
+import dotenv from 'dotenv';
+import fs from 'fs';
+import path from 'path';
+import { chromium } from 'playwright';
+
+import { BrowserContext } from 'playwright';
+
+import { getBrowser } from './browserService';
 
 dotenv.config();
 
@@ -54,18 +61,6 @@ export const updateCrew = async (
 
     return updatedCrew;
 };
-
-// export const getUserProfile = async (id: string) => {
-//     const crew = await NewCrew.findById(id)
-//         .populate({
-//             path: 'avatar',
-//             select: '_id media',
-//         })
-//         .lean();
-
-//     if (!crew) throw new Error('Crew not found');
-//     return crew;
-// };
 
 export const uploadMedia = async (
     crewId: string,
@@ -167,4 +162,157 @@ export const addLanguages = async (userId: string, languages: number[]) => {
             console.error(`Error inserting language '${languageId}' for user '${userId}':`, error);
         }
     }
+};
+
+// sync data
+
+// old
+// const authFile = path.resolve(__dirname, '../storage/auth.json');
+
+// export const createAuthenticatedContext = async () => {
+
+//     const browser = await chromium.launch({
+//         headless: false // MUST be false for first login
+//     });
+
+//     // ✅ If session exists → reuse it
+//     if (fs.existsSync(authFile)) {
+
+//         try {
+//             const context = await browser.newContext({
+//                 storageState: authFile
+//             });
+
+//             return context;
+
+//         } catch (err) {
+
+//             console.log('⚠️ Corrupted session, deleting auth file');
+
+//             fs.unlinkSync(authFile);
+//         }
+//     }
+
+//     // ❌ No session → manual login required
+//     const context = await browser.newContext();
+//     const page = await context.newPage();
+
+//     await page.goto('https://cci.aa.com');
+
+//     console.log('👉 Please login manually (including 2FA)');
+
+//     // ✅ WAIT UNTIL USER FULLY LOGGED IN
+//     await page.waitForURL(url =>
+//         url.toString().includes('overview') ||
+//         url.toString().includes('calendar'),
+//         { timeout: 300000 }
+//     );
+
+//     console.log('✅ Login detected');
+
+//     // ✅ SAFE FIX: wait for API trigger instead
+//     await page.waitForResponse(response =>
+//         response.url().includes('/calendar') &&
+//         response.status() === 200,
+//         { timeout: 300000 }
+//     ).catch(() => {
+//         console.log('⚠️ API response not needed, continuing...');
+//     });
+
+//     console.log('💾 Saving session...');
+
+//     // 💾 SAVE SESSION
+//     await context.storageState({
+//         path: authFile
+//     });
+
+//     console.log('✅ Session saved successfully');
+
+//     return context;
+// };
+
+// new
+
+// const SESSION_DIR = path.join(process.cwd(), 'storage', 'sessions');
+
+const SESSION_DIR = path.resolve(__dirname, '../../storage/sessions');
+
+if (!fs.existsSync(SESSION_DIR)) {
+    fs.mkdirSync(SESSION_DIR, { recursive: true });
+}
+
+export const createAuthenticatedContext = async (userId: string) => {
+
+    const browser = await getBrowser();
+
+    const authFile = path.join(
+        SESSION_DIR,
+        `${userId}.json`
+    );
+
+    // ========================
+    // 1. USE EXISTING SESSION
+    // ========================
+    if (fs.existsSync(authFile)) {
+
+        console.log(`✅ Using saved session for user ${userId}`);
+
+        return await browser.newContext({
+            storageState: authFile
+        });
+    }
+
+    // ========================
+    // 2. NEW LOGIN FLOW
+    // ========================
+    console.log(`👉 No session found for user ${userId}`);
+
+    const context = await browser.newContext();
+    const page = await context.newPage();
+
+    await page.goto('https://cci.aa.com');
+
+    console.log('⏳ Please complete login manually (SSO + 2FA)...');
+
+    // ========================
+    // 3. WAIT FOR REAL LOGIN
+    // ========================
+    // await page.waitForFunction(() => {
+
+    //     const url = window.location.href;
+
+    //     const isLoggedIn =
+    //         url.includes('overview') ||
+    //         url.includes('calendar') ||
+    //         url.includes('dashboard');
+
+    //     const hasAuthCookie =
+    //         document.cookie.includes('bm_sz') ||
+    //         document.cookie.includes('_abck');
+
+    //     return isLoggedIn || hasAuthCookie;
+
+    // }, { timeout: 300000 });
+
+    await page.waitForFunction(`
+        window.location.href.includes('/overview') ||
+        window.location.href.includes('/calendar') ||
+        window.location.href.includes('/dashboard') ||
+        window.location.href.includes('/home')
+    `, { timeout: 300000 });
+
+    console.log('✅ Login detected');
+
+    // small delay to let cookies settle
+    await page.waitForTimeout(5000);
+
+    console.log('💾 Saving session...');
+
+    await context.storageState({
+        path: authFile
+    });
+
+    console.log(`✅ Session saved for user ${userId}`);
+
+    return context;
 };
