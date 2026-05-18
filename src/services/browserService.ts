@@ -112,7 +112,7 @@ export const getContextForUser = async (userId: string): Promise<BrowserContext>
 
         await ctx.storageState({ path: authFile });
         console.log(`💾 Session saved for user ${userId}`);
-        // await page.close();
+        await page.close();
     }
 
     contextPool.set(userId, ctx);

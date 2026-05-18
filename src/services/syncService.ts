@@ -45,7 +45,7 @@ export const syncSchedule = async (userId: string) => {
         throw new Error(`CCI API returned HTTP ${result.status}`);
     }
 
-    let parsed: unknown;
+    let parsed: any;
     try {
         parsed = JSON.parse(result.text);
     } catch {
@@ -54,10 +54,14 @@ export const syncSchedule = async (userId: string) => {
         );
     }
 
+    // console.log(
+    //     'PARSED RESPONSE:',
+    //     JSON.stringify(parsed, null, 2)
+    // );
     // ✅ TRANSFORM HERE
-    // const transformed = transformScheduleData(parsed);
+    const transformed = transformScheduleData(parsed, 'APR2026');
 
     console.log('✅ Schedule fetched successfully');
-    // return transformed;
+    return transformed;
     return parsed;
 };
