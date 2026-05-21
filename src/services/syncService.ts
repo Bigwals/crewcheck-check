@@ -35,8 +35,9 @@
 
 import { fetchSchedule } from './cciService';
 import { transformScheduleData } from '../utils/transformScheduleData';
+import { saveScheduleInDB } from './saveScheduleToDB';
 
-export const syncSchedule = async (userId: string) => {
+export const syncSchedule = async (userId: string, contractMonth: string) => {
 
     const result = await fetchSchedule(userId);
 
@@ -59,7 +60,12 @@ export const syncSchedule = async (userId: string) => {
     //     JSON.stringify(parsed, null, 2)
     // );
     // ✅ TRANSFORM HERE
-    const transformed = transformScheduleData(parsed, 'APR2026');
+    const transformed = transformScheduleData(parsed, contractMonth);
+
+    await saveScheduleInDB(
+        userId,
+        transformed
+    );
 
     console.log('✅ Schedule fetched successfully');
     return transformed;

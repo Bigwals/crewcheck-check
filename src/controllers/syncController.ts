@@ -43,17 +43,20 @@ import { syncSchedule } from '../services/syncService';
 export const syncController = async (
     req: Request,
     res: Response
-): Promise<void> => {
+): Promise<any> => {
     try {
         // ✅ Pull userId from the auth middleware, not hardcoded
         const userId = (req as any).user?.id;
+        const { contractMonth } = req.query;
+        // return res.json({ "contractMonth", contractMonth });
+        // return res.json({ contractMonth });
 
         if (!userId) {
             res.status(401).json({ success: false, message: 'Unauthorized' });
             return;
         }
 
-        const data = await syncSchedule(userId);
+        const data = await syncSchedule(userId, contractMonth as string);
         res.json({ success: true, data });
 
     } catch (error: any) {
