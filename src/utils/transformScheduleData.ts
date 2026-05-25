@@ -239,6 +239,8 @@ export const transformScheduleData = (
     calendarMonth?: string
 ) => {
 
+    const bidStatuses = raw?.bidStatuses || [];
+
     const calendarResponses = raw?.calendarResponse || [];
 
     const allDays = calendarResponses.flatMap(
@@ -284,6 +286,12 @@ export const transformScheduleData = (
 
         const seq = event?.sequenceActivity || {};
 
+        const matchedBidStatus = bidStatuses.find(
+            (b: any) =>
+                b?.contractMonth?.toUpperCase() ===
+                seq?.contractMonth?.toUpperCase()
+        );
+
         return {
             sequenceGeneralInformation: {
                 addCode: seq?.addCode || null,
@@ -306,7 +314,15 @@ export const transformScheduleData = (
                 ronCities: seq?.ronCities || [],
                 international: seq?.international || false,
                 redEye: seq?.isRedEye || false,
-                trainingSequence: seq?.isTrainingSequence || false
+                trainingSequence: seq?.isTrainingSequence || false,
+                
+                // ✅ ADD THIS
+                totalPNC: matchedBidStatus?.totalPNC || 0,
+                redFlag: seq?.isRedFlag || false,
+                ipd: seq?.isIPD || false,
+                odan: seq?.isODAN || false,
+                layoverStations: seq?.layoverStations || false,
+                legsPerDutyPeriods: seq?.legsPerDutyPeriod || false
             },
 
             sequenceCreditInformation: {
@@ -314,7 +330,9 @@ export const transformScheduleData = (
                 creditNextMonth: seq?.creditNextMonth || 0,
                 scheduledFlightTime: seq?.scheduledFlight || 0,
                 scheduledTotalCredit:
-                    seq?.sequencePayCredit?.scheduledTotalCredit || 0
+                    seq?.sequencePayCredit?.scheduledTotalCredit || 0,
+                greaterTime:
+                    seq?.sequencePayCredit?.greaterTime || 0
             },
 
             dutyPeriods: (seq?.flightDutyPeriods || []).map((dp: any) => ({
@@ -370,7 +388,7 @@ export const transformScheduleData = (
 
                     timeZoneDifference: leg?.timeZoneDifference || null,
                     mealCode: leg?.mealCode || null,
-                    
+
                     equipment: {
                         assignedTail: leg?.assignedTail || null,
                         equipmentType: leg?.equipmentQuals?.equipmentType || null,

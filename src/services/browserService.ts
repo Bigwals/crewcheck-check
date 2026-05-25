@@ -1,26 +1,6 @@
-// // browserService.ts
-// import { chromium, Browser } from 'playwright';
 import dotenv from 'dotenv';
 
 dotenv.config();
-// // require("dotenv").config()
-
-// let browser: Browser | null = null;
-
-// export const getBrowser = async (): Promise<Browser> => {
-
-//     if (!browser) {
-
-//         browser = await chromium.launch({
-//             headless: false,   // keep visible for debugging
-//             args: ['--no-sandbox', '--disable-setuid-sandbox']
-//         });
-
-//         console.log('✅ Browser launched');
-//     }
-
-//     return browser;
-// };
 
 import { chromium, Browser, BrowserContext } from 'playwright';
 import path from 'path';

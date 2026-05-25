@@ -12,6 +12,17 @@ const formatTime = (dateTime: string | null) => {
         .substring(11, 16);
 };
 
+const getTimeInMinutes = (dt?: string | null): number | null => {
+    if (!dt) return null;
+
+    const date = new Date(dt);
+
+    const hours = date.getHours();
+    const minutes = date.getMinutes();
+
+    return (hours * 60) + minutes;
+};
+
 const convertMinutesToHHMM = (minutes: number = 0) => {
     const hrs = Math.floor(minutes / 60);
     const mins = minutes % 60;
@@ -128,7 +139,7 @@ export const saveScheduleInDB = async (
                 .input(
                     "SeqFlyTime",
                     sql.Int,
-                    credit.scheduledFlightTime
+                    seq.greaterTime
                 )
 
                 .input("SeqPC", sql.Int, seqPC)
@@ -149,7 +160,7 @@ export const saveScheduleInDB = async (
 
                 .input("PremiumTranscon", sql.Bit, false)
 
-                .input("IPD", sql.Bit, seq.international)
+                .input("IPD", sql.Bit, seq.isIPD || false)
 
                 .input("NIPD", sql.Bit, !seq.international)
 
@@ -163,7 +174,7 @@ export const saveScheduleInDB = async (
                     "CvtSeqFlyTime",
                     sql.VarChar(15),
                     convertMinutesToHHMM(
-                        credit.scheduledFlightTime
+                        seq.greaterTime
                     )
                 )
 
@@ -224,8 +235,27 @@ export const saveScheduleInDB = async (
                 .input("ScheduledTotalCredit", sql.Int, credit.scheduledTotalCredit)
 
                 .input("AddCode", sql.VarChar(15), seq.addCode)
+
+                .input("GreaterTime", sql.Int, seq.greaterTime)
+                .input("CvtGreaterTime", sql.VarChar(15),
+                    convertMinutesToHHMM(
+                        seq.greaterTime
+                    )
+                )
+                .input("TotalPNC", sql.Int, seq.totalPNC)
+                .input("CvtTotalPNC", sql.VarChar(15),
+                    convertMinutesToHHMM(
+                        seq.totalPNC
+                    )
+                )
+
+                .input("RedFlag", sql.Bit, seq.redFlag)
+                .input("Odan", sql.Bit, seq.odan)
+                .input("LayoverStations", sql.VarChar(15), seq.layoverStations)
+                .input("LegPerDutyPeriods", sql.VarChar(15), seq.legsPerDutyPeriod)
+
                 .query(`
-                INSERT INTO UserSequence (
+                    INSERT INTO UserSequence (
                     UserSequenceId,
                     UserID,
                     CrewBase,
@@ -270,9 +300,17 @@ export const saveScheduleInDB = async (
                     TrainingSequence,
                     CreditNextMonth,
                     ScheduledTotalCredit,
-                    AddCode
+                    AddCode,
+                    GreaterTime,
+                    CvtGreaterTime,
+                    TotalPNC,
+                    CvtTotalPNC,
+                    RedFlag,
+                    Odan,
+                    LayoverStations,
+                    LegPerDutyPeriods
                 )
-                VALUES (
+                    VALUES (
                     @UserSequenceId,
                     @UserID,
                     @CrewBase,
@@ -317,7 +355,15 @@ export const saveScheduleInDB = async (
                     @TrainingSequence,
                     @CreditNextMonth,
                     @ScheduledTotalCredit,
-                    @AddCode
+                    @AddCode,
+                    @GreaterTime,
+                    @CvtGreaterTime,
+                    @TotalPNC,
+                    @CvtTotalPNC,
+                    @RedFlag,
+                    @Odan,
+                    @LayoverStations,
+                    @LegPerDutyPeriods
                 )
             `);
         }
@@ -379,13 +425,13 @@ export const saveScheduleInDB = async (
                         .input(
                             "DeptTime",
                             sql.Int,
-                            leg.blockTime
+                            getTimeInMinutes(leg.departureLocal)
                         )
 
                         .input(
                             "ArrvTime",
                             sql.Int,
-                            leg.blockTime
+                            getTimeInMinutes(leg.arrivalLocal)
                         )
 
                         .input(
