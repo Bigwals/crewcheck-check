@@ -49,7 +49,6 @@ export const syncController = async (
         const userId = (req as any).user?.id;
         const { contractMonth } = req.query;
         // return res.json({ "contractMonth", contractMonth });
-        // return res.json({ contractMonth });
 
         if (!userId) {
             res.status(401).json({ success: false, message: 'Unauthorized' });
