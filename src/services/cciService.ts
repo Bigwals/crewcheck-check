@@ -73,28 +73,34 @@ export const fetchSchedule = async (userId: string) => {
                 );
             }
 
-            // ✅ Use the token in the Authorization header too (belt + suspenders)
-            const result = await page.evaluate(async (jwt: string) => {
-                const response = await fetch(
-                    'https://services.cci.aa.com/calendar/v4/getScheduleDetails',
-                    {
-                        method: 'POST',
-                        credentials: 'include',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Accept': 'application/json, text/plain, */*',
-                            'Authorization': `Bearer ${jwt}`
-                        },
-                        body: JSON.stringify({})
-                    }
-                );
-                
-                return {
-                    status: response.status,
-                    ok: response.ok,      // ✅ boolean, not the Response object
-                    text: await response.text()
-                };
-            }, token);
+            const cookies = await context.cookies([
+                'https://cci.aa.com',
+                'https://services.cci.aa.com'
+            ]);
+
+            const cookieHeader = cookies
+                .map(({ name, value }) => `${name}=${value}`)
+                .join('; ');
+
+            const response = await fetch(
+                'https://services.cci.aa.com/calendar/v4/getScheduleDetails',
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json, text/plain, */*',
+                        'Authorization': `Bearer ${token}`,
+                        ...(cookieHeader ? { Cookie: cookieHeader } : {})
+                    },
+                    body: JSON.stringify({})
+                }
+            );
+
+            const result = {
+                status: response.status,
+                ok: response.ok,
+                text: await response.text()
+            };
 
             console.log('📡 STATUS:', result.status);
 
