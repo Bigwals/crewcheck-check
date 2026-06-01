@@ -94,44 +94,38 @@ export const fetchSchedule = async (userId: string) => {
                 throw new Error('Session token expired. Session was cleared — please call /sync again to re-login.');
             }
 
-            const cookies = await context.cookies([
-                'https://cci.aa.com',
-                'https://services.cci.aa.com'
-            ]);
+            await page.goto('https://services.cci.aa.com', {
+                waitUntil: 'domcontentloaded',
+                timeout: 30000
+            });
 
-            const userAgent = await page.evaluate(() => navigator.userAgent);
-            const origin = 'https://cci.aa.com';
-            const referer = 'https://cci.aa.com/calendar';
+            const result = await page.evaluate(async (jwt: string) => {
+                const response = await fetch(
+                    'https://services.cci.aa.com/calendar/v4/getScheduleDetails',
+                    {
+                        method: 'POST',
+                        credentials: 'include',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json, text/plain, */*',
+                            'Authorization': `Bearer ${jwt}`
+                        },
+                        body: JSON.stringify({})
+                    }
+                );
 
-            const cookieHeader = cookies
-                .map(({ name, value }) => `${name}=${value}`)
-                .join('; ');
-
-            const response = await fetch(
-                'https://services.cci.aa.com/calendar/v4/getScheduleDetails',
-                {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json, text/plain, */*',
-                        'Origin': origin,
-                        'Referer': referer,
-                        'User-Agent': userAgent,
-                        'Accept-Language': 'en-US,en;q=0.9',
-                        'Authorization': `Bearer ${token}`,
-                        ...(cookieHeader ? { Cookie: cookieHeader } : {})
-                    },
-                    body: JSON.stringify({})
-                }
-            );
-
-            const result = {
-                status: response.status,
-                ok: response.ok,
-                text: await response.text()
-            };
+                return {
+                    status: response.status,
+                    ok: response.ok,
+                    text: await response.text()
+                };
+            }, token);
 
             console.log('📡 STATUS:', result.status);
+
+            if (!result.ok) {
+                console.log('📡 BODY:', result.text.slice(0, 500));
+            }
 
             return result;
 
