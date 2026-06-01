@@ -18,6 +18,18 @@ const BROWSER_VIEWPORT = {
     width: Number(process.env.CCI_VIEWPORT_WIDTH ?? 1440),
     height: Number(process.env.CCI_VIEWPORT_HEIGHT ?? 900)
 };
+const BROWSER_STEALTH_SCRIPT = `
+    Object.defineProperty(navigator, 'webdriver', {
+        get: () => undefined
+    });
+    Object.defineProperty(navigator, 'languages', {
+        get: () => ['en-US', 'en']
+    });
+    Object.defineProperty(navigator, 'platform', {
+        get: () => 'Win32'
+    });
+    window.chrome = window.chrome || { runtime: {} };
+`;
 console.log('📁 Session directory:', SESSION_DIR);
 console.log('🪲 CCI debug directory:', DEBUG_DIR);
 
@@ -206,6 +218,7 @@ export const getContextForUser = async (userId: string): Promise<BrowserContext>
                 'Accept-Language': 'en-US,en;q=0.9'
             }
         });
+        await ctx.addInitScript({ content: BROWSER_STEALTH_SCRIPT });
     } else {
         stepLog(userId, 'No session found; starting login flow');
         ctx = await b.newContext({
@@ -227,6 +240,7 @@ export const getContextForUser = async (userId: string): Promise<BrowserContext>
                 'Accept-Language': 'en-US,en;q=0.9'
             }
         });
+        await ctx.addInitScript({ content: BROWSER_STEALTH_SCRIPT });
 
         const page = await ctx.newPage();
         attachPageDiagnostics(page, userId);

@@ -20,6 +20,25 @@ dotenv.config();
 const DEBUG_DIR = path.resolve(__dirname, '../../storage/debug/cci');
 const LOGIN_TIMEOUT_MS = Number(process.env.CCI_LOGIN_TIMEOUT_MS ?? 120000);
 const NAV_TIMEOUT_MS = Number(process.env.CCI_NAVIGATION_TIMEOUT_MS ?? 30000);
+const BROWSER_USER_AGENT = process.env.CCI_USER_AGENT ?? 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36';
+const BROWSER_LOCALE = process.env.CCI_LOCALE ?? 'en-US';
+const BROWSER_TIMEZONE = process.env.CCI_TIMEZONE ?? 'America/Los_Angeles';
+const BROWSER_VIEWPORT = {
+    width: Number(process.env.CCI_VIEWPORT_WIDTH ?? 1440),
+    height: Number(process.env.CCI_VIEWPORT_HEIGHT ?? 900)
+};
+const BROWSER_STEALTH_SCRIPT = `
+    Object.defineProperty(navigator, 'webdriver', {
+        get: () => undefined
+    });
+    Object.defineProperty(navigator, 'languages', {
+        get: () => ['en-US', 'en']
+    });
+    Object.defineProperty(navigator, 'platform', {
+        get: () => 'Win32'
+    });
+    window.chrome = window.chrome || { runtime: {} };
+`;
 
 if (!fs.existsSync(DEBUG_DIR)) {
     fs.mkdirSync(DEBUG_DIR, { recursive: true });
@@ -328,9 +347,28 @@ export const createAuthenticatedContext = async (userId: string) => {
 
         console.log(`✅ Using saved session for user ${userId}`);
 
-        return await browser.newContext({
-            storageState: authFile
+        const context = await browser.newContext({
+            storageState: authFile,
+            userAgent: BROWSER_USER_AGENT,
+            locale: BROWSER_LOCALE,
+            timezoneId: BROWSER_TIMEZONE,
+            viewport: BROWSER_VIEWPORT,
+            screen: {
+                width: BROWSER_VIEWPORT.width,
+                height: BROWSER_VIEWPORT.height
+            },
+            deviceScaleFactor: 1,
+            hasTouch: false,
+            isMobile: false,
+            colorScheme: 'light',
+            javaScriptEnabled: true,
+            acceptDownloads: true,
+            extraHTTPHeaders: {
+                'Accept-Language': 'en-US,en;q=0.9'
+            }
         });
+        await context.addInitScript({ content: BROWSER_STEALTH_SCRIPT });
+        return context;
     }
 
     // ========================
@@ -338,7 +376,26 @@ export const createAuthenticatedContext = async (userId: string) => {
     // ========================
     console.log(`👉 No session found for user ${userId}`);
 
-    const context = await browser.newContext();
+    const context = await browser.newContext({
+        userAgent: BROWSER_USER_AGENT,
+        locale: BROWSER_LOCALE,
+        timezoneId: BROWSER_TIMEZONE,
+        viewport: BROWSER_VIEWPORT,
+        screen: {
+            width: BROWSER_VIEWPORT.width,
+            height: BROWSER_VIEWPORT.height
+        },
+        deviceScaleFactor: 1,
+        hasTouch: false,
+        isMobile: false,
+        colorScheme: 'light',
+        javaScriptEnabled: true,
+        acceptDownloads: true,
+        extraHTTPHeaders: {
+            'Accept-Language': 'en-US,en;q=0.9'
+        }
+    });
+    await context.addInitScript({ content: BROWSER_STEALTH_SCRIPT });
     const page = await context.newPage();
 
     attachLoginDiagnostics(page, userId);
