@@ -7,9 +7,12 @@ dotenv.config();
 import { getContextForUser, acquireUserLock, invalidateSession } from './browserService';
 import path from 'path';
 import fs from 'fs';
+import axios from 'axios';
 
 const DEBUG_DIR = path.resolve(__dirname, '../../storage/debug/cci');
 const NAV_TIMEOUT_MS = Number(process.env.CCI_NAVIGATION_TIMEOUT_MS ?? 30000);
+const CCI_SCHEDULE_API = process.env.CCI_SCHEDULE_API ?? 'https://services.cci.aa.com/calendar/v4/getScheduleDetails';
+const CCI_USER_AGENT = process.env.CCI_USER_AGENT ?? 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36';
 
 if (!fs.existsSync(DEBUG_DIR)) fs.mkdirSync(DEBUG_DIR, { recursive: true });
 
@@ -92,6 +95,18 @@ const getJwtExpiry = (jwt: string): number | null => {
     } catch {
         return null;
     }
+};
+
+const buildCookieHeader = async (context: any): Promise<string> => {
+    const storageState = await context.storageState();
+    const cookiePairs = (storageState.cookies || [])
+        .filter((cookie: any) => {
+            const domain = String(cookie.domain || '');
+            return domain.includes('cci.aa.com') || domain.includes('aa.com');
+        })
+        .map((cookie: any) => `${cookie.name}=${cookie.value}`);
+
+    return cookiePairs.join('; ');
 };
 
 export const fetchSchedule = async (userId: string) => {
@@ -185,49 +200,52 @@ export const fetchSchedule = async (userId: string) => {
                 throw new Error('Session token expired. Session was cleared — please call /sync again to re-login.');
             }
 
-            stepLog(userId, 'Navigating to services domain');
-            await page.goto('https://services.cci.aa.com', {
-                waitUntil: 'domcontentloaded',
-                timeout: NAV_TIMEOUT_MS
-            });
-            stepLog(userId, 'Services domain loaded', {
-                url: page.url(),
-                title: await page.title().catch(() => '')
+            stepLog(userId, 'Preparing direct API request', {
+                api: CCI_SCHEDULE_API,
+                currentUrl: page.url()
             });
 
-            stepLog(userId, 'Calling schedule API');
-            const result = await page.evaluate(async (jwt: string) => {
-                const response = await fetch(
-                    'https://services.cci.aa.com/calendar/v4/getScheduleDetails',
-                    {
-                        method: 'POST',
-                        credentials: 'include',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Accept': 'application/json, text/plain, */*',
-                            'Authorization': `Bearer ${jwt}`
-                        },
-                        body: JSON.stringify({})
-                    }
-                );
+            const cookieHeader = await buildCookieHeader(context);
+            stepLog(userId, 'Cookie header prepared', {
+                cookieCount: cookieHeader ? cookieHeader.split('; ').length : 0
+            });
 
-                return {
-                    status: response.status,
-                    ok: response.ok,
-                    text: await response.text()
-                };
-            }, token);
+            const result = await axios.post(
+                CCI_SCHEDULE_API,
+                {},
+                {
+                    timeout: 30000,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json, text/plain, */*',
+                        'Authorization': `Bearer ${token}`,
+                        'Origin': 'https://cci.aa.com',
+                        'Referer': 'https://cci.aa.com/calendar',
+                        'User-Agent': CCI_USER_AGENT,
+                        ...(cookieHeader ? { Cookie: cookieHeader } : {})
+                    },
+                    validateStatus: () => true
+                }
+            );
+
+            const responseText = typeof result.data === 'string'
+                ? result.data
+                : JSON.stringify(result.data);
 
             stepLog(userId, 'Schedule API completed', {
                 status: result.status,
-                ok: result.ok
+                ok: result.status >= 200 && result.status < 300
             });
 
-            if (!result.ok) {
-                stepLog(userId, 'Schedule API body', result.text.slice(0, 500));
+            if (result.status < 200 || result.status >= 300) {
+                stepLog(userId, 'Schedule API body', responseText.slice(0, 500));
             }
 
-            return result;
+            return {
+                status: result.status,
+                ok: result.status >= 200 && result.status < 300,
+                text: responseText
+            };
 
         } finally {
             await page.close();
