@@ -6,6 +6,18 @@ dotenv.config();
 
 import { getContextForUser, acquireUserLock, invalidateSession } from './browserService';
 
+const getJwtExpiry = (jwt: string): number | null => {
+    const parts = jwt.split('.');
+    if (parts.length !== 3) return null;
+
+    try {
+        const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8')) as { exp?: number };
+        return typeof payload.exp === 'number' ? payload.exp : null;
+    } catch {
+        return null;
+    }
+};
+
 export const fetchSchedule = async (userId: string) => {
 
     const release = await acquireUserLock(userId);
@@ -73,10 +85,23 @@ export const fetchSchedule = async (userId: string) => {
                 );
             }
 
+            const expiresAt = getJwtExpiry(token);
+            const nowInSeconds = Math.floor(Date.now() / 1000);
+
+            if (expiresAt && expiresAt <= nowInSeconds) {
+                await page.close();
+                invalidateSession(userId);
+                throw new Error('Session token expired. Session was cleared — please call /sync again to re-login.');
+            }
+
             const cookies = await context.cookies([
                 'https://cci.aa.com',
                 'https://services.cci.aa.com'
             ]);
+
+            const userAgent = await page.evaluate(() => navigator.userAgent);
+            const origin = 'https://cci.aa.com';
+            const referer = 'https://cci.aa.com/calendar';
 
             const cookieHeader = cookies
                 .map(({ name, value }) => `${name}=${value}`)
@@ -89,6 +114,10 @@ export const fetchSchedule = async (userId: string) => {
                     headers: {
                         'Content-Type': 'application/json',
                         'Accept': 'application/json, text/plain, */*',
+                        'Origin': origin,
+                        'Referer': referer,
+                        'User-Agent': userAgent,
+                        'Accept-Language': 'en-US,en;q=0.9',
                         'Authorization': `Bearer ${token}`,
                         ...(cookieHeader ? { Cookie: cookieHeader } : {})
                     },
