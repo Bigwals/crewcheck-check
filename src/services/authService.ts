@@ -76,6 +76,18 @@ const attachLoginDiagnostics = (page: any, userId: string): void => {
     });
 };
 
+const isAccessDeniedPage = async (page: any): Promise<boolean> => {
+    const title = await page.title().catch(() => '');
+    if (/access denied/i.test(title)) return true;
+
+    const bodyText = await page
+        .locator('body')
+        .innerText()
+        .catch(() => '');
+
+    return /access denied|forbidden/i.test(bodyText);
+};
+
 // authservice.ts
 export const updateCrew = async (
     airline: string,
@@ -332,15 +344,23 @@ export const createAuthenticatedContext = async (userId: string) => {
     attachLoginDiagnostics(page, userId);
 
     logLoginStep(userId, 'Navigating to CCI login page');
-    await page.goto('https://cci.aa.com', {
+    const response = await page.goto('https://cci.aa.com', {
         waitUntil: 'domcontentloaded',
         timeout: NAV_TIMEOUT_MS
     });
 
     logLoginStep(userId, 'Login page loaded', {
         url: page.url(),
-        title: await page.title().catch(() => '')
+        title: await page.title().catch(() => ''),
+        status: response?.status() ?? null
     });
+
+    if (response?.status() === 403 || await isAccessDeniedPage(page)) {
+        await captureLoginArtifacts(page, userId, 'access-denied');
+        throw new Error(
+            'CCI returned Access Denied (403) on the VPS. This is an upstream block or bot/WAF restriction, not a wait timeout.'
+        );
+    }
 
     await captureLoginArtifacts(page, userId, 'before-wait');
 

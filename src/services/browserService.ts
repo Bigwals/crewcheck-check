@@ -11,6 +11,13 @@ const SESSION_DIR = path.resolve(__dirname, '../../storage/sessions');
 const DEBUG_DIR = path.resolve(__dirname, '../../storage/debug/cci');
 const LOGIN_TIMEOUT_MS = Number(process.env.CCI_LOGIN_TIMEOUT_MS ?? 120000);
 const NAV_TIMEOUT_MS = Number(process.env.CCI_NAVIGATION_TIMEOUT_MS ?? 30000);
+const BROWSER_USER_AGENT = process.env.CCI_USER_AGENT ?? 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36';
+const BROWSER_LOCALE = process.env.CCI_LOCALE ?? 'en-US';
+const BROWSER_TIMEZONE = process.env.CCI_TIMEZONE ?? 'America/Los_Angeles';
+const BROWSER_VIEWPORT = {
+    width: Number(process.env.CCI_VIEWPORT_WIDTH ?? 1440),
+    height: Number(process.env.CCI_VIEWPORT_HEIGHT ?? 900)
+};
 console.log('📁 Session directory:', SESSION_DIR);
 console.log('🪲 CCI debug directory:', DEBUG_DIR);
 
@@ -91,6 +98,18 @@ const attachPageDiagnostics = (page: any, userId: string): void => {
     });
 };
 
+const isAccessDeniedPage = async (page: any): Promise<boolean> => {
+    const title = await page.title().catch(() => '');
+    if (/access denied/i.test(title)) return true;
+
+    const bodyText = await page
+        .locator('body')
+        .innerText()
+        .catch(() => '');
+
+    return /access denied|forbidden/i.test(bodyText);
+};
+
 // Per-user context pool + simple mutex (promise-based lock)
 const contextPool = new Map<string, BrowserContext>();
 const userLocks = new Map<string, Promise<void>>();
@@ -118,6 +137,9 @@ export const getBrowser = async (): Promise<Browser> => {
             proxyConfigured: Boolean(proxy),
             loginTimeoutMs: LOGIN_TIMEOUT_MS,
             navigationTimeoutMs: NAV_TIMEOUT_MS,
+            userAgent: BROWSER_USER_AGENT,
+            locale: BROWSER_LOCALE,
+            timezone: BROWSER_TIMEZONE,
             display: process.env.DISPLAY ?? null,
             xdgRuntimeDir: process.env.XDG_RUNTIME_DIR ?? null
         });
@@ -125,7 +147,13 @@ export const getBrowser = async (): Promise<Browser> => {
         browser = await chromium.launch({
             headless,
             ...(proxy ? { proxy } : {}),
-            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+            args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-blink-features=AutomationControlled',
+                '--lang=en-US,en'
+            ]
         });
         browser.on('disconnected', () => {
             console.error('[CCI:system] Browser disconnected unexpectedly');
@@ -158,25 +186,70 @@ export const getContextForUser = async (userId: string): Promise<BrowserContext>
 
     if (fs.existsSync(authFile)) {
         stepLog(userId, 'Loading saved session', authFile);
-        ctx = await b.newContext({ storageState: authFile });
+        ctx = await b.newContext({
+            storageState: authFile,
+            userAgent: BROWSER_USER_AGENT,
+            locale: BROWSER_LOCALE,
+            timezoneId: BROWSER_TIMEZONE,
+            viewport: BROWSER_VIEWPORT,
+            screen: {
+                width: BROWSER_VIEWPORT.width,
+                height: BROWSER_VIEWPORT.height
+            },
+            deviceScaleFactor: 1,
+            hasTouch: false,
+            isMobile: false,
+            colorScheme: 'light',
+            javaScriptEnabled: true,
+            acceptDownloads: true,
+            extraHTTPHeaders: {
+                'Accept-Language': 'en-US,en;q=0.9'
+            }
+        });
     } else {
         stepLog(userId, 'No session found; starting login flow');
-        ctx = await b.newContext();
+        ctx = await b.newContext({
+            userAgent: BROWSER_USER_AGENT,
+            locale: BROWSER_LOCALE,
+            timezoneId: BROWSER_TIMEZONE,
+            viewport: BROWSER_VIEWPORT,
+            screen: {
+                width: BROWSER_VIEWPORT.width,
+                height: BROWSER_VIEWPORT.height
+            },
+            deviceScaleFactor: 1,
+            hasTouch: false,
+            isMobile: false,
+            colorScheme: 'light',
+            javaScriptEnabled: true,
+            acceptDownloads: true,
+            extraHTTPHeaders: {
+                'Accept-Language': 'en-US,en;q=0.9'
+            }
+        });
 
         const page = await ctx.newPage();
         attachPageDiagnostics(page, userId);
 
         try {
             stepLog(userId, 'Launching login page');
-            await page.goto('https://cci.aa.com', {
+            const response = await page.goto('https://cci.aa.com', {
                 waitUntil: 'domcontentloaded',
                 timeout: NAV_TIMEOUT_MS
             });
 
             stepLog(userId, 'Login page loaded', {
                 url: page.url(),
-                title: await page.title().catch(() => '')
+                title: await page.title().catch(() => ''),
+                status: response?.status() ?? null
             });
+
+            if (response?.status() === 403 || await isAccessDeniedPage(page)) {
+                await capturePageArtifacts(page, userId, 'access-denied');
+                throw new Error(
+                    'CCI returned Access Denied (403) on the VPS. This is an upstream block or bot/WAF restriction, not a wait timeout.'
+                );
+            }
 
             await capturePageArtifacts(page, userId, 'before-wait');
 
