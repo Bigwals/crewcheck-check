@@ -20,10 +20,12 @@ const userLocks = new Map<string, Promise<void>>();
 
 export const getBrowser = async (): Promise<Browser> => {
     if (!browser || !browser.isConnected()) {
-        browser = await chromium.launch({
-            // headless: process.env.HEADLESS !== 'false',
+        const headless = process.env.HEADLESS
+            ? process.env.HEADLESS !== 'false'
+            : true;
 
-            headless: process.env.HEADLESS === 'true',   // ✅ correct — defaults to visible
+        browser = await chromium.launch({
+            headless,
             args: ['--no-sandbox', '--disable-setuid-sandbox']
         });
         console.log('✅ Browser launched');
