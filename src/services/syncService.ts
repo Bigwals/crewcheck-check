@@ -43,7 +43,12 @@ export const syncSchedule = async (userId: string, contractMonth: string) => {
 
     // ✅ FIXED: result.ok is now a boolean (was the Response object before)
     if (!result.ok) {
-        throw new Error(`CCI API returned HTTP ${result.status}`);
+        const snippet = result.text?.slice(0, 500)?.trim();
+        throw new Error(
+            snippet
+                ? `CCI API returned HTTP ${result.status}: ${snippet}`
+                : `CCI API returned HTTP ${result.status}`
+        );
     }
 
     let parsed: any;
