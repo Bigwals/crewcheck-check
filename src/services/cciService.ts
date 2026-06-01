@@ -5,6 +5,82 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import { getContextForUser, acquireUserLock, invalidateSession } from './browserService';
+import path from 'path';
+import fs from 'fs';
+
+const DEBUG_DIR = path.resolve(__dirname, '../../storage/debug/cci');
+const NAV_TIMEOUT_MS = Number(process.env.CCI_NAVIGATION_TIMEOUT_MS ?? 30000);
+
+if (!fs.existsSync(DEBUG_DIR)) fs.mkdirSync(DEBUG_DIR, { recursive: true });
+
+const normalizeForFileName = (value: string): string =>
+    value.replace(/[^a-zA-Z0-9._-]/g, '_');
+
+const stepLog = (userId: string, step: string, details?: unknown): void => {
+    if (details === undefined) {
+        console.log(`[CCI:${userId}] ${step}`);
+        return;
+    }
+
+    console.log(`[CCI:${userId}] ${step}`, details);
+};
+
+const capturePageArtifacts = async (
+    page: any,
+    userId: string,
+    label: string
+): Promise<void> => {
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const safeLabel = normalizeForFileName(label);
+    const basePath = path.join(DEBUG_DIR, `${userId}-${safeLabel}-${stamp}`);
+
+    try {
+        await page.screenshot({ path: `${basePath}.png`, fullPage: true });
+        stepLog(userId, `Saved screenshot for ${label}`, `${basePath}.png`);
+    } catch (error: any) {
+        stepLog(userId, `Screenshot failed for ${label}`, error?.message ?? error);
+    }
+
+    try {
+        const html = await page.content();
+        fs.writeFileSync(`${basePath}.html`, html, 'utf8');
+        stepLog(userId, `Saved HTML for ${label}`, `${basePath}.html`);
+    } catch (error: any) {
+        stepLog(userId, `HTML capture failed for ${label}`, error?.message ?? error);
+    }
+};
+
+const attachPageDiagnostics = (page: any, userId: string): void => {
+    page.on('console', (msg: any) => {
+        console.log(`[CCI:${userId}][console:${msg.type()}]`, msg.text());
+    });
+
+    page.on('pageerror', (error: any) => {
+        console.error(`[CCI:${userId}][pageerror]`, error);
+    });
+
+    page.on('requestfailed', (request: any) => {
+        console.error(`[CCI:${userId}][requestfailed]`, request.url(), request.failure()?.errorText);
+    });
+
+    page.on('framenavigated', (frame: any) => {
+        if (frame === page.mainFrame()) {
+            console.log(`[CCI:${userId}][navigated]`, frame.url());
+        }
+    });
+
+    page.on('response', (response: any) => {
+        const status = response.status();
+        if (status >= 400 || status === 302 || status === 307 || status === 308) {
+            console.log(`[CCI:${userId}][response]`, status, response.url());
+        }
+    });
+
+    page.on('dialog', async (dialog: any) => {
+        console.log(`[CCI:${userId}][dialog]`, dialog.type(), dialog.message());
+        await dialog.dismiss().catch(() => { });
+    });
+};
 
 const getJwtExpiry = (jwt: string): number | null => {
     const parts = jwt.split('.');
@@ -25,19 +101,27 @@ export const fetchSchedule = async (userId: string) => {
     try {
         const context = await getContextForUser(userId);
         const page = await context.newPage();
+        attachPageDiagnostics(page, userId);
 
         try {
-            console.log(`🚀 Fetching schedule for user ${userId}`);
+            stepLog(userId, 'Fetching schedule');
 
+            stepLog(userId, 'Navigating to CCI calendar');
             await page.goto('https://cci.aa.com/calendar', {
                 waitUntil: 'domcontentloaded',
-                timeout: 30000
+                timeout: NAV_TIMEOUT_MS
+            });
+            stepLog(userId, 'Calendar page loaded', {
+                url: page.url(),
+                title: await page.title().catch(() => '')
             });
 
             // small stabilization wait
+            stepLog(userId, 'Waiting for calendar to stabilize', 3000);
             await page.waitForTimeout(3000);
             // ✅ FIXED: correct token extraction
             // allValues is string[], not nested — iterate directly
+            stepLog(userId, 'Extracting bearer token from storage');
             const token = await page.evaluate((): string | null => {
 
                 const storages: Storage[] = [localStorage, sessionStorage];
@@ -74,10 +158,11 @@ export const fetchSchedule = async (userId: string) => {
                 return null;
             });
 
-            console.log('🔑 TOKEN FOUND:', !!token);
+            stepLog(userId, 'Token extraction finished', { found: Boolean(token) });
 
             if (!token) {
                 // Session might be stale — wipe it so next call re-authenticates
+                await capturePageArtifacts(page, userId, 'missing-token');
                 await page.close();
                 invalidateSession(userId);
                 throw new Error(
@@ -85,20 +170,32 @@ export const fetchSchedule = async (userId: string) => {
                 );
             }
 
+            stepLog(userId, 'Token extracted', {
+                prefix: token.slice(0, 12),
+                suffix: token.slice(-12)
+            });
+
             const expiresAt = getJwtExpiry(token);
             const nowInSeconds = Math.floor(Date.now() / 1000);
 
             if (expiresAt && expiresAt <= nowInSeconds) {
+                await capturePageArtifacts(page, userId, 'expired-token');
                 await page.close();
                 invalidateSession(userId);
                 throw new Error('Session token expired. Session was cleared — please call /sync again to re-login.');
             }
 
+            stepLog(userId, 'Navigating to services domain');
             await page.goto('https://services.cci.aa.com', {
                 waitUntil: 'domcontentloaded',
-                timeout: 30000
+                timeout: NAV_TIMEOUT_MS
+            });
+            stepLog(userId, 'Services domain loaded', {
+                url: page.url(),
+                title: await page.title().catch(() => '')
             });
 
+            stepLog(userId, 'Calling schedule API');
             const result = await page.evaluate(async (jwt: string) => {
                 const response = await fetch(
                     'https://services.cci.aa.com/calendar/v4/getScheduleDetails',
@@ -121,10 +218,13 @@ export const fetchSchedule = async (userId: string) => {
                 };
             }, token);
 
-            console.log('📡 STATUS:', result.status);
+            stepLog(userId, 'Schedule API completed', {
+                status: result.status,
+                ok: result.ok
+            });
 
             if (!result.ok) {
-                console.log('📡 BODY:', result.text.slice(0, 500));
+                stepLog(userId, 'Schedule API body', result.text.slice(0, 500));
             }
 
             return result;

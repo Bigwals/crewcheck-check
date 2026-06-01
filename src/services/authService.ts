@@ -17,6 +17,65 @@ import { getBrowser } from './browserService';
 
 dotenv.config();
 
+const DEBUG_DIR = path.resolve(__dirname, '../../storage/debug/cci');
+const LOGIN_TIMEOUT_MS = Number(process.env.CCI_LOGIN_TIMEOUT_MS ?? 120000);
+const NAV_TIMEOUT_MS = Number(process.env.CCI_NAVIGATION_TIMEOUT_MS ?? 30000);
+
+if (!fs.existsSync(DEBUG_DIR)) {
+    fs.mkdirSync(DEBUG_DIR, { recursive: true });
+}
+
+const normalizeForFileName = (value: string): string =>
+    value.replace(/[^a-zA-Z0-9._-]/g, '_');
+
+const logLoginStep = (userId: string, step: string, details?: unknown): void => {
+    if (details === undefined) {
+        console.log(`[CCI:${userId}] ${step}`);
+        return;
+    }
+
+    console.log(`[CCI:${userId}] ${step}`, details);
+};
+
+const captureLoginArtifacts = async (page: any, userId: string, label: string): Promise<void> => {
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const basePath = path.join(DEBUG_DIR, `${userId}-${normalizeForFileName(label)}-${stamp}`);
+
+    try {
+        await page.screenshot({ path: `${basePath}.png`, fullPage: true });
+        logLoginStep(userId, `Saved screenshot for ${label}`, `${basePath}.png`);
+    } catch (error: any) {
+        logLoginStep(userId, `Screenshot failed for ${label}`, error?.message ?? error);
+    }
+
+    try {
+        fs.writeFileSync(`${basePath}.html`, await page.content(), 'utf8');
+        logLoginStep(userId, `Saved HTML for ${label}`, `${basePath}.html`);
+    } catch (error: any) {
+        logLoginStep(userId, `HTML capture failed for ${label}`, error?.message ?? error);
+    }
+};
+
+const attachLoginDiagnostics = (page: any, userId: string): void => {
+    page.on('console', (msg: any) => {
+        console.log(`[CCI:${userId}][console:${msg.type()}]`, msg.text());
+    });
+
+    page.on('pageerror', (error: any) => {
+        console.error(`[CCI:${userId}][pageerror]`, error);
+    });
+
+    page.on('requestfailed', (request: any) => {
+        console.error(`[CCI:${userId}][requestfailed]`, request.url(), request.failure()?.errorText);
+    });
+
+    page.on('framenavigated', (frame: any) => {
+        if (frame === page.mainFrame()) {
+            console.log(`[CCI:${userId}][navigated]`, frame.url());
+        }
+    });
+};
+
 // authservice.ts
 export const updateCrew = async (
     airline: string,
@@ -270,7 +329,20 @@ export const createAuthenticatedContext = async (userId: string) => {
     const context = await browser.newContext();
     const page = await context.newPage();
 
-    await page.goto('https://cci.aa.com');
+    attachLoginDiagnostics(page, userId);
+
+    logLoginStep(userId, 'Navigating to CCI login page');
+    await page.goto('https://cci.aa.com', {
+        waitUntil: 'domcontentloaded',
+        timeout: NAV_TIMEOUT_MS
+    });
+
+    logLoginStep(userId, 'Login page loaded', {
+        url: page.url(),
+        title: await page.title().catch(() => '')
+    });
+
+    await captureLoginArtifacts(page, userId, 'before-wait');
 
     console.log('⏳ Please complete login manually (SSO + 2FA)...');
 
@@ -294,16 +366,31 @@ export const createAuthenticatedContext = async (userId: string) => {
 
     // }, { timeout: 300000 });
 
-    await page.waitForFunction(`
-        window.location.href.includes('/overview') ||
-        window.location.href.includes('/calendar') ||
-        window.location.href.includes('/dashboard') ||
-        window.location.href.includes('/home')
-    `, { timeout: 300000 });
+    try {
+        logLoginStep(userId, 'Waiting for post-login redirect', {
+            timeoutMs: LOGIN_TIMEOUT_MS,
+            expected: ['/overview', '/calendar', '/dashboard', '/home']
+        });
+
+        await page.waitForFunction(`
+            window.location.href.includes('/overview') ||
+            window.location.href.includes('/calendar') ||
+            window.location.href.includes('/dashboard') ||
+            window.location.href.includes('/home')
+        `, { timeout: LOGIN_TIMEOUT_MS });
+    } catch (error: any) {
+        logLoginStep(userId, 'Login wait timed out', error?.message ?? error);
+        logLoginStep(userId, 'Final URL at timeout', page.url());
+        await captureLoginArtifacts(page, userId, 'timeout');
+        throw error;
+    }
 
     console.log('✅ Login detected');
 
+    await captureLoginArtifacts(page, userId, 'after-wait');
+
     // small delay to let cookies settle
+    logLoginStep(userId, 'Waiting for auth state to settle', 5000);
     await page.waitForTimeout(5000);
 
     console.log('💾 Saving session...');

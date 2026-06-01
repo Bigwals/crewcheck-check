@@ -5,12 +5,18 @@ import { Messages } from '../constants/responseMessages';
 
 export const authenticate = (req: Request, res: Response, next: NextFunction): void => {
   const authHeader = req.headers.authorization;
+  const fallbackTokenHeader =
+    (req.headers['x-cci-token'] as string | undefined) ||
+    (req.headers['x-access-token'] as string | undefined);
 
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  const token = authHeader && authHeader.startsWith('Bearer ')
+    ? authHeader.split(' ')[1]
+    : fallbackTokenHeader?.replace(/^Bearer\s+/i, '').trim();
+
+  if (!token) {
     res.status(StatusCode.BAD_REQUEST).json({ message: Messages.AUTHORIZATION_TOKEN_MISSING });
     return;
   }
-  const token = authHeader.split(' ')[1];
 
   try {
     const decoded = verifyToken(token);
